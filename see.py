@@ -20,7 +20,8 @@ class TerminalSeeAudio(object):
         self.input = os.path.abspath(ops.input)
         self.temp_folder = os.path.abspath(ops.temp_folder)
         # spectral mode
-        self.spectral_mode = ops.mode
+        self.spectral_transform_y = ops.spectral_transform_y
+        self.spectral_transform_v = ops.spectral_transform_v
 
         # define file paths
         self.graphics_path = os.path.join(self.temp_folder, 'wave_spectral.png')
@@ -31,7 +32,6 @@ class TerminalSeeAudio(object):
         self.figure_size = (12, 4)
         self.line_width = .2
         self.dpi = 200
-        self.spectral_power_transform_coefficient = 1 / 5
         self.graphics_ratio = 5
         # resolution of frequency dimension
         self.n_window = 1024
@@ -39,6 +39,10 @@ class TerminalSeeAudio(object):
         self.n_step = 128
         # max duration for audio to play (30s)
         self.max_duration = 30
+        # spectral transform power coefficient for `power` mode
+        self.spectral_power_transform_coefficient = 1 / 5
+        # minimum hearing power for `log` mode
+        self.min_hearing_power = 0.0005
 
         # colors & themes
         # self.axis_color = 'dimgray'
@@ -52,20 +56,20 @@ class TerminalSeeAudio(object):
 
         # initialization
         os.makedirs(self.temp_folder, exist_ok=True)
-        self.initialize_audio()
+        self._initialize_audio()
         self.n_overlap = self.n_window - self.n_step
 
-    def initialize_audio(self):
+    def _initialize_audio(self):
         """ read audio and parepare data """
         self.data, _ = librosa.load(self.input, sr=self.sample_rate, mono=True)
         self.time = range(len(self.data))
         self.time = [x / self.sample_rate for x in self.time]
 
-    def _mel_filter(self, frame_pow):
+    def _mel_filter(self, spectral_raw):
         """
         convert spectral to mel-spectral
         --> from [https://zhuanlan.zhihu.com/p/130926693]
-        :param frame_pow: spectral
+        :param spectral_raw: spectral
         :return: mel spectral
         mel = 2595 * log10(1 + f/700)
         f = 700 * (10^(m/2595) - 1
@@ -84,22 +88,17 @@ class TerminalSeeAudio(object):
         for m in range(1, 1 + n_filter):
             f_left = int(round(filter_edge[m - 1]))
             f_center = int(round(filter_edge[m]))
-            # `+1` to avoid broken image
-            f_right = int(round(filter_edge[m + 1])) + 1
+            f_right = int(round(filter_edge[m + 1]))
+            # `+1` to avoid broken image (modified)
+            f_right += 1
 
             for k in range(f_left, f_center):
                 f_bank[m - 1, k] = (k - f_left) / (f_center - f_left)
             for k in range(f_center, f_right):
                 f_bank[m - 1, k] = (f_right - k) / (f_right - f_center)
 
-        filter_banks = np.dot(frame_pow, f_bank.T)
+        filter_banks = np.dot(spectral_raw, f_bank.T)
         filter_banks = np.where(filter_banks == 0, np.finfo(float).eps, filter_banks)
-
-        filter_banks = np.power(filter_banks, self.spectral_power_transform_coefficient)
-        filter_banks -= np.min(filter_banks)
-        if np.max(filter_banks) == 0:
-            raise ValueError('silence audio')
-        filter_banks /= np.max(filter_banks)
         return filter_banks
 
     def _calc_sp(self, audio):
@@ -121,7 +120,7 @@ class TerminalSeeAudio(object):
         x = x.astype(np.float64)
         return x
 
-    def data_prepare(self, starting_time, ending_time):
+    def _data_prepare(self, starting_time, ending_time):
         """ prepare partition of audios """
         if starting_time < 0:
             starting_time = 0
@@ -142,7 +141,7 @@ class TerminalSeeAudio(object):
         sf.write(self.audio_part_path, data_, self.sample_rate)
         return data_, time_, starting_time, ending_time
 
-    def plot_wave(self, data_, time_, grid):
+    def _plot_wave(self, data_, time_, grid):
         """ plot wave """
         # plot audio wave
         fig1 = plt.subplot(grid[0, 0])
@@ -155,16 +154,25 @@ class TerminalSeeAudio(object):
         fig1.spines['bottom'].set_color(self.axis_color)
         fig1.tick_params(axis='x', colors=self.axis_color)
 
-    def plot_spectral(self, data, grid):
+    def _plot_spectral(self, data, grid):
         """ plot spectral """
         # plot spectral
         spectral = self._calc_sp(data)
-        if self.spectral_mode == 'fbank':
+        if self.spectral_transform_y == 'fbank':
             spectral = self._mel_filter(spectral)
-        elif self.spectral_mode == 'fft':
+        elif self.spectral_transform_y == 'fft':
             pass
         else:
-            raise ValueError(f'spectral mode [{self.spectral_mode}] unrecognized')
+            raise ValueError(f'spectral transform `Y` [{self.spectral_transform_y}] unrecognized')
+        # transform to show
+        spectral -= np.min(spectral)
+        if self.spectral_transform_v == 'power':
+            spectral = np.power(spectral, self.spectral_power_transform_coefficient)
+        elif self.spectral_transform_v == 'log':
+            spectral = np.clip(spectral, self.min_hearing_power, None)
+            spectral = np.log(spectral)
+        else:
+            raise ValueError(f'spectral transform `Values` [{self.spectral_transform_v}] unrecognized')
         spectral = np.flip(spectral, axis=1)
         spectral = np.transpose(spectral)
 
@@ -173,7 +181,7 @@ class TerminalSeeAudio(object):
         fig2.imshow(spectral, aspect='auto', cmap=self.spectral_color)
         fig2.axis('off')
 
-    def prepare_graph_audio(self, starting_time, ending_time):
+    def _prepare_graph_audio(self, starting_time, ending_time):
         """ prepare graphics and audio files """
         print('<+> calculating...')
         # default settings
@@ -181,15 +189,15 @@ class TerminalSeeAudio(object):
         plt.figure(figsize=self.figure_size)
         plt.style.use('dark_background')
 
-        data_, time_, starting_time, ending_time = self.data_prepare(starting_time, ending_time)
-        self.plot_spectral(data_, grid)
-        self.plot_wave(data_, time_, grid)
+        data_, time_, starting_time, ending_time = self._data_prepare(starting_time, ending_time)
+        self._plot_spectral(data_, grid)
+        self._plot_wave(data_, time_, grid)
 
         # save figure
         plt.savefig(self.graphics_path, dpi=self.dpi, bbox_inches='tight')
         return starting_time, ending_time
 
-    def terminal_plot(self):
+    def _terminal_plot(self):
         """ plot in terminal function """
         command = ['timg', self.graphics_path]
         # noinspection PyBroadException
@@ -198,7 +206,7 @@ class TerminalSeeAudio(object):
         except Exception:
             print(f'<!> please fix problem:\n<?> {" ".join(command)}')
 
-    def terminal_play(self, start, end):
+    def _terminal_play(self, start, end):
         """ play in terminal function """
         if end - start > self.max_duration:
             print(f'<!> audio too long for {end - start}s')
@@ -219,22 +227,22 @@ class TerminalSeeAudio(object):
             print(f'<!> please fix problem:\n<?> {" ".join(command)}')
 
     @staticmethod
-    def is_number(string):
+    def _is_number(string):
         if string[0] == '-':
             string = string[1:]
         return string.isdigit()
 
-    def initial_running(self):
+    def _initial_running(self):
         # first run
-        self.prepare_graph_audio(0, len(self.data) / self.sample_rate)
-        self.terminal_plot()
+        self._prepare_graph_audio(0, len(self.data) / self.sample_rate)
+        self._terminal_plot()
 
     def main(self):
         """ main function """
         last_starting = 0
         last_ending = len(self.data) / self.sample_rate
         # first run
-        self.initial_running()
+        self._initial_running()
         while True:
             print('-' * 50)
             input_ = input('</> ').strip()
@@ -243,24 +251,24 @@ class TerminalSeeAudio(object):
                 if len(input_split) != 2:
                     print('<!> please check number of input')
                     continue
-                if self.is_number(input_split[0]) and self.is_number(input_split[1]):
-                    last_starting, last_ending = self.prepare_graph_audio(float(input_split[0]), float(input_split[1]))
-                    self.terminal_plot()
+                if self._is_number(input_split[0]) and self._is_number(input_split[1]):
+                    last_starting, last_ending = self._prepare_graph_audio(float(input_split[0]), float(input_split[1]))
+                    self._terminal_plot()
                 else:
                     print('<!> input time should be numbers')
                     continue
             elif input_ == 'p':
                 if os.path.exists(self.audio_part_path):
-                    self.terminal_play(last_starting, last_ending)
+                    self._terminal_play(last_starting, last_ending)
                 else:
                     print('<!> temp folder empty')
             elif input_ == '':
-                self.terminal_plot()
+                self._terminal_plot()
             elif input_ == 'q':
                 break
             elif input_ == 'r':
                 print('<!> reset starting & ending time')
-                self.initial_running()
+                self._initial_running()
             else:
                 print('<!> unknown command!')
                 continue
@@ -273,7 +281,10 @@ if __name__ == '__main__':
                         default='demo/june.ogg')
     parser.add_argument('--sample_rate', '-sr', type=int, help='the sample rate of output mix sound', default=8000)
     parser.add_argument('--temp_folder', '-tmp', type=str, help='the output temp directory for files', default='tmp')
-    parser.add_argument('--mode', '-m', type=str, help='the mode of spectral to plot [fft/fbank]', default='fbank')
+    parser.add_argument('--spectral_transform_v', '-mv', type=str, help='transform spectral values [power/log]',
+                        default='log')
+    parser.add_argument('--spectral_transform_y', '-my', type=str, help='transform spectral y-location [fft/fbank]',
+                        default='fbank')
 
     args = parser.parse_args()
     if not os.path.exists(args.input):

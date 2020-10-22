@@ -31,7 +31,8 @@ python see.py -i <input_file> -sr <sample_rate> -tmp <temp_folder> -m <mode>
 * `--input`, `-i` input of audio file as long as program will recognize;
 * `--sample_rate`, `-sr` sample rate to plot audio;
 * `--temp_folder`, `-tmp` (optional) temp folder for audios and graphics to show at the terminal (will delete after use);
-* `--mode`, `-m` mode for spectral to plot, `fbank` or `fft`;
+* `--spectral_transform_y`, `-my` mode for transforming spectral y-location, `fbank` or `fft`;
+* `--spectral_transform_v`, `-mv` mode for transforming spectral values, `power` or `log`;
 
 ### Script
 
