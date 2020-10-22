@@ -45,8 +45,7 @@ class TerminalSeeAudio(object):
         self.min_hearing_power = 0.0005
 
         # colors & themes
-        # self.axis_color = 'dimgray'
-        self.axis_color = 'snow'
+        self.axis_color = 'white'
         self.spectral_color = 'magma'
         self.wave_color = 'mediumspringgreen'
 

@@ -36,8 +36,8 @@ python see.py -i <input_file> -sr <sample_rate> -tmp <temp_folder> -my <mode_y> 
 
 ### Script
 
-* two numbers: starting time & ending time (example: `0 10` means from **0s** to **10s**);
-* empty string `''`: plot last graphics;
+* `two numbers`: starting time & ending time (example: `10 20` means from **10s** to **20s**);
+* empty string `''` (press return without input): plot last graphics;
 * `p`: play audio;
 * `q`: quit program;
 * `r`: reset starting and ending time;
