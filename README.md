@@ -37,13 +37,13 @@ python see.py -i <input_file> -sr <sample_rate> -tmp <temp_folder> -my <mode_y> 
 ### Script
 
 * `two numbers`: starting time & ending time (example: `10 20` means from **10s** to **20s**);
-* empty string `''` (press return without input): plot last graphics;
+* empty string `''` (press return without input): plot last generated graphics;
 * `p`: play audio;
 * `q`: quit program;
 * `r`: reset starting and ending time;
 
 ### Demo
 
-With `./demo/june.ogg` of piano song (I played), we can test the functions.
+Functions can be tested with `./demo/june.ogg` of piano song (*Tchaikovsky - June Barcarolle Op. 37 No. 6*; I played).
 
 If image is blurry, please set smaller font size to get more clear image.

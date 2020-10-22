@@ -121,12 +121,13 @@ class TerminalSeeAudio(object):
 
     def _data_prepare(self, starting_time, ending_time):
         """ prepare partition of audios """
+        test_ending = len(self.data) / self.sample_rate
         if starting_time < 0:
+            print(f'<!> reset starting time {starting_time}-->{0}')
             starting_time = 0
-            print('<!> reset starting time')
-        if ending_time < 0:
-            ending_time = len(self.data) / self.sample_rate
-            print('<!> reset ending time')
+        if ending_time < 0 or ending_time > test_ending:
+            print(f'<!> reset ending time {ending_time}-->{test_ending}')
+            ending_time = test_ending
         if starting_time >= ending_time:
             print('<!> starting time >= ending time ~~> reset all')
             starting_time = 0
@@ -244,7 +245,7 @@ class TerminalSeeAudio(object):
         self._initial_running()
         while True:
             print('-' * 50)
-            input_ = input('</> ').strip()
+            input_ = input('</> ').strip().lower()
             if ' ' in input_:
                 input_split = input_.split()
                 if len(input_split) != 2:
