@@ -25,7 +25,7 @@ Simple script will learn.
 ### Starting
 
 ```bash
-python see.py -i <input_file> -sr <sample_rate> -tmp <temp_folder> -m <mode>
+python see.py -i <input_file> -sr <sample_rate> -tmp <temp_folder> -my <mode_y> -mv <mode_v>
 ```
 
 * `--input`, `-i` input of audio file as long as program will recognize;
@@ -45,3 +45,5 @@ python see.py -i <input_file> -sr <sample_rate> -tmp <temp_folder> -m <mode>
 ### Demo
 
 With `./demo/june.ogg` of piano song (I played), we can test the functions.
+
+If image is blurry, please set smaller font size to get more clear image.
