@@ -175,6 +175,7 @@ class TerminalSeeAudio(object):
 
     def prepare_graph_audio(self, starting_time, ending_time):
         """ prepare graphics and audio files """
+        print('<+> calculating...')
         # default settings
         grid = plt.GridSpec(self.graphics_ratio, 1, wspace=0, hspace=0)
         plt.figure(figsize=self.figure_size)
@@ -223,13 +224,17 @@ class TerminalSeeAudio(object):
             string = string[1:]
         return string.isdigit()
 
+    def initial_running(self):
+        # first run
+        self.prepare_graph_audio(0, len(self.data) / self.sample_rate)
+        self.terminal_plot()
+
     def main(self):
         """ main function """
         last_starting = 0
         last_ending = len(self.data) / self.sample_rate
         # first run
-        self.prepare_graph_audio(last_starting, last_ending)
-        self.terminal_plot()
+        self.initial_running()
         while True:
             print('-' * 50)
             input_ = input('</> ').strip()
@@ -253,6 +258,9 @@ class TerminalSeeAudio(object):
                 self.terminal_plot()
             elif input_ == 'q':
                 break
+            elif input_ == 'r':
+                print('<!> reset starting & ending time')
+                self.initial_running()
             else:
                 print('<!> unknown command!')
                 continue

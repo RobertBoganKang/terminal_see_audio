@@ -2,9 +2,9 @@
 
 ## Introduction
 
-Similar to `Adobe Audition`. This project will check the audio information quickly inside of terminal.
+Similar to `Adobe Audition`. This project will check the audio information quickly inside of terminal. 
 
-This project implemented following functions:
+The following functions have been implemented:
 
 * plot wave & spectral;
 * split audio;
@@ -39,3 +39,8 @@ python see.py -i <input_file> -sr <sample_rate> -tmp <temp_folder> -m <mode>
 * empty string `''`: plot last graphics;
 * `p`: play audio;
 * `q`: quit program;
+* `r`: reset starting and ending time;
+
+### Demo
+
+With `./demo/june.ogg` of piano song (I played), we can test the functions.
