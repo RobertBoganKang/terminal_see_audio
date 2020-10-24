@@ -302,10 +302,10 @@ class TerminalSeeAudio(object):
                             self.spectral_transform_y = input_split[1]
                         elif input_split[1] in ['power', 'log']:
                             self.spectral_transform_v = input_split[1]
+                        mode_change = True
                         print(f'<+> mode `{input_split[1]}` set')
                     else:
                         print(f'<?> mode `{input_split[1]}` unknown\n<!> modes are within {self.spectral_modes}')
-                    mode_change = True
                 # set sample rate
                 elif input_split[0] == 'sr':
                     if self._is_int(input_split[1]):
