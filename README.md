@@ -25,11 +25,10 @@ Simple script will learn.
 ### Starting
 
 ```bash
-python see.py -i <input_file> -sr <sample_rate> -tmp <temp_folder>
+python see.py -i <input_file> -tmp <temp_folder>
 ```
 
 * `--input`, `-i` input of audio file as long as program will recognize;
-* `--sample_rate`, `-sr` sample rate to plot audio;
 * `--temp_folder`, `-tmp` (optional) temp folder for audios and graphics to show at the terminal (will delete after use);
 
 ### Script
@@ -39,9 +38,10 @@ python see.py -i <input_file> -sr <sample_rate> -tmp <temp_folder>
 * `p`: play audio;
 * `q`: quit program;
 * `r`: reset starting and ending time;
-* `mode`: change the mode of showing spectral graphics; there are 4 modes can be changed;
+* `m`: change the `mode` of showing spectral graphics; there are 4 modes can be changed;
   * `fft` and `fbank` changes the `y` axis transform;
-  * `power` and `log` change the color density transform of graphics;
+  * `power` and `log` change the color density (spectral values) transform of graphics;
+* `sr`: change the sample rate of showing audio;
 
 ### Demo
 

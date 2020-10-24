@@ -19,18 +19,20 @@ class TerminalSeeAudio(object):
         # io parameters
         self.input = os.path.abspath(ops.input)
         self.temp_folder = os.path.abspath(ops.temp_folder)
-        # spectral mode
-        self.spectral_transform_y = 'fbank'
-        self.spectral_transform_v = 'log'
 
         # define file paths
         self.graphics_path = os.path.join(self.temp_folder, 'wave_spectral.png')
         self.audio_part_path = os.path.join(self.temp_folder, 'audio.wav')
 
         # system parameters
-        self.sample_rate = ops.sample_rate
+        self.sample_rate = 8000
+        self.min_sample_rate = 1000
         self.figure_size = (12, 4)
-        self.line_width = .2
+        # spectral mode
+        self.spectral_transform_y = 'fbank'
+        self.spectral_transform_v = 'log'
+        # line width parameters with `thin`, `thick`, `mode_switch_time`
+        self.line_width_params = [.2, 1.2, 3]
         self.dpi = 200
         self.graphics_ratio = 5
         # resolution of frequency dimension
@@ -57,6 +59,7 @@ class TerminalSeeAudio(object):
         os.makedirs(self.temp_folder, exist_ok=True)
         self._initialize_audio()
         self.n_overlap = self.n_window - self.n_step
+        self.min_duration = self.n_window / self.sample_rate
 
         # spectral mode
         self.spectral_modes = ['fft', 'fbank', 'power', 'log']
@@ -122,6 +125,14 @@ class TerminalSeeAudio(object):
         x = x.astype(np.float64)
         return x
 
+    def check_time_duration(self, starting, ending):
+        if ending - starting < self.min_duration:
+            print(f'<!> {ending} - {starting} = {ending - starting} (< {self.min_duration}; minimum duration)\n'
+                  f'<!> time duration too short, please retype')
+            return False
+        else:
+            return True
+
     def _data_prepare(self, starting_time, ending_time):
         """ prepare partition of audios """
         test_ending = len(self.data) / self.sample_rate
@@ -135,6 +146,8 @@ class TerminalSeeAudio(object):
             print('<!> starting time >= ending time ~~> reset all')
             starting_time = 0
             ending_time = len(self.data) / self.sample_rate
+        if not self.check_time_duration(starting_time, ending_time):
+            return None, None, starting_time, ending_time, False
         # extract starting & ending sample
         starting_sample = max(int(self.sample_rate * starting_time), 0)
         ending_sample = min(int(self.sample_rate * ending_time), len(self.data))
@@ -142,13 +155,20 @@ class TerminalSeeAudio(object):
         data_ = self.data[starting_sample:ending_sample]
         time_ = self.time[starting_sample:ending_sample]
         sf.write(self.audio_part_path, data_, self.sample_rate)
-        return data_, time_, starting_time, ending_time
+        return data_, time_, starting_time, ending_time, True
 
     def _plot_wave(self, data_, time_, grid):
         """ plot wave """
         # plot audio wave
         fig1 = plt.subplot(grid[0, 0])
-        fig1.plot(time_, data_, linewidth=self.line_width, color=self.wave_color)
+        # create a function to define line width
+        duration = time_[-1] - time_[0]
+        if duration > self.line_width_params[2]:
+            line_width = self.line_width_params[0]
+        else:
+            line_width = (self.line_width_params[1] - (self.line_width_params[1] - self.line_width_params[0]) /
+                          self.line_width_params[-1] * duration)
+        fig1.plot(time_, data_, linewidth=line_width, color=self.wave_color)
         fig1.set_xlim(left=time_[0], right=time_[-1])
         fig1.axes.get_yaxis().set_ticks([])
         fig1.spines['left'].set_visible(False)
@@ -192,13 +212,15 @@ class TerminalSeeAudio(object):
         plt.figure(figsize=self.figure_size)
         plt.style.use('dark_background')
 
-        data_, time_, starting_time, ending_time = self._data_prepare(starting_time, ending_time)
+        data_, time_, starting_time, ending_time, valid = self._data_prepare(starting_time, ending_time)
+        if not valid:
+            return starting_time, ending_time, False
         self._plot_spectral(data_, grid)
         self._plot_wave(data_, time_, grid)
 
         # save figure
         plt.savefig(self.graphics_path, dpi=self.dpi, bbox_inches='tight')
-        return starting_time, ending_time
+        return starting_time, ending_time, True
 
     def _terminal_plot(self):
         """ plot in terminal function """
@@ -231,9 +253,21 @@ class TerminalSeeAudio(object):
 
     @staticmethod
     def _is_number(string):
-        if string[0] == '-':
-            string = string[1:]
-        return string.isdigit()
+        # noinspection PyBroadException
+        try:
+            float(string)
+            return True
+        except Exception:
+            return False
+
+    @staticmethod
+    def _is_int(string):
+        # noinspection PyBroadException
+        try:
+            int(string)
+            return True
+        except Exception:
+            return False
 
     def _initial_running(self):
         # first run
@@ -257,10 +291,12 @@ class TerminalSeeAudio(object):
                     continue
                 # set time parameters
                 if self._is_number(input_split[0]) and self._is_number(input_split[1]):
-                    last_starting, last_ending = self._prepare_graph_audio(float(input_split[0]), float(input_split[1]))
-                    self._terminal_plot()
+                    last_starting, last_ending, valid = self._prepare_graph_audio(float(input_split[0]),
+                                                                                  float(input_split[1]))
+                    if valid:
+                        self._terminal_plot()
                 # set modes
-                elif input_split[0] == 'mode':
+                elif input_split[0] == 'm':
                     if input_split[1] in self.spectral_modes:
                         if input_split[1] in ['fft', 'fbank']:
                             self.spectral_transform_y = input_split[1]
@@ -270,6 +306,19 @@ class TerminalSeeAudio(object):
                     else:
                         print(f'<?> mode `{input_split[1]}` unknown\n<!> modes are within {self.spectral_modes}')
                     mode_change = True
+                # set sample rate
+                elif input_split[0] == 'sr':
+                    if self._is_int(input_split[1]):
+                        if int(input_split[1]) >= self.min_sample_rate:
+                            self.sample_rate = int(input_split[1])
+                            self._initialize_audio()
+                            # recalculating
+                            self._prepare_graph_audio(last_starting, last_ending)
+                            print(f'<+> sample rate `{input_split[1]}` set')
+                        else:
+                            print(f'<!> sample rate `{input_split[1]}` too low')
+                    else:
+                        print(f'<!> sample rate `{input_split[1]}` unknown')
                 else:
                     print('<!> input unknown')
                     continue
@@ -301,7 +350,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='audio plot & play')
     parser.add_argument('--input', '-i', type=str, help='the input is or contains sound file(s)',
                         default='demo/june.ogg')
-    parser.add_argument('--sample_rate', '-sr', type=int, help='the sample rate of output mix sound', default=8000)
     parser.add_argument('--temp_folder', '-tmp', type=str, help='the output temp directory for files', default='tmp')
 
     args = parser.parse_args()
