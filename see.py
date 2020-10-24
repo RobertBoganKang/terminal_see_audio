@@ -13,7 +13,7 @@ import soundfile as sf
 class TerminalSeeAudio(object):
     """
     this class will plot audio similar to `Adobe Audition` with
-        * wave & spectral plot
+        * plot wave & spectral
         * play music
     """
 
@@ -62,10 +62,9 @@ class TerminalSeeAudio(object):
         self._initialize_audio()
         self.n_overlap = self.n_window - self.n_step
         self.min_duration = self.n_window / self.sample_rate
-        if len(self.data) / self.sample_rate < self.min_duration:
-            raise ValueError('audio too short; exit')
+        self._check_audio_duration()
 
-        # spectral mode
+        # spectral modes
         self.spectral_modes = ['fft', 'fbank', 'power', 'log']
 
     def _initialize_audio(self):
@@ -74,14 +73,28 @@ class TerminalSeeAudio(object):
         self.time = range(len(self.data))
         self.time = [x / self.sample_rate for x in self.time]
 
+    def _check_audio_duration(self):
+        """ check if raw audio too short """
+        if len(self.data) / self.sample_rate < self.min_duration:
+            raise ValueError('audio too short; exit')
+
+    def _check_audio_duration_valid(self, starting, ending):
+        """ check if greater than minimum duration """
+        if ending - starting < self.min_duration:
+            print(f'<!> {ending} - {starting} = {ending - starting} (< {self.min_duration}; minimum duration)\n'
+                  f'<!> time duration too short')
+            return False
+        else:
+            return True
+
     def _mel_filter(self, spectral_raw):
         """
         convert spectral to mel-spectral
+            mel = 2595 * log10(1 + f/700)
+            f = 700 * (10^(m/2595) - 1
         --> from [https://zhuanlan.zhihu.com/p/130926693]
         :param spectral_raw: spectral
         :return: mel spectral
-        mel = 2595 * log10(1 + f/700)
-        f = 700 * (10^(m/2595) - 1
         """
         fs = self.sample_rate
         n_filter = self.n_window
@@ -114,7 +127,7 @@ class TerminalSeeAudio(object):
         """
         Calculate spectrogram.
         :param audio: list(float): audio data
-        :return: list(list(float)), list(list(complex)): the real and complex part of clipped sound
+        :return: list(list(float)): the spectral data
         """
         ham_win = np.hamming(self.n_window)
         [_, _, x] = signal.spectral.spectrogram(
@@ -129,14 +142,6 @@ class TerminalSeeAudio(object):
         x = x.astype(np.float64)
         return x
 
-    def _check_time_duration(self, starting, ending):
-        if ending - starting < self.min_duration:
-            print(f'<!> {ending} - {starting} = {ending - starting} (< {self.min_duration}; minimum duration)\n'
-                  f'<!> time duration too short')
-            return False
-        else:
-            return True
-
     def _data_prepare(self, starting_time, ending_time):
         """ prepare partition of audios """
         test_ending = len(self.data) / self.sample_rate
@@ -150,7 +155,7 @@ class TerminalSeeAudio(object):
             print('<!> starting time >= ending time ~~> reset all')
             starting_time = 0
             ending_time = len(self.data) / self.sample_rate
-        if not self._check_time_duration(starting_time, ending_time):
+        if not self._check_audio_duration_valid(starting_time, ending_time):
             return None, None, starting_time, ending_time, False
         # extract starting & ending sample
         starting_sample = max(int(self.sample_rate * starting_time), 0)
@@ -262,7 +267,7 @@ class TerminalSeeAudio(object):
             print(f'<!> please fix problem:\n<?> {" ".join(command)}')
 
     @staticmethod
-    def _is_number(string):
+    def _is_float(string):
         # noinspection PyBroadException
         try:
             float(string)
@@ -299,7 +304,7 @@ class TerminalSeeAudio(object):
                     print('<!> please check number of input')
                     continue
                 # set time parameters
-                if self._is_number(input_split[0]) and self._is_number(input_split[1]):
+                if self._is_float(input_split[0]) and self._is_float(input_split[1]):
                     last_starting, last_ending, valid = self._prepare_graph_audio(float(input_split[0]),
                                                                                   float(input_split[1]))
                     if valid:

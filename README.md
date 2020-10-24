@@ -6,8 +6,8 @@ Similar to `Adobe Audition`. This project will check the audio information quick
 
 The following functions have been implemented:
 
-* plot wave & spectral;
 * split audio;
+* plot wave & spectral;
 * play audio;
 
 ## Requirement
