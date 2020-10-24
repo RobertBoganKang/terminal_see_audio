@@ -41,7 +41,9 @@ python see.py -i <input_file> -tmp <temp_folder>
 * `m`: change the `mode` of showing spectral graphics; there are 4 modes can be changed;
   * `fft` and `fbank` changes the `y` axis transform;
   * `power` and `log` change the color density (spectral values) transform of graphics;
+  * example: `m fft` means switch to `fft` mode;
 * `sr`: change the sample rate of showing audio;
+  * example: `sr 16000` means switch to `16000Hz` sample rate
 
 ### Demo
 
