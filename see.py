@@ -12,7 +12,9 @@ import soundfile as sf
 
 class TerminalSeeAudio(object):
     """
-    this class will plot audio similar to `Adobe Audition` with wave & spectral plot
+    this class will plot audio similar to `Adobe Audition` with
+        * wave & spectral plot
+        * play music
     """
 
     def __init__(self, ops):
@@ -125,7 +127,7 @@ class TerminalSeeAudio(object):
         x = x.astype(np.float64)
         return x
 
-    def check_time_duration(self, starting, ending):
+    def _check_time_duration(self, starting, ending):
         if ending - starting < self.min_duration:
             print(f'<!> {ending} - {starting} = {ending - starting} (< {self.min_duration}; minimum duration)\n'
                   f'<!> time duration too short, please retype')
@@ -146,7 +148,7 @@ class TerminalSeeAudio(object):
             print('<!> starting time >= ending time ~~> reset all')
             starting_time = 0
             ending_time = len(self.data) / self.sample_rate
-        if not self.check_time_duration(starting_time, ending_time):
+        if not self._check_time_duration(starting_time, ending_time):
             return None, None, starting_time, ending_time, False
         # extract starting & ending sample
         starting_sample = max(int(self.sample_rate * starting_time), 0)
@@ -316,7 +318,7 @@ class TerminalSeeAudio(object):
                             self._prepare_graph_audio(last_starting, last_ending)
                             print(f'<+> sample rate `{input_split[1]}` set')
                         else:
-                            print(f'<!> sample rate `{input_split[1]}` too low')
+                            print(f'<!> sample rate `{input_split[1]}` (< {self.min_sample_rate}) too low')
                     else:
                         print(f'<!> sample rate `{input_split[1]}` unknown')
                 else:
@@ -337,6 +339,7 @@ class TerminalSeeAudio(object):
             # `q` to quit program
             elif input_ == 'q':
                 break
+            # `r` to reset starting and ending time
             elif input_ == 'r':
                 print('<!> reset starting & ending time')
                 self._initial_running()
@@ -348,9 +351,10 @@ class TerminalSeeAudio(object):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='audio plot & play')
-    parser.add_argument('--input', '-i', type=str, help='the input is or contains sound file(s)',
+    parser.add_argument('--input', '-i', type=str, help='the path of sound file',
                         default='demo/june.ogg')
-    parser.add_argument('--temp_folder', '-tmp', type=str, help='the output temp directory for files', default='tmp')
+    parser.add_argument('--temp_folder', '-tmp', type=str, help='the output temp directory for intermediate files',
+                        default='tmp')
 
     args = parser.parse_args()
     if not os.path.exists(args.input):
