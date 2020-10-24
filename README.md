@@ -33,7 +33,8 @@ python see.py -i <input_file> -tmp <temp_folder>
 
 ### Script
 
-* `two numbers`: starting time & ending time (example: `10 20` means from **10s** to **20s**);
+* `two numbers`: starting time & ending time;
+  * example: `10 20` means from **10s** to **20s**;
 * empty string `''` (press return without input): plot last generated graphics;
 * `p`: play audio;
 * `q`: quit program;
@@ -43,10 +44,14 @@ python see.py -i <input_file> -tmp <temp_folder>
   * `power` and `log` change the color density (spectral values) transform of graphics;
   * example: `m fft` means switch to `fft` mode;
 * `sr`: change the sample rate of showing audio;
-  * example: `sr 16000` means switch to `16000Hz` sample rate
+  * example: `sr 16000` means switch to `16000Hz` sample rate;
 
 ### Demo
 
-Functions can be tested with `./demo/june.ogg` of piano song (*Tchaikovsky - June Barcarolle Op. 37 No. 6*; I played).
+Functions can be tested with `./demo/june.ogg` of piano song (*Tchaikovsky - June Barcarolle Op. 37 No. 6*; I played) with:
 
-If image is blurry, please set smaller font size to get more clear image.
+```bash
+python see.py
+```
+
+More clear image can be achieved by setting smaller font size.
