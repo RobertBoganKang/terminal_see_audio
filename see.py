@@ -37,9 +37,9 @@ class TerminalSeeAudio(object):
         self.line_width_params = [.2, 1.2, 3]
         self.dpi = 200
         self.graphics_ratio = 5
-        # resolution of frequency dimension
+        # resolution of frequency (y) dimension
         self.n_window = 1024
-        # resolution of time dimension
+        # resolution of time (x) dimension
         self.n_step = 128
         # max duration for audio to play (30s)
         self.max_duration = 30
@@ -54,14 +54,16 @@ class TerminalSeeAudio(object):
         self.wave_color = 'mediumspringgreen'
 
         # import audio
-        self.data = None
-        self.time = None
+        self.data = []
+        self.time = []
 
         # initialization
         os.makedirs(self.temp_folder, exist_ok=True)
         self._initialize_audio()
         self.n_overlap = self.n_window - self.n_step
         self.min_duration = self.n_window / self.sample_rate
+        if len(self.data) / self.sample_rate < self.min_duration:
+            raise ValueError('audio too short; exit')
 
         # spectral mode
         self.spectral_modes = ['fft', 'fbank', 'power', 'log']
@@ -130,7 +132,7 @@ class TerminalSeeAudio(object):
     def _check_time_duration(self, starting, ending):
         if ending - starting < self.min_duration:
             print(f'<!> {ending} - {starting} = {ending - starting} (< {self.min_duration}; minimum duration)\n'
-                  f'<!> time duration too short, please retype')
+                  f'<!> time duration too short')
             return False
         else:
             return True
@@ -226,6 +228,9 @@ class TerminalSeeAudio(object):
 
     def _terminal_plot(self):
         """ plot in terminal function """
+        if not os.path.exists(self.graphics_path):
+            print('<!> temp image cannot find')
+            return
         command = ['timg', self.graphics_path]
         # noinspection PyBroadException
         try:
@@ -235,6 +240,9 @@ class TerminalSeeAudio(object):
 
     def _terminal_play(self, start, end):
         """ play in terminal function """
+        if not os.path.exists(self.audio_part_path):
+            print('<!> temp audio cannot find')
+            return
         if end - start > self.max_duration:
             print(f'<!> audio too long for {end - start}s')
             while True:
@@ -280,7 +288,6 @@ class TerminalSeeAudio(object):
         """ main function """
         last_starting = 0
         last_ending = len(self.data) / self.sample_rate
-        mode_change = False
         # first run
         self._initial_running()
         while True:
@@ -304,7 +311,8 @@ class TerminalSeeAudio(object):
                             self.spectral_transform_y = input_split[1]
                         elif input_split[1] in ['power', 'log']:
                             self.spectral_transform_v = input_split[1]
-                        mode_change = True
+                        # recalculating
+                        self._prepare_graph_audio(last_starting, last_ending)
                         print(f'<+> mode `{input_split[1]}` set')
                     else:
                         print(f'<?> mode `{input_split[1]}` unknown\n<!> modes are within {self.spectral_modes}')
@@ -326,16 +334,10 @@ class TerminalSeeAudio(object):
                     continue
             # `p` to play music
             elif input_ == 'p':
-                if os.path.exists(self.audio_part_path):
-                    self._terminal_play(last_starting, last_ending)
-                else:
-                    print('<!> temp folder empty')
+                self._terminal_play(last_starting, last_ending)
             # `` to show last image
             elif input_ == '':
-                if mode_change:
-                    self._prepare_graph_audio(last_starting, last_ending)
                 self._terminal_plot()
-                mode_change = False
             # `q` to quit program
             elif input_ == 'q':
                 break
