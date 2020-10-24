@@ -20,8 +20,8 @@ class TerminalSeeAudio(object):
         self.input = os.path.abspath(ops.input)
         self.temp_folder = os.path.abspath(ops.temp_folder)
         # spectral mode
-        self.spectral_transform_y = ops.spectral_transform_y
-        self.spectral_transform_v = ops.spectral_transform_v
+        self.spectral_transform_y = 'fbank'
+        self.spectral_transform_v = 'log'
 
         # define file paths
         self.graphics_path = os.path.join(self.temp_folder, 'wave_spectral.png')
@@ -57,6 +57,9 @@ class TerminalSeeAudio(object):
         os.makedirs(self.temp_folder, exist_ok=True)
         self._initialize_audio()
         self.n_overlap = self.n_window - self.n_step
+
+        # spectral mode
+        self.spectral_modes = ['fft', 'fbank', 'power', 'log']
 
     def _initialize_audio(self):
         """ read audio and parepare data """
@@ -241,6 +244,7 @@ class TerminalSeeAudio(object):
         """ main function """
         last_starting = 0
         last_ending = len(self.data) / self.sample_rate
+        mode_change = False
         # first run
         self._initial_running()
         while True:
@@ -251,19 +255,37 @@ class TerminalSeeAudio(object):
                 if len(input_split) != 2:
                     print('<!> please check number of input')
                     continue
+                # set time parameters
                 if self._is_number(input_split[0]) and self._is_number(input_split[1]):
                     last_starting, last_ending = self._prepare_graph_audio(float(input_split[0]), float(input_split[1]))
                     self._terminal_plot()
+                # set modes
+                elif input_split[0] == 'mode':
+                    if input_split[1] in self.spectral_modes:
+                        if input_split[1] in ['fft', 'fbank']:
+                            self.spectral_transform_y = input_split[1]
+                        elif input_split[1] in ['power', 'log']:
+                            self.spectral_transform_v = input_split[1]
+                        print(f'<+> mode `{input_split[1]}` set')
+                    else:
+                        print(f'<?> mode `{input_split[1]}` unknown\n<!> modes are within {self.spectral_modes}')
+                    mode_change = True
                 else:
-                    print('<!> input time should be numbers')
+                    print('<!> input unknown')
                     continue
+            # `p` to play music
             elif input_ == 'p':
                 if os.path.exists(self.audio_part_path):
                     self._terminal_play(last_starting, last_ending)
                 else:
                     print('<!> temp folder empty')
+            # `` to show last image
             elif input_ == '':
+                if mode_change:
+                    self._prepare_graph_audio(last_starting, last_ending)
                 self._terminal_plot()
+                mode_change = False
+            # `q` to quit program
             elif input_ == 'q':
                 break
             elif input_ == 'r':
@@ -281,10 +303,6 @@ if __name__ == '__main__':
                         default='demo/june.ogg')
     parser.add_argument('--sample_rate', '-sr', type=int, help='the sample rate of output mix sound', default=8000)
     parser.add_argument('--temp_folder', '-tmp', type=str, help='the output temp directory for files', default='tmp')
-    parser.add_argument('--spectral_transform_v', '-mv', type=str, help='transform spectral values [power/log]',
-                        default='log')
-    parser.add_argument('--spectral_transform_y', '-my', type=str, help='transform spectral y-location [fft/fbank]',
-                        default='fbank')
 
     args = parser.parse_args()
     if not os.path.exists(args.input):
