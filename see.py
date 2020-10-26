@@ -47,6 +47,8 @@ class TerminalSeeAudio(object):
         self.spectral_power_transform_coefficient = 1 / 5
         # minimum hearing power for `log` mode
         self.min_hearing_power = 0.0005
+        # timeout for terminal
+        self.sh_timeout = 10
 
         # colors & themes
         self.axis_color = 'white'
@@ -325,11 +327,13 @@ class TerminalSeeAudio(object):
                         print(f'<!> error message: `{e}`')
                     continue
                 elif input_split[0] == 'sh':
-                    code, sh_output = subprocess.getstatusoutput(input_split[1])
-                    if code == 0:
+                    # noinspection PyBroadException
+                    try:
+                        sh_output = subprocess.check_output(input_split[1], shell=True, stderr=subprocess.STDOUT,
+                                                            timeout=self.sh_timeout)
                         print(f'<*> {sh_output}')
-                    else:
-                        print(f'<!> error message: `{sh_output}`')
+                    except Exception as e:
+                        print(f'<!> error message: `{e}`')
                     continue
 
                 # two input functions
