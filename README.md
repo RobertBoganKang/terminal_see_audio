@@ -25,7 +25,7 @@ Simple script will learn.
 ### Starting
 
 ```bash
-python see.py -i <input_file> -tmp <temp_folder>
+python see.py <input_file>
 ```
 
 * `--input`, `-i` input of audio file as long as program will recognize;
@@ -47,6 +47,7 @@ python see.py -i <input_file> -tmp <temp_folder>
   * example: `sr 16000` means switch to `16000Hz` sample rate;
 * `o`: change the input audio file path;
   * example: `o demo/june.ogg` or `o "demo/june.ogg"` means change input audio file to `demo/june.ogg`;
+* `tmp`: to change the temp folder for temp files;
 
 ### Advanced Script
 

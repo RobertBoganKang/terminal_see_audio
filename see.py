@@ -1,7 +1,7 @@
-import argparse
 import os
 import shutil
 import subprocess
+import sys
 
 import librosa
 import matplotlib.pyplot as plt
@@ -17,14 +17,10 @@ class TerminalSeeAudio(object):
         * play music
     """
 
-    def __init__(self, ops):
+    def __init__(self, input_path):
         # io parameters
-        self.input = os.path.abspath(ops.input)
-        self.temp_folder = os.path.abspath(ops.temp_folder)
-
-        # define file paths
-        self.graphics_path = os.path.join(self.temp_folder, 'wave_spectral.png')
-        self.audio_part_path = os.path.join(self.temp_folder, 'audio.wav')
+        self.input = os.path.abspath(input_path)
+        self.temp_folder = os.path.join(os.path.dirname(__file__), 'tmp')
 
         # system parameters
         self.sample_rate = 8000
@@ -63,6 +59,7 @@ class TerminalSeeAudio(object):
         self.n_overlap = None
         self.min_duration = None
         self._initialization()
+        self._initialize_temp()
 
         # spectral modes
         self.spectral_modes = ['fft', 'fbank', 'power', 'log']
@@ -73,6 +70,10 @@ class TerminalSeeAudio(object):
         self.n_overlap = self.n_window - self.n_step
         self.min_duration = self.n_window / self.sample_rate
         self._check_audio_duration()
+
+    def _initialize_temp(self):
+        self.graphics_path = os.path.join(self.temp_folder, 'wave_spectral.png')
+        self.audio_part_path = os.path.join(self.temp_folder, 'audio.wav')
 
     def _initialize_audio(self):
         """ read audio and parepare data """
@@ -295,6 +296,18 @@ class TerminalSeeAudio(object):
         self._prepare_graph_audio(0, len(self.data) / self.sample_rate)
         self._terminal_plot()
 
+    @staticmethod
+    def _path_input_check(input_split):
+        return input_split[1][0] == input_split[1][-1] and (
+                input_split[1][0] == '\'' or input_split[1][0] == '\"' or input_split[1][0] == '`')
+
+    def _get_try_path(self, input_split):
+        if self._path_input_check(input_split):
+            try_input = input_split[1][1:-1]
+        else:
+            try_input = input_split[1]
+        return try_input
+
     def main(self):
         """ main function """
         last_starting = 0
@@ -350,8 +363,8 @@ class TerminalSeeAudio(object):
                     continue
 
                 # two input functions
-                if ' ' not in input_split[1] or input_split[1][0] == input_split[1][-1] and (
-                        input_split[1][0] == '\'' or input_split[1][0] == '\"' or input_split[1][0] == '`'):
+                if ' ' not in input_split[1] or self._path_input_check(input_split):
+                    try_input = self._get_try_path(input_split)
                     # set time parameters
                     if self._is_float(input_split[0]) and self._is_float(input_split[1]):
                         last_starting, last_ending, valid = self._prepare_graph_audio(float(input_split[0]),
@@ -385,12 +398,6 @@ class TerminalSeeAudio(object):
                             print(f'<!> sample rate `{input_split[1]}` unknown')
                     # switch file to open
                     elif input_split[0] == 'o':
-                        # change file path
-                        if input_split[1][0] == input_split[1][-1] and (
-                                input_split[1][0] == '\'' or input_split[1][0] == '\"' or input_split[1][0] == '`'):
-                            try_input = input_split[1][1:-1]
-                        else:
-                            try_input = input_split[1]
                         if os.path.exists(try_input):
                             self.input = try_input
                             self._initialize_audio()
@@ -398,6 +405,16 @@ class TerminalSeeAudio(object):
                             self._initial_running()
                         else:
                             print(f'<!> file path `{try_input}` does not exist')
+                    elif input_split[0] == 'tmp':
+                        if not os.path.exists(try_input):
+                            # remove old temp folder
+                            shutil.move(self.temp_folder, try_input)
+                            print(f'<+> temp folder path changed: `{self.temp_folder}` --> `{try_input}`')
+                            # set new temp folder
+                            self.temp_folder = try_input
+                            self._initialize_temp()
+                        else:
+                            print(f'<!> file path `{try_input}` already exist')
                     else:
                         print('<!> input unknown')
                         continue
@@ -425,15 +442,22 @@ class TerminalSeeAudio(object):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='audio plot & play')
-    parser.add_argument('--input', '-i', type=str, help='the path of sound file',
-                        default='demo/june.ogg')
-    parser.add_argument('--temp_folder', '-tmp', type=str, help='the output temp directory for intermediate files',
-                        default='tmp')
-
-    args = parser.parse_args()
-    if not os.path.exists(args.input):
-        print(f'path [{args.input}] does not exist!')
+    # demo mode
+    if len(sys.argv) == 1:
+        demo_file_path = os.path.join(os.path.dirname(__file__), 'demo/june.ogg')
+        if os.path.exists(demo_file_path):
+            tsa = TerminalSeeAudio(demo_file_path)
+            tsa.main()
+        else:
+            print('demo file missing')
+    # argument error
+    elif len(sys.argv) > 2:
+        print('argument error, please check number of arguments')
+    # default mode
     else:
-        tsa = TerminalSeeAudio(args)
-        tsa.main()
+        in_path = sys.argv[1]
+        if not os.path.exists(in_path):
+            print(f'path [{in_path}] does not exist!')
+        else:
+            tsa = TerminalSeeAudio(in_path)
+            tsa.main()
