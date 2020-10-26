@@ -305,28 +305,31 @@ class TerminalSeeAudio(object):
         while True:
             print('-' * 50)
             input_ = input('</> ').strip()
+
+            # multiple input function (calculation)
+            if input_.startswith('=='):
+                try:
+                    exec(input_[2:])
+                    self._initialization()
+                    self._prepare_graph_audio(last_starting, last_ending)
+                    print(f'<*> executed `{input_[2:]}`')
+                except Exception as e:
+                    print(f'<!> error message: `{e}`')
+                continue
+            elif input_.startswith('='):
+                try:
+                    return_string = eval(input_[1:])
+                    print(f'<*> {return_string}')
+                except Exception as e:
+                    print(f'<!> error message: `{e}`')
+                continue
+
+            # contain space case
             if ' ' in input_:
                 space_idx = input_.find(' ')
                 input_split = [input_[:space_idx], input_[space_idx + 1:]]
-                # multiple input function (calculation)
-                if input_split[0] == '=':
-                    try:
-                        return_string = eval(input_split[1])
-                        print(f'<*> {return_string}')
-                    except Exception as e:
-                        print(f'<!> error message: `{e}`')
-                    continue
-                # change parameters
-                elif input_split[0] == '==':
-                    try:
-                        exec(input_split[1])
-                        self._initialization()
-                        self._prepare_graph_audio(last_starting, last_ending)
-                        print(f'<*> executed `{input_split[1]}`')
-                    except Exception as e:
-                        print(f'<!> error message: `{e}`')
-                    continue
-                elif input_split[0] == 'sh':
+                # shell command
+                if input_split[0] == 'sh':
                     # noinspection PyBroadException
                     try:
                         sh_output = subprocess.check_output(input_split[1], shell=True, stderr=subprocess.STDOUT,
