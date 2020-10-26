@@ -222,7 +222,6 @@ class TerminalSeeAudio(object):
 
     def _prepare_graph_audio(self, starting_time, ending_time):
         """ prepare graphics and audio files """
-        print('<+> calculating...')
         # default settings
         grid = plt.GridSpec(self.graphics_ratio, 1, wspace=0, hspace=0)
         plt.figure(figsize=self.figure_size)
