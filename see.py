@@ -306,22 +306,33 @@ class TerminalSeeAudio(object):
             input_ = input('</> ').strip()
 
             # multiple input function (calculation)
-            if input_.startswith('=='):
-                try:
-                    exec(input_[2:])
-                    self._initialization()
-                    self._prepare_graph_audio(last_starting, last_ending)
-                    print(f'<*> executed `{input_[2:]}`')
-                except Exception as e:
-                    print(f'<!> error message: `{e}`')
-                continue
-            elif input_.startswith('='):
-                try:
-                    return_string = eval(input_[1:])
-                    print(f'<*> {return_string}')
-                except Exception as e:
-                    print(f'<!> error message: `{e}`')
-                continue
+            if input_.startswith('='):
+                command_success = False
+                command_result = []
+                # to evaluate
+                if not command_success:
+                    try:
+                        return_string = eval(input_[1:])
+                        print(f'<*> {return_string}')
+                        command_success = True
+                        continue
+                    except Exception as e:
+                        command_result.append(e)
+                # to execute
+                if not command_success:
+                    try:
+                        exec(input_[1:])
+                        self._initialization()
+                        self._prepare_graph_audio(last_starting, last_ending)
+                        print(f'<*> executed `{input_[1:]}`')
+                        command_success = True
+                        continue
+                    except Exception as e:
+                        command_result.append(e)
+                if not command_success:
+                    print(f'<!> evaluate error message: `{command_result[0]}`')
+                    print(f'<!> execute error message: `{command_result[1]}`')
+                    continue
 
             # contain space case
             if ' ' in input_:

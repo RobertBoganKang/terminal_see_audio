@@ -50,11 +50,13 @@ python see.py -i <input_file> -tmp <temp_folder>
 
 ### Advanced Script
 
-* `=`: to `eval` in python (simple calculation);
+* `=` (WARNING: may cause fatal crash): to `eval` in python (simple calculation) or to `exec` in python (set system parameters);
+  
   * example: `=1+1` to get answer `2`;
-* `==` (WARNING: may cause fatal crash): to `exec` in python (set system parameters):
-  * example: `==self.n_window=512` to set the `n_window` to `512`;
+  
+  * example: `=self.n_window=512` to set the `n_window` to `512`;
 * `sh`: to execute `shell` script;
+  
   * example: `sh echo $PATH` to show `$PATH` variable;
 
 ## Demo
