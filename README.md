@@ -12,7 +12,7 @@ The following functions have been implemented:
 
 ## Requirement
 
-Python library `matplotlib`, `numpy`, `scipy`, `librosa`, `soundfile`.
+Python library `matplotlib`, `numpy`, `scipy`, `librosa`, `soundfile`, `pypng`.
 
 Terminal library: `ffmpeg`, `sox`.
 
@@ -45,6 +45,8 @@ python see.py -i <input_file> -tmp <temp_folder>
   * example: `m fft` means switch to `fft` mode;
 * `sr`: change the sample rate of showing audio;
   * example: `sr 16000` means switch to `16000Hz` sample rate;
+* `o`: change the input audio file path;
+  * example: `o demo/june.ogg` or `o "demo/june.ogg"` means change input audio file to `demo/june.ogg`;
 
 ### Demo
 

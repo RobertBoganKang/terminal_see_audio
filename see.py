@@ -297,10 +297,14 @@ class TerminalSeeAudio(object):
         self._initial_running()
         while True:
             print('-' * 50)
-            input_ = input('</> ').strip().lower()
+            input_ = input('</> ').strip()
             if ' ' in input_:
-                input_split = input_.split()
-                if len(input_split) != 2:
+                space_idx = input_.find(' ')
+                input_split = [input_[:space_idx], input_[space_idx + 1:]]
+                if ' ' not in input_split[1] or input_split[1][0] == input_split[1][-1] and (
+                        input_split[1][0] == '\'' or input_split[1][0] == '\"' or input_split[1][0] == '`'):
+                    pass
+                else:
                     print('<!> please check number of input')
                     continue
                 # set time parameters
@@ -334,6 +338,21 @@ class TerminalSeeAudio(object):
                             print(f'<!> sample rate `{input_split[1]}` (< {self.min_sample_rate}) too low')
                     else:
                         print(f'<!> sample rate `{input_split[1]}` unknown')
+                # switch file to open
+                elif input_split[0] == 'o':
+                    # change file path
+                    if input_split[1][0] == input_split[1][-1] and (
+                            input_split[1][0] == '\'' or input_split[1][0] == '\"' or input_split[1][0] == '`'):
+                        try_input = input_split[1][1:-1]
+                    else:
+                        try_input = input_split[1]
+                    if os.path.exists(try_input):
+                        self.input = try_input
+                        self._initialize_audio()
+                        print('<+> file path changed')
+                        self._initial_running()
+                    else:
+                        print(f'<!> file path `{try_input}` does not exist')
                 else:
                     print('<!> input unknown')
                     continue
