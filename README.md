@@ -28,9 +28,6 @@ Simple script will learn.
 python see.py <input_file>
 ```
 
-* `--input`, `-i` input of audio file as long as program will recognize;
-* `--temp_folder`, `-tmp` (optional) temp folder for audios and graphics to show at the terminal (will delete after use);
-
 ### Script
 
 * `two numbers`: starting time & ending time;
