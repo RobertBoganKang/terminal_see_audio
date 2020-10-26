@@ -58,14 +58,19 @@ class TerminalSeeAudio(object):
         self.time = []
 
         # initialization
+        self.n_overlap = None
+        self.min_duration = None
+        self._initialization()
+
+        # spectral modes
+        self.spectral_modes = ['fft', 'fbank', 'power', 'log']
+
+    def _initialization(self):
         os.makedirs(self.temp_folder, exist_ok=True)
         self._initialize_audio()
         self.n_overlap = self.n_window - self.n_step
         self.min_duration = self.n_window / self.sample_rate
         self._check_audio_duration()
-
-        # spectral modes
-        self.spectral_modes = ['fft', 'fbank', 'power', 'log']
 
     def _initialize_audio(self):
         """ read audio and parepare data """
@@ -301,61 +306,89 @@ class TerminalSeeAudio(object):
             if ' ' in input_:
                 space_idx = input_.find(' ')
                 input_split = [input_[:space_idx], input_[space_idx + 1:]]
+                # multiple input function (calculation)
+                if input_split[0] == '=':
+                    try:
+                        print(input_split[1].strip())
+                        return_string = eval(input_split[1])
+                        print(f'<*> {return_string}')
+                    except Exception as e:
+                        print(f'<!> error message: `{e}`')
+                    continue
+                # change parameters
+                elif input_split[0] == '==':
+                    try:
+                        exec(input_split[1])
+                        self._initialization()
+                        self._prepare_graph_audio(last_starting, last_ending)
+                        print(f'<*> executed `{input_split[1]}`')
+                    except Exception as e:
+                        print(f'<!> error message: `{e}`')
+                    continue
+                elif input_split[0] == 'sh':
+                    code, sh_output = subprocess.getstatusoutput(input_split[1])
+                    if code == 0:
+                        print(f'<*> {sh_output}')
+                    else:
+                        print(f'<!> error message: `{sh_output}`')
+                    continue
+
+                # two input functions
                 if ' ' not in input_split[1] or input_split[1][0] == input_split[1][-1] and (
                         input_split[1][0] == '\'' or input_split[1][0] == '\"' or input_split[1][0] == '`'):
-                    pass
+                    # set time parameters
+                    if self._is_float(input_split[0]) and self._is_float(input_split[1]):
+                        last_starting, last_ending, valid = self._prepare_graph_audio(float(input_split[0]),
+                                                                                      float(input_split[1]))
+                        if valid:
+                            self._terminal_plot()
+                    # set modes
+                    elif input_split[0] == 'm':
+                        if input_split[1] in self.spectral_modes:
+                            if input_split[1] in ['fft', 'fbank']:
+                                self.spectral_transform_y = input_split[1]
+                            elif input_split[1] in ['power', 'log']:
+                                self.spectral_transform_v = input_split[1]
+                            # recalculating
+                            self._prepare_graph_audio(last_starting, last_ending)
+                            print(f'<+> mode `{input_split[1]}` set')
+                        else:
+                            print(f'<?> mode `{input_split[1]}` unknown\n<!> modes are within {self.spectral_modes}')
+                    # set sample rate
+                    elif input_split[0] == 'sr':
+                        if self._is_int(input_split[1]):
+                            if int(input_split[1]) >= self.min_sample_rate:
+                                self.sample_rate = int(input_split[1])
+                                self._initialize_audio()
+                                # recalculating
+                                self._prepare_graph_audio(last_starting, last_ending)
+                                print(f'<+> sample rate `{input_split[1]}` set')
+                            else:
+                                print(f'<!> sample rate `{input_split[1]}` (< {self.min_sample_rate}) too low')
+                        else:
+                            print(f'<!> sample rate `{input_split[1]}` unknown')
+                    # switch file to open
+                    elif input_split[0] == 'o':
+                        # change file path
+                        if input_split[1][0] == input_split[1][-1] and (
+                                input_split[1][0] == '\'' or input_split[1][0] == '\"' or input_split[1][0] == '`'):
+                            try_input = input_split[1][1:-1]
+                        else:
+                            try_input = input_split[1]
+                        if os.path.exists(try_input):
+                            self.input = try_input
+                            self._initialize_audio()
+                            print('<+> file path changed')
+                            self._initial_running()
+                        else:
+                            print(f'<!> file path `{try_input}` does not exist')
+                    else:
+                        print('<!> input unknown')
+                        continue
                 else:
                     print('<!> please check number of input')
                     continue
-                # set time parameters
-                if self._is_float(input_split[0]) and self._is_float(input_split[1]):
-                    last_starting, last_ending, valid = self._prepare_graph_audio(float(input_split[0]),
-                                                                                  float(input_split[1]))
-                    if valid:
-                        self._terminal_plot()
-                # set modes
-                elif input_split[0] == 'm':
-                    if input_split[1] in self.spectral_modes:
-                        if input_split[1] in ['fft', 'fbank']:
-                            self.spectral_transform_y = input_split[1]
-                        elif input_split[1] in ['power', 'log']:
-                            self.spectral_transform_v = input_split[1]
-                        # recalculating
-                        self._prepare_graph_audio(last_starting, last_ending)
-                        print(f'<+> mode `{input_split[1]}` set')
-                    else:
-                        print(f'<?> mode `{input_split[1]}` unknown\n<!> modes are within {self.spectral_modes}')
-                # set sample rate
-                elif input_split[0] == 'sr':
-                    if self._is_int(input_split[1]):
-                        if int(input_split[1]) >= self.min_sample_rate:
-                            self.sample_rate = int(input_split[1])
-                            self._initialize_audio()
-                            # recalculating
-                            self._prepare_graph_audio(last_starting, last_ending)
-                            print(f'<+> sample rate `{input_split[1]}` set')
-                        else:
-                            print(f'<!> sample rate `{input_split[1]}` (< {self.min_sample_rate}) too low')
-                    else:
-                        print(f'<!> sample rate `{input_split[1]}` unknown')
-                # switch file to open
-                elif input_split[0] == 'o':
-                    # change file path
-                    if input_split[1][0] == input_split[1][-1] and (
-                            input_split[1][0] == '\'' or input_split[1][0] == '\"' or input_split[1][0] == '`'):
-                        try_input = input_split[1][1:-1]
-                    else:
-                        try_input = input_split[1]
-                    if os.path.exists(try_input):
-                        self.input = try_input
-                        self._initialize_audio()
-                        print('<+> file path changed')
-                        self._initial_running()
-                    else:
-                        print(f'<!> file path `{try_input}` does not exist')
-                else:
-                    print('<!> input unknown')
-                    continue
+            # single input
             # `p` to play music
             elif input_ == 'p':
                 self._terminal_play(last_starting, last_ending)

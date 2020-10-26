@@ -48,6 +48,14 @@ python see.py -i <input_file> -tmp <temp_folder>
 * `o`: change the input audio file path;
   * example: `o demo/june.ogg` or `o "demo/june.ogg"` means change input audio file to `demo/june.ogg`;
 
+### Advanced Script
+
+* `=`: to `eval` in python (simple calculation);
+  * example: `= 1+1` to get answer `2`;
+* `==`: to `exec` in python (set system parameters):
+  * example: `== self.n_window=512` to set the `n_window` to `512`;
+* `sh`: to execute `shell` script;
+
 ### Demo
 
 Functions can be tested with `./demo/june.ogg` of piano song (*Tchaikovsky - June Barcarolle Op. 37 No. 6*; I played) with:
