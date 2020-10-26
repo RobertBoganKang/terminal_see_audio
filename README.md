@@ -52,7 +52,7 @@ python see.py -i <input_file> -tmp <temp_folder>
 
 * `=`: to `eval` in python (simple calculation);
   * example: `= 1+1` to get answer `2`;
-* `==`: to `exec` in python (set system parameters):
+* `==` (WARNING: may cause fatal program crash): to `exec` in python (set system parameters):
   * example: `== self.n_window=512` to set the `n_window` to `512`;
 * `sh`: to execute `shell` script;
 
