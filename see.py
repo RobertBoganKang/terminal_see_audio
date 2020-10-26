@@ -309,7 +309,6 @@ class TerminalSeeAudio(object):
                 # multiple input function (calculation)
                 if input_split[0] == '=':
                     try:
-                        print(input_split[1].strip())
                         return_string = eval(input_split[1])
                         print(f'<*> {return_string}')
                     except Exception as e:
