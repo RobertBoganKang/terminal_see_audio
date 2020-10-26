@@ -28,6 +28,8 @@ Simple script will learn.
 python see.py <input_file>
 ```
 
+* `input_file` is the path of input audio file as long as program will recognize;
+
 ### Script
 
 * `two numbers`: starting time & ending time;
