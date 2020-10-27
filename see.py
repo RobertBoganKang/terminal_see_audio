@@ -26,6 +26,7 @@ class TerminalSeeAudio(object):
         if input_path is None:
             if os.path.exists(self.demo_file):
                 self.input = self.demo_file
+                print(f'<+> demo file `{self.demo_file}` will be tested')
             else:
                 raise ValueError('demo file missing, example cannot be proceeded.')
         # regular mode
