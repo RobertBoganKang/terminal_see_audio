@@ -12,15 +12,27 @@ import soundfile as sf
 
 class TerminalSeeAudio(object):
     """
-    this class will plot audio similar to `Adobe Audition` with
+    this class will plot audio similar to `Adobe Audition` with:
         * plot wave & spectral
         * play music
     """
 
     def __init__(self, input_path):
+        # demo mode
+        self.demo_file = os.path.join(os.path.dirname(__file__), 'demo/june.ogg')
+
         # io parameters
-        self.input = os.path.abspath(input_path)
+        # if `None`: demo mode
+        if input_path is None:
+            if os.path.exists(self.demo_file):
+                self.input = self.demo_file
+            else:
+                raise ValueError('demo file missing, example cannot be proceeded.')
+        # regular mode
+        else:
+            self.input = os.path.abspath(input_path)
         self.temp_folder = os.path.join(os.path.dirname(__file__), 'tmp')
+        self.readme_path = os.path.join(os.path.dirname(__file__), 'README.md')
 
         # system parameters
         self.sample_rate = 8000
@@ -43,7 +55,7 @@ class TerminalSeeAudio(object):
         self.spectral_power_transform_coefficient = 1 / 5
         # minimum hearing power for `log` mode
         self.min_hearing_power = 0.0005
-        # timeout for terminal
+        # timeout for shell script
         self.sh_timeout = 10
 
         # colors & themes
@@ -51,15 +63,11 @@ class TerminalSeeAudio(object):
         self.spectral_color = 'magma'
         self.wave_color = 'mediumspringgreen'
 
-        # import audio
-        self.data = []
-        self.time = []
-
         # initialization
         self.n_overlap = None
         self.min_duration = None
-        self._initialization()
-        self._initialize_temp()
+        self.data = []
+        self.time = []
 
         # spectral modes
         self.spectral_modes = ['fft', 'fbank', 'power', 'log']
@@ -106,15 +114,15 @@ class TerminalSeeAudio(object):
         """
         fs = self.sample_rate
         n_filter = self.n_window
-        nfft = self.n_window
+        n_fft = self.n_window
         # lowest hearing frequency
         mel_min = 16
         mel_max = 2595 * np.log10(1 + fs / 2.0 / 700)
         mel_points = np.linspace(mel_min, mel_max, n_filter + 2)
         hz_points = 700 * (10 ** (mel_points / 2595.0) - 1)
-        filter_edge = np.floor(hz_points * (nfft + 1) / fs)
+        filter_edge = np.floor(hz_points * (n_fft + 1) / fs)
 
-        f_bank = np.zeros((n_filter, int(nfft / 2 + 1)))
+        f_bank = np.zeros((n_filter, int(n_fft / 2 + 1)))
         for m in range(1, 1 + n_filter):
             f_left = int(round(filter_edge[m - 1]))
             f_center = int(round(filter_edge[m]))
@@ -291,8 +299,8 @@ class TerminalSeeAudio(object):
         except Exception:
             return False
 
-    def _initial_running(self):
-        # first run
+    def _initial_or_restore_running(self):
+        """ first run & restore run """
         self._prepare_graph_audio(0, len(self.data) / self.sample_rate)
         self._terminal_plot()
 
@@ -308,21 +316,37 @@ class TerminalSeeAudio(object):
             try_input = input_split[1]
         return try_input
 
+    def print_help(self):
+        """ print help file """
+        if os.path.exists(self.readme_path):
+            print('<*> ' + 'help ...')
+            with open(self.readme_path, 'r') as f:
+                text = f.read()
+                print(text)
+            print('<*> ' + '... help')
+        else:
+            print('<!> readme file missing')
+
     def main(self):
         """ main function """
+        # initialization
+        self._initialization()
+        self._initialize_temp()
+        # prepare
         last_starting = 0
         last_ending = len(self.data) / self.sample_rate
-        # first run
-        self._initial_running()
+        # 0. first run
+        self._initial_or_restore_running()
+        # loop to get inputs
         while True:
             print('-' * 50)
             input_ = input('</> ').strip()
 
-            # multiple input function (calculation)
+            # 1. multiple input function (calculation)
             if input_.startswith('='):
                 command_success = False
                 command_result = []
-                # to evaluate
+                # 1.1 to evaluate
                 if not command_success:
                     try:
                         return_string = eval(input_[1:])
@@ -331,7 +355,7 @@ class TerminalSeeAudio(object):
                         continue
                     except Exception as e:
                         command_result.append(e)
-                # to execute
+                # 1.2 to execute
                 if not command_success:
                     try:
                         exec(input_[1:])
@@ -342,16 +366,18 @@ class TerminalSeeAudio(object):
                         continue
                     except Exception as e:
                         command_result.append(e)
+                # 1.* advanced script error
                 if not command_success:
                     print(f'<!> evaluate error message: `{command_result[0]}`')
                     print(f'<!> execute error message: `{command_result[1]}`')
                     continue
 
-            # contain space case
+            # 2. contain space case
             if ' ' in input_:
+                # 2.0 prepare
                 space_idx = input_.find(' ')
                 input_split = [input_[:space_idx], input_[space_idx + 1:]]
-                # shell command
+                # 2.1 shell command
                 if input_split[0] == 'sh':
                     # noinspection PyBroadException
                     try:
@@ -362,16 +388,16 @@ class TerminalSeeAudio(object):
                         print(f'<!> error message: `{e}`')
                     continue
 
-                # two input functions
+                # 2.2 two input functions
                 if ' ' not in input_split[1] or self._path_input_check(input_split):
                     try_input = self._get_try_path(input_split)
-                    # set time parameters
+                    # 2.2.0 set time parameters
                     if self._is_float(input_split[0]) and self._is_float(input_split[1]):
                         last_starting, last_ending, valid = self._prepare_graph_audio(float(input_split[0]),
                                                                                       float(input_split[1]))
                         if valid:
                             self._terminal_plot()
-                    # set modes
+                    # 2.2.1 set modes
                     elif input_split[0] == 'm':
                         if input_split[1] in self.spectral_modes:
                             if input_split[1] in ['fft', 'fbank']:
@@ -383,7 +409,7 @@ class TerminalSeeAudio(object):
                             print(f'<+> mode `{input_split[1]}` set')
                         else:
                             print(f'<?> mode `{input_split[1]}` unknown\n<!> modes are within {self.spectral_modes}')
-                    # set sample rate
+                    # 2.2.2 set sample rate
                     elif input_split[0] == 'sr':
                         if self._is_int(input_split[1]):
                             if int(input_split[1]) >= self.min_sample_rate:
@@ -396,15 +422,16 @@ class TerminalSeeAudio(object):
                                 print(f'<!> sample rate `{input_split[1]}` (< {self.min_sample_rate}) too low')
                         else:
                             print(f'<!> sample rate `{input_split[1]}` unknown')
-                    # switch file to open
+                    # 2.2.3 switch file to open
                     elif input_split[0] == 'o':
                         if os.path.exists(try_input):
                             self.input = try_input
                             self._initialize_audio()
                             print('<+> file path changed')
-                            self._initial_running()
+                            self._initial_or_restore_running()
                         else:
                             print(f'<!> file path `{try_input}` does not exist')
+                    # 2.2.4 change the temp folder path
                     elif input_split[0] == 'tmp':
                         if not os.path.exists(try_input):
                             # remove old temp folder
@@ -415,48 +442,54 @@ class TerminalSeeAudio(object):
                             self._initialize_temp()
                         else:
                             print(f'<!> file path `{try_input}` already exist')
+                    # 2.2.* two inputs case error
                     else:
                         print('<!> input unknown')
                         continue
+                # 2.* too many inputs error
                 else:
                     print('<!> please check number of input')
                     continue
-            # single input
-            # `p` to play music
+
+            # 3. single input
+            # 3.1 `p` to play music
             elif input_ == 'p':
                 self._terminal_play(last_starting, last_ending)
-            # `` to show last image
+            # 3.2 `` to show last image
             elif input_ == '':
                 self._terminal_plot()
-            # `q` to quit program
+            # 3.3 `q` to quit program
             elif input_ == 'q':
                 break
-            # `r` to reset starting and ending time
+            # 3.4 `r` to reset starting and ending time
             elif input_ == 'r':
                 print('<!> reset starting & ending time')
-                self._initial_running()
+                self._initial_or_restore_running()
+            # 3.5 `h` to print help file
+            elif input_ == 'h':
+                self.print_help()
+            # 3.* single input case error
             else:
                 print('<!> unknown command!')
                 continue
+        # remove temp folder at quit
         shutil.rmtree(self.temp_folder)
 
 
 if __name__ == '__main__':
     # demo mode
     if len(sys.argv) == 1:
-        demo_file_path = os.path.join(os.path.dirname(__file__), 'demo/june.ogg')
-        if os.path.exists(demo_file_path):
-            tsa = TerminalSeeAudio(demo_file_path)
-            tsa.main()
-        else:
-            print('demo file missing')
+        tsa = TerminalSeeAudio(None)
+        tsa.main()
     # argument error
     elif len(sys.argv) > 2:
         print('argument error, please check number of arguments')
     # default mode
     else:
         in_path = sys.argv[1]
-        if not os.path.exists(in_path):
+        if in_path in ['-h', '--help']:
+            TerminalSeeAudio(None).print_help()
+        elif not os.path.exists(in_path):
             print(f'path [{in_path}] does not exist!')
         else:
             tsa = TerminalSeeAudio(in_path)

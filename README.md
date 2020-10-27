@@ -33,7 +33,7 @@ python see.py <input_file>
 ### Script
 
 * `two numbers`: starting time & ending time;
-  * example: `10 20` means from **10s** to **20s**;
+  * example: `10 20` means to split audio from **10s** to **20s**;
 * empty string `''` (press return without input): plot last generated graphics;
 * `p`: play audio;
 * `q`: quit program;
@@ -47,16 +47,15 @@ python see.py <input_file>
 * `o`: change the input audio file path;
   * example: `o demo/june.ogg` or `o "demo/june.ogg"` means change input audio file to `demo/june.ogg`;
 * `tmp`: to change the temp folder for temp files;
+* `h`: to print `README.md` file (this file) as `help`.
 
 ### Advanced Script
 
 * `=` (WARNING: may cause fatal crash): to `eval` in python (simple calculation) or to `exec` in python (set system parameters);
-  
   * example: `=1+1` to get answer `2`;
   
   * example: `=self.n_window=512` to set the `n_window` to `512`;
 * `sh`: to execute `shell` script;
-  
   * example: `sh echo $PATH` to show `$PATH` variable;
 
 ## Demo
