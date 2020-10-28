@@ -26,7 +26,6 @@ class TerminalSeeAudio(object):
         if input_path is None:
             if os.path.exists(self.demo_file):
                 self.input = self.demo_file
-                print(f'<+> demo file `{self.demo_file}` will be tested')
             else:
                 raise ValueError('demo file missing, example cannot be proceeded.')
         # regular mode
@@ -74,6 +73,9 @@ class TerminalSeeAudio(object):
         self.spectral_modes = ['fft', 'fbank', 'power', 'log']
 
     def _initialization(self):
+        # demo mode message
+        if self.input == self.demo_file:
+            print(f'<+> demo file `{self.demo_file}` will be tested')
         os.makedirs(self.temp_folder, exist_ok=True)
         self._initialize_audio()
         self.n_overlap = self.n_window - self.n_step
@@ -81,11 +83,12 @@ class TerminalSeeAudio(object):
         self._check_audio_duration()
 
     def _initialize_temp(self):
+        """ temp file path initialization """
         self.graphics_path = os.path.join(self.temp_folder, 'wave_spectral.png')
         self.audio_part_path = os.path.join(self.temp_folder, 'audio.wav')
 
     def _initialize_audio(self):
-        """ read audio and parepare data """
+        """ read audio and prepare data """
         self.data, _ = librosa.load(self.input, sr=self.sample_rate, mono=True)
         self.time = range(len(self.data))
         self.time = [x / self.sample_rate for x in self.time]
@@ -322,8 +325,9 @@ class TerminalSeeAudio(object):
         if os.path.exists(self.readme_path):
             print('<*> ' + 'help ...')
             with open(self.readme_path, 'r') as f:
-                text = f.read()
-                print(text)
+                text = f.readlines()
+                for t in text:
+                    print(' | ' + t.strip())
             print('<*> ' + '... help')
         else:
             print('<!> readme file missing')
@@ -445,7 +449,7 @@ class TerminalSeeAudio(object):
                             print(f'<!> file path `{try_input}` already exist')
                     # 2.2.* two inputs case error
                     else:
-                        print('<!> input unknown')
+                        print('<!> two inputs case unknown')
                         continue
                 # 2.* too many inputs error
                 else:
@@ -471,7 +475,7 @@ class TerminalSeeAudio(object):
                 self.print_help()
             # 3.* single input case error
             else:
-                print('<!> unknown command!')
+                print('<!> unknown command')
                 continue
         # remove temp folder at quit
         shutil.rmtree(self.temp_folder)
