@@ -327,7 +327,7 @@ class TerminalSeeAudio(object):
             with open(self.readme_path, 'r') as f:
                 text = f.readlines()
                 for t in text:
-                    print(' | ' + t.strip())
+                    print(' | ' + t.rstrip())
             print('<*> ' + '... help')
         else:
             print('<!> readme file missing')
