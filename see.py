@@ -1,4 +1,6 @@
 import os
+# noinspection PyUnresolvedReferences
+import readline
 import shutil
 import subprocess
 import sys
