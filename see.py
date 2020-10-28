@@ -1,5 +1,5 @@
+import glob
 import os
-# noinspection PyUnresolvedReferences
 import readline
 import shutil
 import subprocess
@@ -83,6 +83,10 @@ class TerminalSeeAudio(object):
         self.n_overlap = self.n_window - self.n_step
         self.min_duration = self.n_window / self.sample_rate
         self._check_audio_duration()
+        # initialize path autocomplete
+        readline.set_completer_delims(' \t\n;')
+        readline.parse_and_bind("tab: complete")
+        readline.set_completer(self._path_autocomplete)
 
     def _initialize_temp(self):
         """ temp file path initialization """
@@ -333,6 +337,10 @@ class TerminalSeeAudio(object):
             print('<*> ' + '... help')
         else:
             print('<!> readme file missing')
+
+    @staticmethod
+    def _path_autocomplete(text, state):
+        return (glob.glob(text + '*') + [None])[state]
 
     def main(self):
         """ main function """
