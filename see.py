@@ -345,6 +345,7 @@ class TerminalSeeAudio(object):
         This is the tab completer for systems paths.
         Only tested on *nix systems
         """
+        # TODO: `space` in path is not supported
         readline.get_line_buffer().split()
 
         # replace ~ with the user's home dir
@@ -352,7 +353,8 @@ class TerminalSeeAudio(object):
             text = text.replace('~', os.path.expanduser('~'))
 
         # fix path
-        text = os.path.abspath(text).replace('//', '/')
+        if text != '':
+            text = os.path.abspath(text).replace('//', '/')
 
         # autocomplete directories with having a trailing slash
         if os.path.isdir(text) and text != '/':
