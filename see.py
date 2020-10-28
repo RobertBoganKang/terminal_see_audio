@@ -21,7 +21,7 @@ class TerminalSeeAudio(object):
 
     def __init__(self, input_path):
         # demo mode
-        self.demo_file = os.path.join(os.path.dirname(__file__), 'demo/june.ogg')
+        self.demo_file = os.path.abspath(os.path.join(os.path.dirname(__file__), 'demo/june.ogg'))
 
         # io parameters
         # if `None`: demo mode
@@ -459,10 +459,13 @@ class TerminalSeeAudio(object):
                     # 2.2.3 switch file to open
                     elif input_split[0] == 'o':
                         if os.path.exists(try_input):
-                            self.input = try_input
-                            self._initialize_audio()
-                            print('<+> file path changed')
-                            self._initial_or_restore_running()
+                            if self.input == try_input:
+                                print('<!> same file path')
+                            else:
+                                self._initialize_audio()
+                                self.input = os.path.abspath(try_input)
+                                print('<+> file path changed')
+                                self._initial_or_restore_running()
                         else:
                             print(f'<!> file path `{try_input}` does not exist')
                     # 2.2.4 change the temp folder path
