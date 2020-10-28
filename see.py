@@ -340,7 +340,25 @@ class TerminalSeeAudio(object):
 
     @staticmethod
     def _path_autocomplete(text, state):
-        return (glob.glob(text + '*') + [None])[state]
+        """
+        [https://gist.github.com/iamatypeofwalrus/5637895]
+        This is the tab completer for systems paths.
+        Only tested on *nix systems
+        """
+        readline.get_line_buffer().split()
+
+        # replace ~ with the user's home dir. See https://docs.python.org/2/library/os.path.html
+        if '~' in text:
+            text = text.replace('~', os.path.expanduser('~'))
+
+        # fix path
+        text = os.path.abspath(text).replace('//', '/')
+
+        # autocomplete directories with having a trailing slash
+        if os.path.isdir(text) and os.path.abspath(text) != '/':
+            text += '/'
+
+        return [x for x in glob.glob(text + '*')][state]
 
     def main(self):
         """ main function """
