@@ -58,6 +58,8 @@ python see.py <input_file>
 * `sh`: to execute `shell` script;
   * example: `sh echo $PATH` to show `$PATH` variable;
 
+Path can be auto-complete and the space `' '` can be replaced by `\s`.
+
 ## Demo
 
 Functions can be tested with `./demo/june.ogg` of piano song (*Tchaikovsky - June Barcarolle Op. 37 No. 6*; I played) with:

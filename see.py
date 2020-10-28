@@ -344,10 +344,8 @@ class TerminalSeeAudio(object):
         [https://gist.github.com/iamatypeofwalrus/5637895]
         This is the tab completer for systems paths.
         Only tested on *nix systems
+        --> WATCH: space ` ` is replaced by `\\s`
         """
-        # TODO: `space` in path is not supported
-        readline.get_line_buffer().split()
-
         # replace ~ with the user's home dir
         if '~' in text:
             text = text.replace('~', os.path.expanduser('~'))
@@ -360,7 +358,7 @@ class TerminalSeeAudio(object):
         if os.path.isdir(text) and text != '/':
             text += '/'
 
-        return [x for x in glob.glob(text + '*')][state]
+        return [x.replace(' ', '\\s') for x in glob.glob(text.replace('\\s', ' ') + '*')][state]
 
     def main(self):
         """ main function """
@@ -378,6 +376,7 @@ class TerminalSeeAudio(object):
             input_ = input('</> ').strip()
 
             # 1. multiple input function (calculation)
+            # watch: space ` ` will be replaced by `\s`
             if input_.startswith('='):
                 command_success = False
                 command_result = []
@@ -416,16 +415,16 @@ class TerminalSeeAudio(object):
                 if input_split[0] == 'sh':
                     # noinspection PyBroadException
                     try:
-                        sh_output = subprocess.check_output(input_split[1], shell=True, stderr=subprocess.STDOUT,
-                                                            timeout=self.sh_timeout)
-                        print(f'<*> {sh_output}')
+                        sh_output = subprocess.check_output(input_split[1].replace('\\s', '\\ '), shell=True,
+                                                            stderr=subprocess.STDOUT, timeout=self.sh_timeout)
+                        print(f'<*> {str(sh_output.decode("utf-8").strip())}')
                     except Exception as e:
                         print(f'<!> error message: `{e}`')
                     continue
 
                 # 2.2 two input functions
                 if ' ' not in input_split[1] or self._path_input_check(input_split):
-                    try_input = self._get_try_path(input_split)
+                    try_input = self._get_try_path(input_split).replace('\\s', ' ')
                     # 2.2.0 set time parameters
                     if self._is_float(input_split[0]) and self._is_float(input_split[1]):
                         last_starting, last_ending, valid = self._prepare_graph_audio(float(input_split[0]),
