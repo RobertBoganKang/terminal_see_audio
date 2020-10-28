@@ -347,7 +347,7 @@ class TerminalSeeAudio(object):
         """
         readline.get_line_buffer().split()
 
-        # replace ~ with the user's home dir. See https://docs.python.org/2/library/os.path.html
+        # replace ~ with the user's home dir
         if '~' in text:
             text = text.replace('~', os.path.expanduser('~'))
 
@@ -355,7 +355,7 @@ class TerminalSeeAudio(object):
         text = os.path.abspath(text).replace('//', '/')
 
         # autocomplete directories with having a trailing slash
-        if os.path.isdir(text) and os.path.abspath(text) != '/':
+        if os.path.isdir(text) and text != '/':
             text += '/'
 
         return [x for x in glob.glob(text + '*')][state]
