@@ -38,9 +38,10 @@ python see.py <input_file>
 * `p`: play audio;
 * `q`: quit program;
 * `r`: reset starting and ending time;
-* `m`: change the `mode` of showing spectral graphics; there are 4 modes can be changed;
+* `m`: change the `mode` of showing graphics; there are several modes can be changed;
   * `fft` and `fbank` changes the `y` axis transform;
   * `power` and `log` change the color density (spectral values) transform of graphics;
+  * `mono` and `stereo` change the channel number to be `1` or `not 1` if have;
   * example: `m fft` means switch to `fft` mode;
 * `sr`: change the sample rate of showing audio;
   * example: `sr 16000` means switch to `16000Hz` sample rate;

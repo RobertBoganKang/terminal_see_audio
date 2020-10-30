@@ -39,6 +39,7 @@ class TerminalSeeAudio(object):
         # system parameters
         self.sample_rate = 8000
         self.min_sample_rate = 1000
+        self.mono_stereo = 'mono'
         self.figure_size = (12, 4)
         # spectral mode
         self.spectral_transform_y = 'fbank'
@@ -70,9 +71,10 @@ class TerminalSeeAudio(object):
         self.min_duration = None
         self.data = []
         self.time = []
+        self.channel_num = 1
 
         # spectral modes
-        self.spectral_modes = ['fft', 'fbank', 'power', 'log']
+        self.spectral_modes = ['fft', 'fbank', 'power', 'log', 'mono', 'stereo']
 
     def _initialization(self):
         # demo mode message
@@ -95,13 +97,23 @@ class TerminalSeeAudio(object):
 
     def _initialize_audio(self):
         """ read audio and prepare data """
-        self.data, _ = librosa.load(self.input, sr=self.sample_rate, mono=True)
-        self.time = range(len(self.data))
+        if self.mono_stereo == 'mono':
+            self.data, _ = librosa.load(self.input, sr=self.sample_rate, mono=True)
+        elif self.mono_stereo == 'stereo':
+            self.data, _ = librosa.load(self.input, sr=self.sample_rate, mono=False)
+        else:
+            raise ValueError(f'audio channel type `{self.mono_stereo}` unrecognized')
+        # fix mono mode
+        self.data = np.array(self.data)
+        if len(self.data.shape) == 1:
+            self.data = [self.data]
+        self.channel_num = len(self.data)
+        self.time = range(len(self.data[0]))
         self.time = [x / self.sample_rate for x in self.time]
 
     def _check_audio_duration(self):
         """ check if raw audio too short """
-        if len(self.data) / self.sample_rate < self.min_duration:
+        if len(self.data[0]) / self.sample_rate < self.min_duration:
             raise ValueError('audio too short; exit')
 
     def _check_audio_duration_valid(self, starting, ending):
@@ -170,7 +182,7 @@ class TerminalSeeAudio(object):
 
     def _data_prepare(self, starting_time, ending_time):
         """ prepare partition of audios """
-        test_ending = len(self.data) / self.sample_rate
+        test_ending = len(self.data[0]) / self.sample_rate
         if starting_time < 0:
             print(f'<!> reset starting time {starting_time}-->{0}')
             starting_time = 0
@@ -180,22 +192,23 @@ class TerminalSeeAudio(object):
         if starting_time >= ending_time:
             print('<!> starting time >= ending time ~~> reset all')
             starting_time = 0
-            ending_time = len(self.data) / self.sample_rate
+            ending_time = len(self.data[0]) / self.sample_rate
         if not self._check_audio_duration_valid(starting_time, ending_time):
             return None, None, starting_time, ending_time, False
         # extract starting & ending sample
         starting_sample = max(int(self.sample_rate * starting_time), 0)
-        ending_sample = min(int(self.sample_rate * ending_time), len(self.data))
+        ending_sample = min(int(self.sample_rate * ending_time), len(self.data[0]))
         # make clip
-        data_ = self.data[starting_sample:ending_sample]
+        data_ = np.array([x[starting_sample:ending_sample] for x in self.data])
+        data_transpose = np.transpose(data_)
         time_ = self.time[starting_sample:ending_sample]
-        sf.write(self.audio_part_path, data_, self.sample_rate)
+        sf.write(self.audio_part_path, data_transpose, self.sample_rate)
         return data_, time_, starting_time, ending_time, True
 
-    def _plot_wave(self, data_, time_, grid):
+    def _plot_wave(self, data_one, time_, grid, plot_position):
         """ plot wave """
         # plot audio wave
-        fig1 = plt.subplot(grid[0, 0])
+        fig1 = plt.subplot(grid[plot_position, 0])
         # create a function to define line width
         duration = time_[-1] - time_[0]
         if duration > self.line_width_params[2]:
@@ -203,19 +216,23 @@ class TerminalSeeAudio(object):
         else:
             line_width = (self.line_width_params[1] - (self.line_width_params[1] - self.line_width_params[0]) /
                           self.line_width_params[-1] * duration)
-        fig1.plot(time_, data_, linewidth=line_width, color=self.wave_color)
+        fig1.plot(time_, data_one, linewidth=line_width, color=self.wave_color)
         fig1.set_xlim(left=time_[0], right=time_[-1])
         fig1.axes.get_yaxis().set_ticks([])
         fig1.spines['left'].set_visible(False)
         fig1.spines['right'].set_visible(False)
         fig1.spines['top'].set_visible(False)
-        fig1.spines['bottom'].set_color(self.axis_color)
-        fig1.tick_params(axis='x', colors=self.axis_color)
+        if plot_position == self.channel_num - 1:
+            fig1.spines['bottom'].set_color(self.axis_color)
+            fig1.tick_params(axis='x', colors=self.axis_color)
+        else:
+            fig1.axes.get_xaxis().set_ticks([])
+            fig1.spines['bottom'].set_visible(False)
 
-    def _plot_spectral(self, data, grid):
+    def _plot_spectral(self, data_one, grid, plot_position):
         """ plot spectral """
         # plot spectral
-        spectral = self._calc_sp(data)
+        spectral = self._calc_sp(data_one)
         if self.spectral_transform_y == 'fbank':
             spectral = self._mel_filter(spectral)
         elif self.spectral_transform_y == 'fft':
@@ -235,22 +252,25 @@ class TerminalSeeAudio(object):
         spectral = np.transpose(spectral)
 
         # plot
-        fig2 = plt.subplot(grid[1:self.graphics_ratio, 0])
+        fig2 = plt.subplot(
+            grid[self.channel_num + (self.graphics_ratio - 1) * plot_position:
+                 self.channel_num + (self.graphics_ratio - 1) * (plot_position + 1), 0])
         fig2.imshow(spectral, aspect='auto', cmap=self.spectral_color)
         fig2.axis('off')
 
     def _prepare_graph_audio(self, starting_time, ending_time):
         """ prepare graphics and audio files """
         # default settings
-        grid = plt.GridSpec(self.graphics_ratio, 1, wspace=0, hspace=0)
+        grid = plt.GridSpec(self.graphics_ratio * self.channel_num, 1, wspace=0, hspace=0)
         plt.figure(figsize=self.figure_size)
         plt.style.use('dark_background')
 
         data_, time_, starting_time, ending_time, valid = self._data_prepare(starting_time, ending_time)
         if not valid:
             return starting_time, ending_time, False
-        self._plot_spectral(data_, grid)
-        self._plot_wave(data_, time_, grid)
+        for i in range(len(data_)):
+            self._plot_spectral(data_[i], grid, i)
+            self._plot_wave(data_[i], time_, grid, i)
 
         # save figure
         plt.savefig(self.graphics_path, dpi=self.dpi, bbox_inches='tight')
@@ -311,7 +331,7 @@ class TerminalSeeAudio(object):
 
     def _initial_or_restore_running(self):
         """ first run & restore run """
-        self._prepare_graph_audio(0, len(self.data) / self.sample_rate)
+        self._prepare_graph_audio(0, len(self.data[0]) / self.sample_rate)
         self._terminal_plot()
 
     @staticmethod
@@ -367,7 +387,7 @@ class TerminalSeeAudio(object):
         self._initialize_temp()
         # prepare
         last_starting = 0
-        last_ending = len(self.data) / self.sample_rate
+        last_ending = len(self.data[0]) / self.sample_rate
         # 0. first run
         self._initial_or_restore_running()
         # loop to get inputs
@@ -438,6 +458,9 @@ class TerminalSeeAudio(object):
                                 self.spectral_transform_y = input_split[1]
                             elif input_split[1] in ['power', 'log']:
                                 self.spectral_transform_v = input_split[1]
+                            elif input_split[1] in ['mono', 'stereo']:
+                                self.mono_stereo = input_split[1]
+                                self._initialize_audio()
                             # recalculating
                             self._prepare_graph_audio(last_starting, last_ending)
                             print(f'<+> mode `{input_split[1]}` set')
