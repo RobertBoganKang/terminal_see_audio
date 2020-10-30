@@ -19,33 +19,29 @@ class TerminalSeeAudio(object):
         * play music
     """
 
-    def __init__(self, input_path):
+    def __init__(self):
         # demo mode
         self.demo_file = os.path.abspath(os.path.join(os.path.dirname(__file__), 'demo/june.ogg'))
 
         # io parameters
-        # if `None`: demo mode
-        if input_path is None:
-            if os.path.exists(self.demo_file):
-                self.input = self.demo_file
-            else:
-                raise ValueError('demo file missing, example cannot be proceeded.')
-        # regular mode
-        else:
-            self.input = os.path.abspath(input_path)
+        self.input = None
         self.temp_folder = os.path.join(os.path.dirname(__file__), 'tmp')
         self.readme_path = os.path.join(os.path.dirname(__file__), 'README.md')
 
         # system parameters
+        # audio parameters
         self.sample_rate = 8000
         self.min_sample_rate = 1000
         self.mono_stereo = 'mono'
-        self.figure_size = (12, 4)
+
         # spectral mode
         self.spectral_transform_y = 'fbank'
         self.spectral_transform_v = 'log'
+
+        # figure parameters
         # line width parameters with `thin`, `thick`, `mode_switch_time`
         self.line_width_params = [.2, 1.2, 3]
+        self.figure_size = (12, 4)
         self.dpi = 200
         self.graphics_ratio = 5
         # resolution of frequency (y) dimension
@@ -76,10 +72,21 @@ class TerminalSeeAudio(object):
         # spectral modes
         self.spectral_modes = ['fft', 'fbank', 'power', 'log', 'mono', 'stereo']
 
+    def _get_and_fix_input_path(self, in_path):
+        """ get input path """
+        # if `None`: demo mode
+        if in_path is None:
+            if os.path.exists(self.demo_file):
+                self.input = self.demo_file
+                print(f'<+> demo file `{self.demo_file}` will be tested')
+            else:
+                raise ValueError('demo file missing, example cannot be proceeded.')
+        # regular mode
+        else:
+            self.input = os.path.abspath(in_path)
+
     def _initialization(self):
         # demo mode message
-        if self.input == self.demo_file:
-            print(f'<+> demo file `{self.demo_file}` will be tested')
         os.makedirs(self.temp_folder, exist_ok=True)
         self._initialize_audio()
         self.n_overlap = self.n_window - self.n_step
@@ -380,8 +387,9 @@ class TerminalSeeAudio(object):
 
         return [x.replace(' ', '\\s') for x in glob.glob(text.replace('\\s', ' ') + '*')][state]
 
-    def main(self):
+    def main(self, in_path):
         """ main function """
+        self._get_and_fix_input_path(in_path)
         # initialization
         self._initialization()
         self._initialize_temp()
@@ -537,20 +545,20 @@ class TerminalSeeAudio(object):
 
 
 if __name__ == '__main__':
+    tsa = TerminalSeeAudio()
+
     # demo mode
     if len(sys.argv) == 1:
-        tsa = TerminalSeeAudio(None)
-        tsa.main()
+        tsa.main(None)
     # argument error
     elif len(sys.argv) > 2:
         print('argument error, please check number of arguments')
     # default mode
     else:
-        in_path = sys.argv[1]
-        if in_path in ['-h', '--help']:
-            TerminalSeeAudio(None).print_help()
-        elif not os.path.exists(in_path):
-            print(f'path [{in_path}] does not exist!')
+        input_path = sys.argv[1]
+        if input_path in ['-h', '--help']:
+            TerminalSeeAudio().print_help()
+        elif not os.path.exists(input_path):
+            print(f'path [{input_path}] does not exist!')
         else:
-            tsa = TerminalSeeAudio(in_path)
-            tsa.main()
+            tsa.main(input_path)
