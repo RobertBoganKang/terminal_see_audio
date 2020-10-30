@@ -58,6 +58,10 @@ class TerminalSeeAudio(object):
         self.spectral_power_transform_coefficient = 1 / 5
         # minimum hearing power for `log` mode
         self.min_hearing_power = 0.0005
+        # minimum hearing frequency
+        self.min_mel_freq = 16
+
+        # shell parameters
         # timeout for shell script
         self.sh_timeout = 10
 
@@ -69,9 +73,9 @@ class TerminalSeeAudio(object):
         # initialization
         self.n_overlap = None
         self.min_duration = None
+        self.channel_num = None
         self.data = []
         self.time = []
-        self.channel_num = 1
 
         # spectral modes
         self.spectral_modes = ['fft', 'fbank', 'power', 'log', 'mono', 'stereo']
@@ -149,7 +153,7 @@ class TerminalSeeAudio(object):
         n_filter = self.n_window
         n_fft = self.n_window
         # lowest hearing frequency
-        mel_min = 16
+        mel_min = self.min_mel_freq
         mel_max = 2595 * np.log10(1 + fs / 2.0 / 700)
         mel_points = np.linspace(mel_min, mel_max, n_filter + 2)
         hz_points = 700 * (10 ** (mel_points / 2595.0) - 1)
@@ -219,7 +223,7 @@ class TerminalSeeAudio(object):
     def _plot_wave(self, data_one, time_, grid, plot_position):
         """ plot wave """
         # plot audio wave
-        fig1 = plt.subplot(grid[plot_position, 0])
+        fig_wave = plt.subplot(grid[plot_position, 0])
         # create a function to define line width
         duration = time_[-1] - time_[0]
         if duration > self.line_width_params[2]:
@@ -227,18 +231,18 @@ class TerminalSeeAudio(object):
         else:
             line_width = (self.line_width_params[1] - (self.line_width_params[1] - self.line_width_params[0]) /
                           self.line_width_params[-1] * duration)
-        fig1.plot(time_, data_one, linewidth=line_width, color=self.wave_color)
-        fig1.set_xlim(left=time_[0], right=time_[-1])
-        fig1.axes.get_yaxis().set_ticks([])
-        fig1.spines['left'].set_visible(False)
-        fig1.spines['right'].set_visible(False)
-        fig1.spines['top'].set_visible(False)
+        fig_wave.plot(time_, data_one, linewidth=line_width, color=self.wave_color)
+        fig_wave.set_xlim(left=time_[0], right=time_[-1])
+        fig_wave.axes.get_yaxis().set_ticks([])
+        fig_wave.spines['left'].set_visible(False)
+        fig_wave.spines['right'].set_visible(False)
+        fig_wave.spines['top'].set_visible(False)
         if plot_position == self.channel_num - 1:
-            fig1.spines['bottom'].set_color(self.axis_color)
-            fig1.tick_params(axis='x', colors=self.axis_color)
+            fig_wave.spines['bottom'].set_color(self.axis_color)
+            fig_wave.tick_params(axis='x', colors=self.axis_color)
         else:
-            fig1.axes.get_xaxis().set_ticks([])
-            fig1.spines['bottom'].set_visible(False)
+            fig_wave.axes.get_xaxis().set_ticks([])
+            fig_wave.spines['bottom'].set_visible(False)
 
     def _plot_spectral(self, data_one, grid, plot_position):
         """ plot spectral """
@@ -263,11 +267,11 @@ class TerminalSeeAudio(object):
         spectral = np.transpose(spectral)
 
         # plot
-        fig2 = plt.subplot(
+        fig_spectral = plt.subplot(
             grid[self.channel_num + (self.graphics_ratio - 1) * plot_position:
                  self.channel_num + (self.graphics_ratio - 1) * (plot_position + 1), 0])
-        fig2.imshow(spectral, aspect='auto', cmap=self.spectral_color)
-        fig2.axis('off')
+        fig_spectral.imshow(spectral, aspect='auto', cmap=self.spectral_color)
+        fig_spectral.axis('off')
 
     def _prepare_graph_audio(self, starting_time, ending_time):
         """ prepare graphics and audio files """
