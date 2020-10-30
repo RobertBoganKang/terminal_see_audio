@@ -38,6 +38,10 @@ class TerminalSeeAudio(object):
         self.spectral_transform_y = 'fbank'
         self.spectral_transform_v = 'log'
 
+        # plot & play command (path will be replaced by `{}`)
+        self.plot_command = 'timg {}'
+        self.play_command = 'play {}'
+
         # figure parameters
         # line width parameters with `thin`, `thick`, `mode_switch_time`
         self.line_width_params = [.2, 1.2, 3]
@@ -288,12 +292,12 @@ class TerminalSeeAudio(object):
         if not os.path.exists(self.graphics_path):
             print('<!> temp image cannot find')
             return
-        command = ['timg', self.graphics_path]
+        command = self.plot_command.format(self.graphics_path)
         # noinspection PyBroadException
         try:
-            subprocess.call(command)
+            subprocess.call(command, shell=True)
         except Exception:
-            print(f'<!> please fix problem:\n<?> {" ".join(command)}')
+            print(f'<!> please fix problem:\n<?> {command}')
 
     def _terminal_play(self, start, end):
         """ play in terminal function """
@@ -311,12 +315,12 @@ class TerminalSeeAudio(object):
                 else:
                     print('<!> please type `y` or `n`')
                     continue
-        command = ['play', self.audio_part_path]
+        command = self.play_command.format(self.audio_part_path)
         # noinspection PyBroadException
         try:
-            subprocess.call(command)
+            subprocess.call(command, shell=True)
         except Exception:
-            print(f'<!> please fix problem:\n<?> {" ".join(command)}')
+            print(f'<!> please fix problem:\n<?> {command}')
 
     @staticmethod
     def _is_float(string):
@@ -493,8 +497,8 @@ class TerminalSeeAudio(object):
                             if self.input == try_input:
                                 print('<!> same file path')
                             else:
-                                self._initialize_audio()
                                 self.input = os.path.abspath(try_input)
+                                self._initialize_audio()
                                 print('<+> file path changed')
                                 self._initial_or_restore_running()
                         else:
