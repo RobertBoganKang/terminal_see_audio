@@ -48,6 +48,7 @@ class TerminalSeeAudio(object):
         self.figure_size = (12, 4)
         self.dpi = 200
         self.graphics_ratio = 5
+        self.normalize = False
         # resolution of frequency (y) dimension
         self.n_window = 1024
         # resolution of time (x) dimension
@@ -234,6 +235,8 @@ class TerminalSeeAudio(object):
         fig_wave.plot(time_, data_one, linewidth=line_width, color=self.wave_color)
         fig_wave.set_xlim(left=time_[0], right=time_[-1])
         fig_wave.axes.get_yaxis().set_ticks([])
+        if not self.normalize:
+            fig_wave.axes.set_ylim([-1, 1])
         fig_wave.spines['left'].set_visible(False)
         fig_wave.spines['right'].set_visible(False)
         fig_wave.spines['top'].set_visible(False)
@@ -537,9 +540,9 @@ class TerminalSeeAudio(object):
             # 3.3 `q` to quit program
             elif input_ == 'q':
                 break
-            # 3.4 `r` to reset starting and ending time
+            # 3.4 `r` to reset all
             elif input_ == 'r':
-                print('<!> reset starting & ending time')
+                print('<!> reset all')
                 self._initial_or_restore_running()
             # 3.5 `h` to print help file
             elif input_ == 'h':
