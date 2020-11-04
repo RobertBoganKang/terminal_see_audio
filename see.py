@@ -47,11 +47,17 @@ class TerminalSeeAudio(object):
         # line width parameters with `thin`, `thick`, `mode_switch_time`
         self.line_width_params = [.2, 1.2, 3]
         self.figure_size = (12, 4)
+        self.spiral_figure_size = (12, 12)
         self.figure_dpi = 200
         self.graphics_ratio = 5
         self.plot_normalize = False
+        self.golden_ratio = (np.sqrt(5) - 1) / 2
+        # default for 12 equal temperament
+        self.spiral_n_temperament = 12
+        self.spiral_dot_size = 1000
         # resolution of frequency (y) dimension
         self.n_window = 1024
+        self.spiral_n_window = 4096
         # resolution of time (x) dimension
         self.n_step = 128
         # max duration for audio to play (30s)
@@ -71,10 +77,12 @@ class TerminalSeeAudio(object):
         self.plot_axis_color = 'white'
         self.plot_spectral_color = 'magma'
         self.plot_wave_color = 'mediumspringgreen'
+        self.a_pitch_color = 'red'
 
         # initialization
         self.n_overlap = None
         self.min_duration = None
+        self.spiral_min_duration = None
         self.channel_num = None
         self.data = []
         self.time = []
@@ -101,6 +109,7 @@ class TerminalSeeAudio(object):
         self._initialize_audio()
         self.n_overlap = self.n_window - self.n_step
         self.min_duration = self.n_window / self.sample_rate
+        self.spiral_min_duration = self.spiral_n_window / self.sample_rate
         self._check_audio_duration()
         # initialize path autocomplete
         readline.set_completer_delims(' \t\n;')
@@ -110,6 +119,8 @@ class TerminalSeeAudio(object):
     def _initialize_temp(self):
         """ temp file path initialization """
         self.graphics_path = os.path.join(self.temp_folder, 'wave_spectral.png')
+        self.spiral_graphics_path = os.path.join(self.temp_folder, 'spiral.png')
+        self.spiral_ifft_audio_path = os.path.join(self.temp_folder, 'spiral_ifft.wav')
         self.audio_part_path = os.path.join(self.temp_folder, 'audio.wav')
 
     def _initialize_audio(self):
@@ -132,6 +143,13 @@ class TerminalSeeAudio(object):
         """ check if raw audio too short """
         if len(self.data[0]) / self.sample_rate < self.min_duration:
             raise ValueError('audio too short; exit')
+
+    def _check_spiral_duration(self, starting_time):
+        """ check if raw audio too short for spiral plot """
+        if len(self.data[0]) / self.sample_rate < self.spiral_min_duration + starting_time or starting_time < 0:
+            return False
+        else:
+            return True
 
     def _check_audio_duration_valid(self, starting, ending):
         """ check if greater than minimum duration """
@@ -178,18 +196,18 @@ class TerminalSeeAudio(object):
         filter_banks = np.where(filter_banks == 0, np.finfo(float).eps, filter_banks)
         return filter_banks
 
-    def _calc_sp(self, audio):
+    def _calc_sp(self, audio, n_window, n_overlap):
         """
         Calculate spectrogram.
         :param audio: list(float): audio data
         :return: list(list(float)): the spectral data
         """
-        ham_win = np.hamming(self.n_window)
+        ham_win = np.hamming(n_window)
         [_, _, x] = signal.spectral.spectrogram(
             audio,
             window=ham_win,
-            nperseg=self.n_window,
-            noverlap=self.n_overlap,
+            nperseg=n_window,
+            noverlap=n_overlap,
             detrend=False,
             return_onesided=True,
             mode='magnitude')
@@ -251,7 +269,7 @@ class TerminalSeeAudio(object):
     def _plot_spectral(self, data_one, grid, plot_position):
         """ plot spectral """
         # plot spectral
-        spectral = self._calc_sp(data_one)
+        spectral = self._calc_sp(data_one, self.n_window, self.n_overlap)
         if self.spectral_transform_y == 'fbank':
             spectral = self._mel_filter(spectral)
         elif self.spectral_transform_y == 'fft':
@@ -295,21 +313,102 @@ class TerminalSeeAudio(object):
         plt.savefig(self.graphics_path, dpi=self.figure_dpi, bbox_inches='tight')
         return starting_time, ending_time, True
 
-    def _terminal_plot(self):
+    def _spiral_fft_position_to_frequency(self, position):
+        return position * self.sample_rate / self.spiral_n_window
+
+    @staticmethod
+    def _spiral_frequency_to_pitch(frequency):
+        return np.log2(frequency / 440) + 5
+
+    @staticmethod
+    def _spiral_pitch_to_plot_position(pitch):
+        x_position = np.cos(pitch * 2 * np.pi + np.pi) * pitch
+        y_position = -np.sin(pitch * 2 * np.pi + np.pi) * pitch
+        return x_position, y_position
+
+    def _spiral_polar_transform(self, array):
+        x_array = []
+        y_array = []
+        area_array = []
+        for i, t in enumerate(array):
+            # skip low frequency part
+            if self._spiral_fft_position_to_frequency(i) < max(self.min_mel_freq, 16):
+                continue
+            pitch = self._spiral_frequency_to_pitch(self._spiral_fft_position_to_frequency(i))
+            x_position, y_position = self._spiral_pitch_to_plot_position(pitch)
+            x_array.append(x_position)
+            y_array.append(y_position)
+            area_array.append(np.log2((t + 1) ** 2) * self.spiral_dot_size)
+        return x_array, y_array, area_array
+
+    def _prepare_graph_spiral(self, starting_time):
+        plt.figure(figsize=self.spiral_figure_size)
+        plt.style.use('dark_background')
+        valid = self._check_spiral_duration(starting_time)
+        if not valid:
+            print(
+                f'<!> starting time set false\n'
+                f'<!> number should be `0`~ `{len(self.data[0]) / self.sample_rate - self.spiral_min_duration}`s'
+            )
+            return False
+        else:
+            # get starting sample index
+            starting_sample = int(starting_time * self.sample_rate)
+            # get mono data for spectral
+            mono_data = np.sum(self.data, axis=0)[starting_sample:starting_sample + self.spiral_n_window]
+            fft_data = self._calc_sp(mono_data, self.spiral_n_window, self.n_overlap)[0]
+            if np.max(fft_data) != 0:
+                fft_data /= (np.max(fft_data) / self.golden_ratio)
+            # pitch ticks for `n` temperament
+            pitch_ticks = [(x + int(self._spiral_frequency_to_pitch(self.sample_rate / 2) * self.spiral_n_temperament)
+                            - (self.spiral_n_temperament - 1)) / self.spiral_n_temperament for x in
+                           range(self.spiral_n_temperament)]
+            pitch_positions = [self._spiral_pitch_to_plot_position(x) for x in pitch_ticks]
+            # prepare data
+            x_arr, y_arr, a_arr = self._spiral_polar_transform(fft_data)
+            ax_position, ay_position = self._spiral_pitch_to_plot_position(5)
+            plt.figure(figsize=self.spiral_figure_size)
+            # plot ticks for `n` temperament
+            for position in pitch_positions:
+                plt.plot([0, position[0]], [0, position[1]], c=self.plot_axis_color, zorder=1, alpha=0.3)
+
+            # `plot A_4=440Hz` position
+            plt.scatter([ax_position], [ay_position], s=[2 * self.spiral_dot_size], c=self.a_pitch_color, zorder=2,
+                        alpha=0.5)
+            # plot spiral baseline
+            plt.plot(x_arr, y_arr, c=self.plot_wave_color, zorder=3, alpha=0.6)
+            # plot data
+            plt.scatter(x_arr, y_arr, s=a_arr, c=self.plot_wave_color, zorder=4, alpha=0.9)
+            plt.axis('off')
+
+            ax = plt.gca()
+            ax.set_aspect(1)
+
+            # plt.show()
+            plt.savefig(self.spiral_graphics_path, dpi=self.figure_dpi, bbox_inches='tight')
+
+            # prepare ifft play
+            ff1 = np.array(list(fft_data) + list(-fft_data[::-1]))
+            ifft_data = np.real(np.fft.ifft(ff1))
+            ifft_data /= np.max(np.abs(ifft_data))
+            sf.write(self.spiral_ifft_audio_path, ifft_data, samplerate=self.sample_rate)
+            return True
+
+    def _terminal_plot(self, path):
         """ plot in terminal function """
-        if not os.path.exists(self.graphics_path):
+        if not os.path.exists(path):
             print('<!> temp image cannot find')
             return
-        command = self.plot_command.format(self.graphics_path)
+        command = self.plot_command.format(path)
         # noinspection PyBroadException
         try:
             subprocess.call(command, shell=True)
         except Exception:
             print(f'<!> please fix problem:\n<?> {command}')
 
-    def _terminal_play(self, start, end):
+    def _terminal_play(self, start, end, path):
         """ play in terminal function """
-        if not os.path.exists(self.audio_part_path):
+        if not os.path.exists(path):
             print('<!> temp audio cannot find')
             return
         if end - start > self.play_max_duration:
@@ -323,7 +422,7 @@ class TerminalSeeAudio(object):
                 else:
                     print('<!> please type `y` or `n`')
                     continue
-        command = self.play_command.format(self.audio_part_path)
+        command = self.play_command.format(path)
         # noinspection PyBroadException
         try:
             subprocess.call(command, shell=True)
@@ -351,7 +450,7 @@ class TerminalSeeAudio(object):
     def _initial_or_restore_running(self):
         """ first run & restore run """
         self._prepare_graph_audio(0, len(self.data[0]) / self.sample_rate)
-        self._terminal_plot()
+        self._terminal_plot(self.graphics_path)
 
     @staticmethod
     def _path_input_check(input_split):
@@ -465,12 +564,12 @@ class TerminalSeeAudio(object):
                 # 2.2 two input functions
                 if ' ' not in input_split[1] or self._path_input_check(input_split):
                     try_input = self._get_try_path(input_split).replace('\\s', ' ')
-                    # 2.2.0 set time parameters
+                    # 2.2.0 set time parameters for wave spectral plot
                     if self._is_float(input_split[0]) and self._is_float(input_split[1]):
                         last_starting, last_ending, valid = self._prepare_graph_audio(float(input_split[0]),
                                                                                       float(input_split[1]))
                         if valid:
-                            self._terminal_plot()
+                            self._terminal_plot(self.graphics_path)
                     # 2.2.1 set modes
                     elif input_split[0] == 'm':
                         if input_split[1] in self.graphics_modes:
@@ -522,6 +621,16 @@ class TerminalSeeAudio(object):
                             self._initialize_temp()
                         else:
                             print(f'<!> file path `{try_input}` already exist')
+                    # 2.2.5 get spiral analyzer
+                    elif input_split[0] == 'spiral':
+                        if self._is_float(input_split[1]):
+                            status = self._prepare_graph_spiral(float(input_split[1]))
+                            if status:
+                                self._terminal_plot(self.spiral_graphics_path)
+                        elif input_split[1] == 'p':
+                            self._terminal_play(0, 0.1, self.spiral_ifft_audio_path)
+                        else:
+                            print('<!> `spiral` inputs unknown')
                     # 2.2.* two inputs case error
                     else:
                         print('<!> two inputs case unknown')
@@ -534,10 +643,10 @@ class TerminalSeeAudio(object):
             # 3. single input
             # 3.1 `p` to play music
             elif input_ == 'p':
-                self._terminal_play(last_starting, last_ending)
+                self._terminal_play(last_starting, last_ending, self.audio_part_path)
             # 3.2 `` to show last image
             elif input_ == '':
-                self._terminal_plot()
+                self._terminal_plot(self.graphics_path)
             # 3.3 `q` to quit program
             elif input_ == 'q':
                 break
