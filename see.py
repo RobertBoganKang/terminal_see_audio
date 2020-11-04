@@ -78,6 +78,7 @@ class TerminalSeeAudio(object):
         self.plot_spectral_color = 'magma'
         self.plot_wave_color = 'mediumspringgreen'
         self.a_pitch_color = 'red'
+        self.spiral_axis_color = 'white'
 
         # initialization
         self.n_overlap = None
@@ -196,7 +197,8 @@ class TerminalSeeAudio(object):
         filter_banks = np.where(filter_banks == 0, np.finfo(float).eps, filter_banks)
         return filter_banks
 
-    def _calc_sp(self, audio, n_window, n_overlap):
+    @staticmethod
+    def _calc_sp(audio, n_window, n_overlap):
         """
         Calculate spectrogram.
         :param audio: list(float): audio data
@@ -370,7 +372,7 @@ class TerminalSeeAudio(object):
             plt.figure(figsize=self.spiral_figure_size)
             # plot ticks for `n` temperament
             for position in pitch_positions:
-                plt.plot([0, position[0]], [0, position[1]], c=self.plot_axis_color, zorder=1, alpha=0.3)
+                plt.plot([0, position[0]], [0, position[1]], c=self.spiral_axis_color, zorder=1, alpha=0.3)
 
             # `plot A_4=440Hz` position
             plt.scatter([ax_position], [ay_position], s=[2 * self.spiral_dot_size], c=self.a_pitch_color, zorder=2,
