@@ -46,6 +46,7 @@ class TerminalSeeAudio(object):
         # figure parameters
         # line width parameters with `thin`, `thick`, `mode_switch_time`
         self.line_width_params = [.2, 1.2, 3]
+        self.spiral_line_width = 0.3
         self.figure_size = (12, 4)
         self.spiral_figure_size = (12, 12)
         self.figure_dpi = 200
@@ -54,7 +55,6 @@ class TerminalSeeAudio(object):
         self.golden_ratio = (np.sqrt(5) - 1) / 2
         # default for 12 equal temperament
         self.spiral_n_temperament = 12
-        self.spiral_dot_size = 1000
         # resolution of frequency (y) dimension
         self.n_window = 1024
         self.spiral_n_window = 4096
@@ -66,6 +66,7 @@ class TerminalSeeAudio(object):
         self.spectral_power_transform_coefficient = 1 / 5
         # minimum hearing power for `log` mode
         self.min_hearing_power = 0.0005
+        self.min_spiral_power = 0.03
         # minimum hearing frequency
         self.min_mel_freq = 16
 
@@ -323,25 +324,32 @@ class TerminalSeeAudio(object):
         return np.log2(frequency / 440) + 5
 
     @staticmethod
-    def _spiral_pitch_to_plot_position(pitch):
-        x_position = np.cos(pitch * 2 * np.pi + np.pi) * pitch
-        y_position = -np.sin(pitch * 2 * np.pi + np.pi) * pitch
+    def _spiral_pitch_to_plot_position(pitch, offset):
+        x_position = np.cos(pitch * 2 * np.pi + np.pi) * (pitch + offset)
+        y_position = -np.sin(pitch * 2 * np.pi + np.pi) * (pitch + offset)
         return x_position, y_position
 
     def _spiral_polar_transform(self, array):
-        x_array = []
-        y_array = []
-        area_array = []
+        array = np.array([self.golden_ratio * np.log(x + self.min_spiral_power) for x in array])
+        array -= np.min(array)
+        if np.max(array) != 0:
+            array /= np.max(array)
+        x_array_0 = []
+        y_array_0 = []
+        x_array_1 = []
+        y_array_1 = []
         for i, t in enumerate(array):
             # skip low frequency part
             if self._spiral_fft_position_to_frequency(i) < max(self.min_mel_freq, 16):
                 continue
             pitch = self._spiral_frequency_to_pitch(self._spiral_fft_position_to_frequency(i))
-            x_position, y_position = self._spiral_pitch_to_plot_position(pitch)
-            x_array.append(x_position)
-            y_array.append(y_position)
-            area_array.append(np.log2((t + 1) ** 2) * self.spiral_dot_size)
-        return x_array, y_array, area_array
+            x_position, y_position = self._spiral_pitch_to_plot_position(pitch, -t / 2)
+            x_array_0.append(x_position)
+            y_array_0.append(y_position)
+            x_position, y_position = self._spiral_pitch_to_plot_position(pitch, t / 2)
+            x_array_1.append(x_position)
+            y_array_1.append(y_position)
+        return (x_array_0, y_array_0), (x_array_1, y_array_1)
 
     def _prepare_graph_spiral(self, starting_time):
         plt.figure(figsize=self.spiral_figure_size)
@@ -365,22 +373,29 @@ class TerminalSeeAudio(object):
             pitch_ticks = [(x + int(self._spiral_frequency_to_pitch(self.sample_rate / 2) * self.spiral_n_temperament)
                             - (self.spiral_n_temperament - 1)) / self.spiral_n_temperament for x in
                            range(self.spiral_n_temperament)]
-            pitch_positions = [self._spiral_pitch_to_plot_position(x) for x in pitch_ticks]
+            pitch_positions = [self._spiral_pitch_to_plot_position(x, 0) for x in pitch_ticks]
             # prepare data
-            x_arr, y_arr, a_arr = self._spiral_polar_transform(fft_data)
-            ax_position, ay_position = self._spiral_pitch_to_plot_position(5)
+            position_0, position_1 = self._spiral_polar_transform(fft_data)
+            ax_position, ay_position = self._spiral_pitch_to_plot_position(5, 0)
             plt.figure(figsize=self.spiral_figure_size)
             # plot ticks for `n` temperament
             for position in pitch_positions:
                 plt.plot([0, position[0]], [0, position[1]], c=self.spiral_axis_color, zorder=1, alpha=0.3)
+            # plot spiral
+            for i in range(len(position_0[0]) - 1):
+                pos0 = [position_0[0][i], position_0[1][i]]
+                pos1 = [position_1[0][i], position_1[1][i]]
+                pos2 = [position_1[0][i + 1], position_1[1][i + 1]]
+                pos3 = [position_0[0][i + 1], position_0[1][i + 1]]
+                poly_position = np.array([pos0, pos1, pos2, pos3])
+                plt.fill(poly_position[:, 0], poly_position[:, 1], facecolor=self.plot_wave_color,
+                         edgecolor=self.plot_wave_color, linewidth=self.spiral_line_width,
+                         alpha=0.7, zorder=2)
 
             # `plot A_4=440Hz` position
-            plt.scatter([ax_position], [ay_position], s=[2 * self.spiral_dot_size], c=self.a_pitch_color, zorder=2,
-                        alpha=0.5)
-            # plot spiral baseline
-            plt.plot(x_arr, y_arr, c=self.plot_wave_color, zorder=3, alpha=0.6)
-            # plot data
-            plt.scatter(x_arr, y_arr, s=a_arr, c=self.plot_wave_color, zorder=4, alpha=0.9)
+            plt.scatter([ax_position], [ay_position], c=self.a_pitch_color, zorder=3,
+                        alpha=0.7)
+
             plt.axis('off')
 
             ax = plt.gca()
