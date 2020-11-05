@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.signal as signal
 import soundfile as sf
+from matplotlib.patches import Circle
 
 
 class TerminalSeeAudio(object):
@@ -32,6 +33,7 @@ class TerminalSeeAudio(object):
         # audio parameters
         self.sample_rate = 8000
         self.min_sample_rate = 1000
+        self.a4_frequency = 440
         # `mono` or `stereo` (>1 channel)
         self.channel_type = 'mono'
 
@@ -46,13 +48,14 @@ class TerminalSeeAudio(object):
         # figure parameters
         # line width parameters with `thin`, `thick`, `mode_switch_time`
         self.line_width_params = [.2, 1.2, 3]
-        self.spiral_line_width = 0.3
+        self.spiral_line_width = 0.6
         self.figure_size = (12, 4)
         self.spiral_figure_size = (12, 12)
         self.figure_dpi = 200
+        self.spiral_dpi = 300
         self.graphics_ratio = 5
         self.plot_normalize = False
-        self.golden_ratio = (np.sqrt(5) - 1) / 2
+        self.spiral_base_opacity = 0.01
         # default for 12 equal temperament
         self.spiral_n_temperament = 12
         # resolution of frequency (y) dimension
@@ -66,7 +69,7 @@ class TerminalSeeAudio(object):
         self.spectral_power_transform_coefficient = 1 / 5
         # minimum hearing power for `log` mode
         self.min_hearing_power = 0.0005
-        self.min_spiral_power = 0.03
+        self.min_spiral_power = 0.01
         # minimum hearing frequency
         self.min_mel_freq = 16
 
@@ -79,7 +82,7 @@ class TerminalSeeAudio(object):
         self.plot_spectral_color = 'magma'
         self.plot_wave_color = 'mediumspringgreen'
         self.a_pitch_color = 'red'
-        self.spiral_axis_color = 'white'
+        self.spiral_axis_color = 'mediumspringgreen'
 
         # initialization
         self.n_overlap = None
@@ -319,9 +322,8 @@ class TerminalSeeAudio(object):
     def _spiral_fft_position_to_frequency(self, position):
         return position * self.sample_rate / self.spiral_n_window
 
-    @staticmethod
-    def _spiral_frequency_to_pitch(frequency):
-        return np.log2(frequency / 440) + 5
+    def _spiral_frequency_to_pitch(self, frequency):
+        return np.log2(frequency / self.a4_frequency) + 5
 
     @staticmethod
     def _spiral_pitch_to_plot_position(pitch, offset):
@@ -330,7 +332,7 @@ class TerminalSeeAudio(object):
         return x_position, y_position
 
     def _spiral_polar_transform(self, array):
-        array = np.array([self.golden_ratio * np.log(x + self.min_spiral_power) for x in array])
+        array = np.array([np.log(x + self.min_spiral_power) for x in array])
         array -= np.min(array)
         if np.max(array) != 0:
             array /= np.max(array)
@@ -338,22 +340,24 @@ class TerminalSeeAudio(object):
         y_array_0 = []
         x_array_1 = []
         y_array_1 = []
+        pitches = []
+        transformed_array = []
         for i, t in enumerate(array):
             # skip low frequency part
-            if self._spiral_fft_position_to_frequency(i) < max(self.min_mel_freq, 16):
-                continue
-            pitch = self._spiral_frequency_to_pitch(self._spiral_fft_position_to_frequency(i))
-            x_position, y_position = self._spiral_pitch_to_plot_position(pitch, -t / 2)
-            x_array_0.append(x_position)
-            y_array_0.append(y_position)
-            x_position, y_position = self._spiral_pitch_to_plot_position(pitch, t / 2)
-            x_array_1.append(x_position)
-            y_array_1.append(y_position)
-        return (x_array_0, y_array_0), (x_array_1, y_array_1)
+            if i > 0:
+                pitch = self._spiral_frequency_to_pitch(self._spiral_fft_position_to_frequency(i))
+                if pitch > 0:
+                    pitches.append(pitch)
+                    transformed_array.append(t)
+                    x_position, y_position = self._spiral_pitch_to_plot_position(pitch, -t / 2)
+                    x_array_0.append(x_position)
+                    y_array_0.append(y_position)
+                    x_position, y_position = self._spiral_pitch_to_plot_position(pitch, t / 2)
+                    x_array_1.append(x_position)
+                    y_array_1.append(y_position)
+        return (x_array_0, y_array_0), (x_array_1, y_array_1), transformed_array, pitches
 
     def _prepare_graph_spiral(self, starting_time):
-        plt.figure(figsize=self.spiral_figure_size)
-        plt.style.use('dark_background')
         valid = self._check_spiral_duration(starting_time)
         if not valid:
             print(
@@ -368,19 +372,34 @@ class TerminalSeeAudio(object):
             mono_data = np.sum(self.data, axis=0)[starting_sample:starting_sample + self.spiral_n_window]
             fft_data = self._calc_sp(mono_data, self.spiral_n_window, self.n_overlap)[0]
             if np.max(fft_data) != 0:
-                fft_data /= (np.max(fft_data) / self.golden_ratio)
-            # pitch ticks for `n` temperament
-            pitch_ticks = [(x + int(self._spiral_frequency_to_pitch(self.sample_rate / 2) * self.spiral_n_temperament)
-                            - (self.spiral_n_temperament - 1)) / self.spiral_n_temperament for x in
-                           range(self.spiral_n_temperament)]
-            pitch_positions = [self._spiral_pitch_to_plot_position(x, 0) for x in pitch_ticks]
+                fft_data /= np.max(fft_data)
+
             # prepare data
-            position_0, position_1 = self._spiral_polar_transform(fft_data)
+            position_0, position_1, fft_data_transformed, pitches = self._spiral_polar_transform(fft_data)
+            min_pitch = pitches[0]
+            # pitch ticks for `n` temperament
+            pitch_ticks_end = [
+                (x + int(self._spiral_frequency_to_pitch(self.sample_rate / 2) * self.spiral_n_temperament)
+                 - (self.spiral_n_temperament - 1)) / self.spiral_n_temperament for x in
+                range(self.spiral_n_temperament)]
+            pitch_ticks_start = [x - int(x - min_pitch) for x in pitch_ticks_end]
+            pitch_end_ticks_position = [self._spiral_pitch_to_plot_position(x, 0) for x in pitch_ticks_end]
+            pitch_start_ticks_position = [self._spiral_pitch_to_plot_position(x, 0) for x in pitch_ticks_start]
             ax_position, ay_position = self._spiral_pitch_to_plot_position(5, 0)
+
+            # making plots
+            plt.style.use('dark_background')
             plt.figure(figsize=self.spiral_figure_size)
+            fig, ax = plt.subplots()
             # plot ticks for `n` temperament
-            for position in pitch_positions:
-                plt.plot([0, position[0]], [0, position[1]], c=self.spiral_axis_color, zorder=1, alpha=0.3)
+            for i in range(len(pitch_end_ticks_position)):
+                plt.plot([pitch_start_ticks_position[i][0], pitch_end_ticks_position[i][0]],
+                         [pitch_start_ticks_position[i][1], pitch_end_ticks_position[i][1]],
+                         c=self.spiral_axis_color, zorder=1, alpha=0.3, linewidth=self.spiral_line_width)
+                cir = Circle((pitch_end_ticks_position[i][0], pitch_end_ticks_position[i][1]), radius=0.05, zorder=2,
+                             facecolor='black', edgecolor=self.spiral_axis_color, alpha=0.4)
+                ax.add_patch(cir)
+
             # plot spiral
             for i in range(len(position_0[0]) - 1):
                 pos0 = [position_0[0][i], position_0[1][i]]
@@ -388,21 +407,22 @@ class TerminalSeeAudio(object):
                 pos2 = [position_1[0][i + 1], position_1[1][i + 1]]
                 pos3 = [position_0[0][i + 1], position_0[1][i + 1]]
                 poly_position = np.array([pos0, pos1, pos2, pos3])
+                opacity = (self.spiral_base_opacity + (1 - self.spiral_base_opacity) *
+                           (fft_data_transformed[i] + fft_data_transformed[i + 1]) / 2)
                 plt.fill(poly_position[:, 0], poly_position[:, 1], facecolor=self.plot_wave_color,
                          edgecolor=self.plot_wave_color, linewidth=self.spiral_line_width,
-                         alpha=0.7, zorder=2)
+                         alpha=opacity, zorder=2)
+            # plot `A4` position
+            cir = Circle((ax_position, ay_position), radius=0.2, zorder=3, facecolor=self.a_pitch_color,
+                         edgecolor=self.a_pitch_color, alpha=0.6)
+            ax.add_patch(cir)
 
-            # `plot A_4=440Hz` position
-            plt.scatter([ax_position], [ay_position], c=self.a_pitch_color, zorder=3,
-                        alpha=0.7)
+            # set figure ratio
+            plt.gca().set_aspect(1)
 
             plt.axis('off')
-
-            ax = plt.gca()
-            ax.set_aspect(1)
-
-            # plt.show()
-            plt.savefig(self.spiral_graphics_path, dpi=self.figure_dpi, bbox_inches='tight')
+            # save figure
+            plt.savefig(self.spiral_graphics_path, dpi=self.spiral_dpi, bbox_inches='tight')
 
             # prepare ifft play
             ff1 = np.array(list(fft_data) + list(-fft_data[::-1]))
@@ -532,11 +552,12 @@ class TerminalSeeAudio(object):
             input_ = input('</> ').strip()
 
             # 1. multiple input function (calculation)
+            # 1.1 `=` for advanced script
             # watch: space ` ` will be replaced by `\s`
             if input_.startswith('='):
                 command_success = False
                 command_result = []
-                # 1.1 to evaluate
+                # 1.1.1 to evaluate
                 if not command_success:
                     try:
                         return_string = eval(input_[1:])
@@ -545,7 +566,7 @@ class TerminalSeeAudio(object):
                         continue
                     except Exception as e:
                         command_result.append(e)
-                # 1.2 to execute
+                # 1.1.2 to execute
                 if not command_success:
                     try:
                         exec(input_[1:])
@@ -556,11 +577,23 @@ class TerminalSeeAudio(object):
                         continue
                     except Exception as e:
                         command_result.append(e)
-                # 1.* advanced script error
+                # 1.1.* advanced script error
                 if not command_success:
                     print(f'<!> evaluate error message: `{command_result[0]}`')
                     print(f'<!> execute error message: `{command_result[1]}`')
                     continue
+            # 1.2 get spiral (`@`) analyzer
+            elif input_.startswith('@'):
+                command = input_[1:].strip()
+                if self._is_float(command):
+                    status = self._prepare_graph_spiral(float(command))
+                    if status:
+                        self._terminal_plot(self.spiral_graphics_path)
+                elif command == 'p':
+                    self._terminal_play(0, 0.1, self.spiral_ifft_audio_path)
+                else:
+                    print('<!> `spiral` inputs unknown')
+                continue
 
             # 2. contain space case
             if ' ' in input_:
@@ -638,20 +671,10 @@ class TerminalSeeAudio(object):
                             self._initialize_temp()
                         else:
                             print(f'<!> file path `{try_input}` already exist')
-                    # 2.2.5 get spiral analyzer
-                    elif input_split[0] == 'spiral':
-                        if self._is_float(input_split[1]):
-                            status = self._prepare_graph_spiral(float(input_split[1]))
-                            if status:
-                                self._terminal_plot(self.spiral_graphics_path)
-                        elif input_split[1] == 'p':
-                            self._terminal_play(0, 0.1, self.spiral_ifft_audio_path)
-                        else:
-                            print('<!> `spiral` inputs unknown')
                     # 2.2.* two inputs case error
                     else:
                         print('<!> two inputs case unknown')
-                        continue
+                    continue
                 # 2.* too many inputs error
                 else:
                     print('<!> please check number of input')

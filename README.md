@@ -50,8 +50,8 @@ python see.py <input_file>
   * example: `o demo/june.ogg` or `o "demo/june.ogg"` means change input audio file to `demo/june.ogg`;
 * `tmp`: to change the temp folder for temp files;
 * `h`: to print `README.md` file (this file) as `help`;
-* `spiral`: spiral analyzer for short period signals by giving a starting time;
-  * example: `spiral 10` is to analyze `10~s` spectral, `spiral p` is to play last analyzed result;
+* `@`: spiral analyzer for short period signals by giving a starting time;
+  * example: `@10` is to analyze `10~s` spectral, `@p` is to play last analyzed result;
 
 ### Advanced Script
 
