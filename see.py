@@ -35,7 +35,7 @@ class TerminalSeeAudio(object):
         self.min_sample_rate = 1000
         self.a4_frequency = 440
         # `mono` or `stereo` (>1 channel)
-        self.channel_type = 'mono'
+        self.channel_type = 'stereo'
 
         # spectral mode
         self.spectral_transform_y = 'fbank'
@@ -54,8 +54,7 @@ class TerminalSeeAudio(object):
         self.figure_dpi = 200
         self.spiral_dpi = 300
         self.graphics_ratio = 5
-        self.plot_normalize = False
-        self.spiral_base_opacity = 0.01
+        self.wave_normalize = False
         # default for 12 equal temperament
         self.spiral_n_temperament = 12
         # resolution of frequency (y) dimension
@@ -69,7 +68,7 @@ class TerminalSeeAudio(object):
         self.spectral_power_transform_coefficient = 1 / 5
         # minimum hearing power for `log` mode
         self.min_hearing_power = 0.0005
-        self.min_spiral_power = 0.01
+        self.min_spiral_power = 0.1
         # minimum hearing frequency
         self.min_mel_freq = 16
 
@@ -81,6 +80,7 @@ class TerminalSeeAudio(object):
         self.plot_axis_color = 'white'
         self.plot_spectral_color = 'magma'
         self.plot_wave_color = 'mediumspringgreen'
+        self.spiral_color = 'mediumspringgreen'
         self.a_pitch_color = 'red'
         self.spiral_axis_color = 'mediumspringgreen'
 
@@ -260,7 +260,7 @@ class TerminalSeeAudio(object):
         fig_wave.plot(time_, data_one, linewidth=line_width, color=self.plot_wave_color)
         fig_wave.set_xlim(left=time_[0], right=time_[-1])
         fig_wave.axes.get_yaxis().set_ticks([])
-        if not self.plot_normalize:
+        if not self.wave_normalize:
             fig_wave.axes.set_ylim([-1, 1])
         fig_wave.spines['left'].set_visible(False)
         fig_wave.spines['right'].set_visible(False)
@@ -331,31 +331,51 @@ class TerminalSeeAudio(object):
         y_position = -np.sin(pitch * 2 * np.pi + np.pi) * (pitch + offset)
         return x_position, y_position
 
-    def _spiral_polar_transform(self, array):
+    def _spiral_log_min_max_transform(self, array):
         array = np.array([np.log(x + self.min_spiral_power) for x in array])
         array -= np.min(array)
         if np.max(array) != 0:
             array /= np.max(array)
+        return array
+
+    def _spiral_polar_transform(self, arrays):
+        array_0, array_1 = arrays
+        array_0 = self._spiral_log_min_max_transform(array_0)
+        array_1 = self._spiral_log_min_max_transform(array_1)
         x_array_0 = []
         y_array_0 = []
         x_array_1 = []
         y_array_1 = []
         pitches = []
         transformed_array = []
-        for i, t in enumerate(array):
+        for i in range(len(array_0)):
+            t0 = array_0[i]
+            t1 = array_1[i]
             # skip low frequency part
             if i > 0:
                 pitch = self._spiral_frequency_to_pitch(self._spiral_fft_position_to_frequency(i))
                 if pitch > 0:
                     pitches.append(pitch)
-                    transformed_array.append(t)
-                    x_position, y_position = self._spiral_pitch_to_plot_position(pitch, -t / 2)
+                    transformed_array.append((t0 + t1) / 2)
+                    x_position, y_position = self._spiral_pitch_to_plot_position(pitch, -t1 / 2)
                     x_array_0.append(x_position)
                     y_array_0.append(y_position)
-                    x_position, y_position = self._spiral_pitch_to_plot_position(pitch, t / 2)
+                    x_position, y_position = self._spiral_pitch_to_plot_position(pitch, t0 / 2)
                     x_array_1.append(x_position)
                     y_array_1.append(y_position)
         return (x_array_0, y_array_0), (x_array_1, y_array_1), transformed_array, pitches
+
+    def _get_ifft_data_single(self, fft_single):
+        ff1 = np.array(list(fft_single) + list(-fft_single[::-1]))
+        ifft_single = np.real(np.fft.ifft(ff1))
+        ifft_single /= np.max(np.abs(ifft_single))
+        return ifft_single[:self.spiral_n_window]
+
+    def _fft_data_transform_single(self, fft_single):
+        fft_single = self._calc_sp(fft_single, self.spiral_n_window, self.n_overlap)[0]
+        if np.max(fft_single) != 0:
+            fft_single /= np.max(fft_single)
+        return fft_single
 
     def _prepare_graph_spiral(self, starting_time):
         valid = self._check_spiral_duration(starting_time)
@@ -368,11 +388,13 @@ class TerminalSeeAudio(object):
         else:
             # get starting sample index
             starting_sample = int(starting_time * self.sample_rate)
-            # get mono data for spectral
-            mono_data = np.sum(self.data, axis=0)[starting_sample:starting_sample + self.spiral_n_window]
-            fft_data = self._calc_sp(mono_data, self.spiral_n_window, self.n_overlap)[0]
-            if np.max(fft_data) != 0:
-                fft_data /= np.max(fft_data)
+            # get data for spectral
+            if len(self.data) != 2:
+                audio_data = np.sum(self.data, axis=0)
+                audio_data = [audio_data, audio_data]
+            else:
+                audio_data = [x[starting_sample:starting_sample + self.spiral_n_window] for x in self.data]
+            fft_data = [self._fft_data_transform_single(x) for x in audio_data]
 
             # prepare data
             position_0, position_1, fft_data_transformed, pitches = self._spiral_polar_transform(fft_data)
@@ -391,14 +413,22 @@ class TerminalSeeAudio(object):
             plt.style.use('dark_background')
             plt.figure(figsize=self.spiral_figure_size)
             fig, ax = plt.subplots()
+
             # plot ticks for `n` temperament
             for i in range(len(pitch_end_ticks_position)):
                 plt.plot([pitch_start_ticks_position[i][0], pitch_end_ticks_position[i][0]],
                          [pitch_start_ticks_position[i][1], pitch_end_ticks_position[i][1]],
-                         c=self.spiral_axis_color, zorder=1, alpha=0.3, linewidth=self.spiral_line_width)
-                cir = Circle((pitch_end_ticks_position[i][0], pitch_end_ticks_position[i][1]), radius=0.05, zorder=2,
-                             facecolor='black', edgecolor=self.spiral_axis_color, alpha=0.4)
-                ax.add_patch(cir)
+                         c=self.spiral_axis_color, zorder=1, alpha=0.4, linewidth=self.spiral_line_width)
+                cir_start = Circle((pitch_start_ticks_position[i][0], pitch_start_ticks_position[i][1]), radius=0.05,
+                                   zorder=2, facecolor='black', edgecolor=self.spiral_axis_color, alpha=0.4)
+                cir_end = Circle((pitch_end_ticks_position[i][0], pitch_end_ticks_position[i][1]), radius=0.05,
+                                 zorder=2, facecolor='black', edgecolor=self.spiral_axis_color, alpha=0.4)
+                ax.add_patch(cir_start)
+                ax.add_patch(cir_end)
+
+            # plot base axis
+            plt.plot(position_0[0], position_0[1], c=self.spiral_axis_color, linewidth=self.spiral_line_width, zorder=2,
+                     alpha=0.4)
 
             # plot spiral
             for i in range(len(position_0[0]) - 1):
@@ -407,15 +437,14 @@ class TerminalSeeAudio(object):
                 pos2 = [position_1[0][i + 1], position_1[1][i + 1]]
                 pos3 = [position_0[0][i + 1], position_0[1][i + 1]]
                 poly_position = np.array([pos0, pos1, pos2, pos3])
-                opacity = (self.spiral_base_opacity + (1 - self.spiral_base_opacity) *
-                           (fft_data_transformed[i] + fft_data_transformed[i + 1]) / 2)
-                plt.fill(poly_position[:, 0], poly_position[:, 1], facecolor=self.plot_wave_color,
-                         edgecolor=self.plot_wave_color, linewidth=self.spiral_line_width,
+                opacity = max(fft_data_transformed[i], fft_data_transformed[i + 1])
+                plt.fill(poly_position[:, 0], poly_position[:, 1], facecolor=self.spiral_color,
+                         edgecolor=self.spiral_color, linewidth=self.spiral_line_width,
                          alpha=opacity, zorder=2)
             # plot `A4` position
-            cir = Circle((ax_position, ay_position), radius=0.2, zorder=3, facecolor=self.a_pitch_color,
-                         edgecolor=self.a_pitch_color, alpha=0.6)
-            ax.add_patch(cir)
+            cir_end = Circle((ax_position, ay_position), radius=0.2, zorder=3, facecolor=self.a_pitch_color,
+                             edgecolor=self.a_pitch_color, alpha=0.6)
+            ax.add_patch(cir_end)
 
             # set figure ratio
             plt.gca().set_aspect(1)
@@ -425,9 +454,7 @@ class TerminalSeeAudio(object):
             plt.savefig(self.spiral_graphics_path, dpi=self.spiral_dpi, bbox_inches='tight')
 
             # prepare ifft play
-            ff1 = np.array(list(fft_data) + list(-fft_data[::-1]))
-            ifft_data = np.real(np.fft.ifft(ff1))
-            ifft_data /= np.max(np.abs(ifft_data))
+            ifft_data = np.transpose(np.array([self._get_ifft_data_single(x) for x in fft_data]))
             sf.write(self.spiral_ifft_audio_path, ifft_data, samplerate=self.sample_rate)
             return True
 
@@ -585,12 +612,17 @@ class TerminalSeeAudio(object):
             # 1.2 get spiral (`@`) analyzer
             elif input_.startswith('@'):
                 command = input_[1:].strip()
+                # 1.2.1 number as starting time
                 if self._is_float(command):
                     status = self._prepare_graph_spiral(float(command))
                     if status:
                         self._terminal_plot(self.spiral_graphics_path)
+                # 1.2.2 play sound
                 elif command == 'p':
                     self._terminal_play(0, 0.1, self.spiral_ifft_audio_path)
+                # 1.2.3 plot last image
+                elif command == '':
+                    self._terminal_plot(self.spiral_graphics_path)
                 else:
                     print('<!> `spiral` inputs unknown')
                 continue

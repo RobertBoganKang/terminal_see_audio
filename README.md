@@ -51,7 +51,9 @@ python see.py <input_file>
 * `tmp`: to change the temp folder for temp files;
 * `h`: to print `README.md` file (this file) as `help`;
 * `@`: spiral analyzer for short period signals by giving a starting time;
-  * example: `@10` is to analyze `10~s` spectral, `@p` is to play last analyzed result;
+  * number: `@10` is to analyze `10~s` spectral;
+  * `p`: `@p` is to play last analyzed result;
+  * `''`: empty is to play last analyzed spiral graphics;
 
 ### Advanced Script
 
