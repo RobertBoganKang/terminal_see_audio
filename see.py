@@ -46,26 +46,33 @@ class TerminalSeeAudio(object):
         self.play_command = 'play {}'
 
         # figure parameters
+        # wave/spectral
         # line width parameters with `thin`, `thick`, `mode_switch_time`
         self.line_width_params = [.2, 1.2, 3]
-        self.spiral_line_width = 1.5
-        self.piano_line_width = 0.8
-        self.figure_size = (12, 4)
-        self.spiral_figure_size = (15, 15)
-        self.piano_figure_size = (15, 5)
-        self.figure_dpi = 200
-        self.spiral_dpi = 150
-        self.piano_dpi = 300
         self.graphics_ratio = 5
+        self.figure_size = (12, 4)
         self.wave_normalize = False
+        self.figure_dpi = 200
+
+        # spiral analyzer
+        self.spiral_dpi = 150
+        self.spiral_figure_size = (15, 15)
+        self.spiral_line_width = 1.5
+        # default for 12 equal temperament
+        self.spiral_n_temperament = 12
+
+        # piano analyzer
+        self.piano_line_width = 0.8
+        self.piano_figure_size = (15, 5)
+        self.piano_dpi = 300
         self.piano_position_gap = 0.3
         self.piano_cover_width = 0.1
         self.piano_key_range = [-48, 40]
-        # default for 12 equal temperament
-        self.spiral_n_temperament = 12
+
+        # audio parameters
         # resolution of frequency (y) dimension
         self.n_window = 1024
-        self.spiral_n_window = 4096
+        self.analyzer_n_window = 4096
         # resolution of time (x) dimension
         self.n_step = 128
         # max duration for audio to play (30s)
@@ -74,7 +81,7 @@ class TerminalSeeAudio(object):
         self.spectral_power_transform_coefficient = 1 / 5
         # minimum hearing power for `log` mode
         self.min_hearing_power = 0.0005
-        self.min_spiral_power = 0.1
+        self.min_analyze_power = 0.1
         # minimum hearing frequency
         self.min_mel_freq = 16
 
@@ -91,14 +98,6 @@ class TerminalSeeAudio(object):
         self.spiral_axis_color = '#444'
         self.piano_base_color = '#222'
         self.piano_key_color = 'mediumspringgreen'
-
-        # initialization
-        self.n_overlap = None
-        self.min_duration = None
-        self.analyze_min_duration = None
-        self.channel_num = None
-        self.data = []
-        self.time = []
 
         # graphics modes
         self.graphics_modes = ['fft', 'fbank', 'power', 'log', 'mono', 'stereo']
@@ -122,7 +121,7 @@ class TerminalSeeAudio(object):
         self._initialize_audio()
         self.n_overlap = self.n_window - self.n_step
         self.min_duration = self.n_window / self.sample_rate
-        self.analyze_min_duration = self.spiral_n_window / self.sample_rate
+        self.analyze_min_duration = self.analyzer_n_window / self.sample_rate
         self._check_audio_duration()
         # initialize path autocomplete
         readline.set_completer_delims(' \t\n;')
@@ -329,9 +328,9 @@ class TerminalSeeAudio(object):
         return starting_time, ending_time, True
 
     def _fft_position_to_frequency(self, position):
-        return position * self.sample_rate / self.spiral_n_window
+        return position * self.sample_rate / self.analyzer_n_window
 
-    def _spiral_frequency_to_pitch(self, frequency):
+    def _frequency_to_pitch(self, frequency):
         return np.log2(frequency / self.a4_frequency) + 5
 
     @staticmethod
@@ -341,7 +340,7 @@ class TerminalSeeAudio(object):
         return x_position, y_position
 
     def _log_min_max_transform(self, array):
-        array = np.array([np.log(x + self.min_spiral_power) for x in array])
+        array = np.array([np.log(x + self.min_analyze_power) for x in array])
         array -= np.min(array)
         if np.max(array) != 0:
             array /= np.max(array)
@@ -362,7 +361,7 @@ class TerminalSeeAudio(object):
             t1 = array_1[i]
             # skip low frequency part
             if i > 0:
-                pitch = self._spiral_frequency_to_pitch(self._fft_position_to_frequency(i))
+                pitch = self._frequency_to_pitch(self._fft_position_to_frequency(i))
                 if pitch > 0:
                     pitches.append(pitch)
                     transformed_array.append((t0 + t1) / 2)
@@ -378,10 +377,10 @@ class TerminalSeeAudio(object):
         ff1 = np.array(list(fft_single) + list(-fft_single[::-1]))
         ifft_single = np.real(np.fft.ifft(ff1))
         ifft_single /= np.max(np.abs(ifft_single))
-        return ifft_single[:self.spiral_n_window]
+        return ifft_single[:self.analyzer_n_window]
 
     def _fft_data_transform_single(self, fft_single):
-        fft_single = self._calc_sp(fft_single, self.spiral_n_window, self.n_overlap)[0]
+        fft_single = self._calc_sp(fft_single, self.analyzer_n_window, self.n_overlap)[0]
         if np.max(fft_single) != 0:
             fft_single /= np.max(fft_single)
         return fft_single
@@ -406,7 +405,7 @@ class TerminalSeeAudio(object):
                 audio_data = np.sum(self.data, axis=0)
                 audio_data = [audio_data, audio_data]
             else:
-                audio_data = [x[starting_sample:starting_sample + self.spiral_n_window] for x in self.data]
+                audio_data = [x[starting_sample:starting_sample + self.analyzer_n_window] for x in self.data]
             fft_data = [self._fft_data_transform_single(x) for x in audio_data]
 
             # prepare data
@@ -414,7 +413,7 @@ class TerminalSeeAudio(object):
             min_pitch = pitches[0]
             # pitch ticks for `n` temperament
             pitch_ticks_end = [
-                (x + int(self._spiral_frequency_to_pitch(self.sample_rate / 2) * self.spiral_n_temperament)
+                (x + int(self._frequency_to_pitch(self.sample_rate / 2) * self.spiral_n_temperament)
                  - (self.spiral_n_temperament - 1)) / self.spiral_n_temperament for x in
                 range(self.spiral_n_temperament)]
             pitch_ticks_start = [x - int(x - min_pitch) for x in pitch_ticks_end]
@@ -548,12 +547,15 @@ class TerminalSeeAudio(object):
         # plot cover
         left_most, _ = self._generate_key_position(self.piano_key_range[0], channel)
         right_most, _ = self._generate_key_position(self.piano_key_range[1] - 1, channel)
-        plt.fill([left_most[0, 0], right_most[1, 0], right_most[1, 0], left_most[0, 0]],
-                 [left_most[0, 1], left_most[0, 1], left_most[0, 1] - self.piano_cover_width,
-                  left_most[0, 1] - self.piano_cover_width],
-                 edgecolor=self.piano_base_color,
-                 facecolor=self.piano_base_color,
+        cover_y_positions = [left_most[0, 1], left_most[0, 1], left_most[0, 1] - self.piano_cover_width,
+                             left_most[0, 1] - self.piano_cover_width]
+        plt.fill([left_most[0, 0], right_most[1, 0], right_most[1, 0], left_most[0, 0]], cover_y_positions,
+                 edgecolor=self.piano_base_color, facecolor=self.piano_base_color,
                  linewidth=self.piano_line_width, zorder=5, alpha=0.9)
+        # `a4` dot
+        plt.fill([-0.5, 0.5, 0.5, -0.5], cover_y_positions,
+                 edgecolor=self.a_pitch_color, facecolor=self.a_pitch_color, linewidth=self.piano_line_width,
+                 zorder=6, alpha=0.5)
 
     def _prepare_graph_piano(self, starting_time):
         valid = self._check_spiral_duration(starting_time)
@@ -567,7 +569,7 @@ class TerminalSeeAudio(object):
             # get starting sample index
             starting_sample = int(starting_time * self.sample_rate)
             # get data for spectral
-            audio_data = [x[starting_sample:starting_sample + self.spiral_n_window] for x in self.data]
+            audio_data = [x[starting_sample:starting_sample + self.analyzer_n_window] for x in self.data]
             fft_data = [self._fft_data_transform_single(x) for x in audio_data]
             key_dicts = [self._piano_key_spectral_data(x) for x in fft_data]
 
@@ -578,10 +580,6 @@ class TerminalSeeAudio(object):
             # plot piano
             for i in range(len(fft_data)):
                 self._piano_graph_single(key_dicts[i], i)
-            # `a4` dot
-            plt.fill([-0.5, 0.5, 0.5, -0.5], [0, 0, self.piano_position_gap / 2, self.piano_position_gap / 2],
-                     edgecolor=self.a_pitch_color, facecolor=self.a_pitch_color, linewidth=self.piano_line_width,
-                     zorder=1, alpha=0.5)
 
             # set plot ratio
             plt.gca().set_aspect(1)
