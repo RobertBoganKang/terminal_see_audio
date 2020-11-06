@@ -68,6 +68,7 @@ class TerminalSeeAudio(object):
         self.piano_position_gap = 0.3
         self.piano_cover_width = 0.1
         self.piano_key_range = [-48, 40]
+        self.piano_tuning_shape_power = 1 / 2
 
         # audio parameters
         # resolution of frequency (y) dimension
@@ -511,25 +512,13 @@ class TerminalSeeAudio(object):
                     else:
                         key_dict[key].append([t, raw_key])
         for k, v in key_dict.items():
-            # set function for tuning
+            # set `^` or `n` shape tuning
             v = np.array(v)
-            key_dict[k] = np.mean(v[:, 0] * (1 - np.abs(k - v[:, 1])))
+            key_dict[k] = np.mean(v[:, 0] * np.power(1 - 2 * np.abs(k - v[:, 1]), self.piano_tuning_shape_power))
         max_value = max(list(key_dict.values()))
         for k, v in key_dict.items():
             key_dict[k] = v / max_value
         return key_dict
-
-    def _terminal_plot(self, path):
-        """ plot in terminal function """
-        if not os.path.exists(path):
-            print('<!> temp image cannot find')
-            return
-        command = self.plot_command.format(path)
-        # noinspection PyBroadException
-        try:
-            subprocess.call(command, shell=True)
-        except Exception:
-            print(f'<!> please fix problem:\n<?> {command}')
 
     def _piano_graph_single(self, key_dict, channel):
         for k in range(self.piano_key_range[0], self.piano_key_range[1], 1):
@@ -590,6 +579,18 @@ class TerminalSeeAudio(object):
             # prepare ifft play
             self._ifft_audio_export(fft_data)
             return True
+
+    def _terminal_plot(self, path):
+        """ plot in terminal function """
+        if not os.path.exists(path):
+            print('<!> temp image cannot find')
+            return
+        command = self.plot_command.format(path)
+        # noinspection PyBroadException
+        try:
+            subprocess.call(command, shell=True)
+        except Exception:
+            print(f'<!> please fix problem:\n<?> {command}')
 
     def _terminal_play(self, start, end, path):
         """ play in terminal function """
