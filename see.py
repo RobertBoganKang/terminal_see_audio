@@ -31,7 +31,7 @@ class TerminalSeeAudio(object):
 
         # system parameters
         # audio parameters
-        self.sample_rate = 8000
+        self.sample_rate = 16000
         self.min_sample_rate = 1000
         self.a4_frequency = 440
         # `mono` or `stereo` (>1 channel)
@@ -48,13 +48,19 @@ class TerminalSeeAudio(object):
         # figure parameters
         # line width parameters with `thin`, `thick`, `mode_switch_time`
         self.line_width_params = [.2, 1.2, 3]
-        self.spiral_line_width = 0.6
+        self.spiral_line_width = 1.5
+        self.piano_line_width = 0.8
         self.figure_size = (12, 4)
-        self.spiral_figure_size = (12, 12)
+        self.spiral_figure_size = (15, 15)
+        self.piano_figure_size = (15, 5)
         self.figure_dpi = 200
-        self.spiral_dpi = 300
+        self.spiral_dpi = 150
+        self.piano_dpi = 300
         self.graphics_ratio = 5
         self.wave_normalize = False
+        self.piano_position_gap = 0.3
+        self.piano_cover_width = 0.1
+        self.piano_key_range = [-48, 40]
         # default for 12 equal temperament
         self.spiral_n_temperament = 12
         # resolution of frequency (y) dimension
@@ -82,12 +88,14 @@ class TerminalSeeAudio(object):
         self.plot_wave_color = 'mediumspringgreen'
         self.spiral_color = 'mediumspringgreen'
         self.a_pitch_color = 'red'
-        self.spiral_axis_color = 'mediumspringgreen'
+        self.spiral_axis_color = '#444'
+        self.piano_base_color = '#222'
+        self.piano_key_color = 'mediumspringgreen'
 
         # initialization
         self.n_overlap = None
         self.min_duration = None
-        self.spiral_min_duration = None
+        self.analyze_min_duration = None
         self.channel_num = None
         self.data = []
         self.time = []
@@ -114,7 +122,7 @@ class TerminalSeeAudio(object):
         self._initialize_audio()
         self.n_overlap = self.n_window - self.n_step
         self.min_duration = self.n_window / self.sample_rate
-        self.spiral_min_duration = self.spiral_n_window / self.sample_rate
+        self.analyze_min_duration = self.spiral_n_window / self.sample_rate
         self._check_audio_duration()
         # initialize path autocomplete
         readline.set_completer_delims(' \t\n;')
@@ -125,7 +133,8 @@ class TerminalSeeAudio(object):
         """ temp file path initialization """
         self.graphics_path = os.path.join(self.temp_folder, 'wave_spectral.png')
         self.spiral_graphics_path = os.path.join(self.temp_folder, 'spiral.png')
-        self.spiral_ifft_audio_path = os.path.join(self.temp_folder, 'spiral_ifft.wav')
+        self.piano_graphics_path = os.path.join(self.temp_folder, 'piano.png')
+        self.ifft_audio_path = os.path.join(self.temp_folder, 'spiral_ifft.wav')
         self.audio_part_path = os.path.join(self.temp_folder, 'audio.wav')
 
     def _initialize_audio(self):
@@ -151,7 +160,7 @@ class TerminalSeeAudio(object):
 
     def _check_spiral_duration(self, starting_time):
         """ check if raw audio too short for spiral plot """
-        if len(self.data[0]) / self.sample_rate < self.spiral_min_duration + starting_time or starting_time < 0:
+        if len(self.data[0]) / self.sample_rate < self.analyze_min_duration + starting_time or starting_time < 0:
             return False
         else:
             return True
@@ -319,7 +328,7 @@ class TerminalSeeAudio(object):
         plt.savefig(self.graphics_path, dpi=self.figure_dpi, bbox_inches='tight')
         return starting_time, ending_time, True
 
-    def _spiral_fft_position_to_frequency(self, position):
+    def _fft_position_to_frequency(self, position):
         return position * self.sample_rate / self.spiral_n_window
 
     def _spiral_frequency_to_pitch(self, frequency):
@@ -331,7 +340,7 @@ class TerminalSeeAudio(object):
         y_position = -np.sin(pitch * 2 * np.pi + np.pi) * (pitch + offset)
         return x_position, y_position
 
-    def _spiral_log_min_max_transform(self, array):
+    def _log_min_max_transform(self, array):
         array = np.array([np.log(x + self.min_spiral_power) for x in array])
         array -= np.min(array)
         if np.max(array) != 0:
@@ -340,8 +349,8 @@ class TerminalSeeAudio(object):
 
     def _spiral_polar_transform(self, arrays):
         array_0, array_1 = arrays
-        array_0 = self._spiral_log_min_max_transform(array_0)
-        array_1 = self._spiral_log_min_max_transform(array_1)
+        array_0 = self._log_min_max_transform(array_0)
+        array_1 = self._log_min_max_transform(array_1)
         x_array_0 = []
         y_array_0 = []
         x_array_1 = []
@@ -353,7 +362,7 @@ class TerminalSeeAudio(object):
             t1 = array_1[i]
             # skip low frequency part
             if i > 0:
-                pitch = self._spiral_frequency_to_pitch(self._spiral_fft_position_to_frequency(i))
+                pitch = self._spiral_frequency_to_pitch(self._fft_position_to_frequency(i))
                 if pitch > 0:
                     pitches.append(pitch)
                     transformed_array.append((t0 + t1) / 2)
@@ -377,12 +386,16 @@ class TerminalSeeAudio(object):
             fft_single /= np.max(fft_single)
         return fft_single
 
+    def _ifft_audio_export(self, fft_data):
+        ifft_data = np.transpose(np.array([self._get_ifft_data_single(x) for x in fft_data]))
+        sf.write(self.ifft_audio_path, ifft_data, samplerate=self.sample_rate)
+
     def _prepare_graph_spiral(self, starting_time):
         valid = self._check_spiral_duration(starting_time)
         if not valid:
             print(
                 f'<!> starting time set false\n'
-                f'<!> number should be `0`~ `{len(self.data[0]) / self.sample_rate - self.spiral_min_duration}`s'
+                f'<!> number should be `0`~ `{len(self.data[0]) / self.sample_rate - self.analyze_min_duration}`s'
             )
             return False
         else:
@@ -411,8 +424,7 @@ class TerminalSeeAudio(object):
 
             # making plots
             plt.style.use('dark_background')
-            plt.figure(figsize=self.spiral_figure_size)
-            fig, ax = plt.subplots()
+            fig, ax = plt.subplots(figsize=self.spiral_figure_size)
 
             # plot ticks for `n` temperament
             for i in range(len(pitch_end_ticks_position)):
@@ -443,20 +455,70 @@ class TerminalSeeAudio(object):
                          alpha=opacity, zorder=2)
             # plot `A4` position
             cir_end = Circle((ax_position, ay_position), radius=0.2, zorder=3, facecolor=self.a_pitch_color,
-                             edgecolor=self.a_pitch_color, alpha=0.6)
+                             linewidth=self.spiral_line_width, edgecolor=self.a_pitch_color, alpha=0.6)
             ax.add_patch(cir_end)
 
             # set figure ratio
             plt.gca().set_aspect(1)
-
             plt.axis('off')
+
             # save figure
             plt.savefig(self.spiral_graphics_path, dpi=self.spiral_dpi, bbox_inches='tight')
 
             # prepare ifft play
-            ifft_data = np.transpose(np.array([self._get_ifft_data_single(x) for x in fft_data]))
-            sf.write(self.spiral_ifft_audio_path, ifft_data, samplerate=self.sample_rate)
+            self._ifft_audio_export(fft_data)
             return True
+
+    def _frequency_to_key(self, frequency):
+        return np.log2(frequency / self.a4_frequency) * 12
+
+    def _generate_key_position(self, key, channel):
+        # `0` as white, `1` as black
+        key_bw_switch = [0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1]
+        # `7` for octave switch
+        key_position_switch = [0, 0.5, 1, 2, 2.5, 3, 3.5, 4, 5, 5.5, 6, 6.5]
+        key_position = key % 12
+        key_octave = int(np.ceil((key + 0.5) / 12)) - 1
+        middle_x = key_octave * 7 + key_position_switch[key_position]
+        # get position dimension
+        # b/w width: 13.7mm/23.5mm
+        # b/w length: 9.5mm/15cm
+        piano_key_length = 6.382978723404255
+        if key_bw_switch[key_position] == 0:
+            width = 1 / 2
+            length = piano_key_length
+        else:
+            width = 0.5829787234042553 / 2
+            length = piano_key_length * 0.633
+        # piano gap
+        gap = channel * self.piano_position_gap
+        # key position
+        position_0 = [middle_x - width, -channel * piano_key_length - gap]
+        position_1 = [middle_x + width, -channel * piano_key_length - gap]
+        position_2 = [middle_x + width, -channel * piano_key_length - length - gap]
+        position_3 = [middle_x - width, -channel * piano_key_length - length - gap]
+        return np.array([position_0, position_1, position_2, position_3]), key_bw_switch[key_position]
+
+    def _piano_key_spectral_data(self, array):
+        array = self._log_min_max_transform(array)
+        key_dict = {}
+        for i, t in enumerate(array):
+            if i > 0:
+                raw_key = self._frequency_to_key(self._fft_position_to_frequency(i))
+                key = round(raw_key)
+                if self.piano_key_range[0] <= key < self.piano_key_range[1]:
+                    if key not in key_dict:
+                        key_dict[key] = [[t, raw_key]]
+                    else:
+                        key_dict[key].append([t, raw_key])
+        for k, v in key_dict.items():
+            # set function for tuning
+            v = np.array(v)
+            key_dict[k] = np.mean(v[:, 0] * (1 - np.abs(k - v[:, 1])))
+        max_value = max(list(key_dict.values()))
+        for k, v in key_dict.items():
+            key_dict[k] = v / max_value
+        return key_dict
 
     def _terminal_plot(self, path):
         """ plot in terminal function """
@@ -469,6 +531,67 @@ class TerminalSeeAudio(object):
             subprocess.call(command, shell=True)
         except Exception:
             print(f'<!> please fix problem:\n<?> {command}')
+
+    def _piano_graph_single(self, key_dict, channel):
+        for k in range(self.piano_key_range[0], self.piano_key_range[1], 1):
+            positions, bw = self._generate_key_position(k, channel)
+            if k in key_dict:
+                fft_values = key_dict[k]
+            else:
+                fft_values = 0
+            # background
+            plt.fill(positions[:, 0], positions[:, 1], facecolor='black', edgecolor=self.piano_base_color,
+                     linewidth=self.piano_line_width, zorder=2 * bw + 1)
+            # plot key
+            plt.fill(positions[:, 0], positions[:, 1], edgecolor=self.piano_key_color, facecolor=self.piano_key_color,
+                     linewidth=self.piano_line_width, zorder=2 * bw + 2, alpha=fft_values)
+        # plot cover
+        left_most, _ = self._generate_key_position(self.piano_key_range[0], channel)
+        right_most, _ = self._generate_key_position(self.piano_key_range[1] - 1, channel)
+        plt.fill([left_most[0, 0], right_most[1, 0], right_most[1, 0], left_most[0, 0]],
+                 [left_most[0, 1], left_most[0, 1], left_most[0, 1] - self.piano_cover_width,
+                  left_most[0, 1] - self.piano_cover_width],
+                 edgecolor=self.piano_base_color,
+                 facecolor=self.piano_base_color,
+                 linewidth=self.piano_line_width, zorder=5, alpha=0.9)
+
+    def _prepare_graph_piano(self, starting_time):
+        valid = self._check_spiral_duration(starting_time)
+        if not valid:
+            print(
+                f'<!> starting time set false\n'
+                f'<!> number should be `0`~ `{len(self.data[0]) / self.sample_rate - self.analyze_min_duration}`s'
+            )
+            return False
+        else:
+            # get starting sample index
+            starting_sample = int(starting_time * self.sample_rate)
+            # get data for spectral
+            audio_data = [x[starting_sample:starting_sample + self.spiral_n_window] for x in self.data]
+            fft_data = [self._fft_data_transform_single(x) for x in audio_data]
+            key_dicts = [self._piano_key_spectral_data(x) for x in fft_data]
+
+            # plot
+            plt.style.use('dark_background')
+
+            plt.subplots(figsize=self.piano_figure_size)
+            # plot piano
+            for i in range(len(fft_data)):
+                self._piano_graph_single(key_dicts[i], i)
+            # `a4` dot
+            plt.fill([-0.5, 0.5, 0.5, -0.5], [0, 0, self.piano_position_gap / 2, self.piano_position_gap / 2],
+                     edgecolor=self.a_pitch_color, facecolor=self.a_pitch_color, linewidth=self.piano_line_width,
+                     zorder=1, alpha=0.5)
+
+            # set plot ratio
+            plt.gca().set_aspect(1)
+            plt.axis('off')
+
+            plt.savefig(self.piano_graphics_path, dpi=self.piano_dpi, bbox_inches='tight')
+
+            # prepare ifft play
+            self._ifft_audio_export(fft_data)
+            return True
 
     def _terminal_play(self, start, end, path):
         """ play in terminal function """
@@ -581,13 +704,17 @@ class TerminalSeeAudio(object):
             # 1. multiple input function (calculation)
             # 1.1 `=` for advanced script
             # watch: space ` ` will be replaced by `\s`
+            if len(input_) >= 1:
+                command = input_[1:].strip()
+            else:
+                command = ''
             if input_.startswith('='):
                 command_success = False
                 command_result = []
                 # 1.1.1 to evaluate
                 if not command_success:
                     try:
-                        return_string = eval(input_[1:])
+                        return_string = eval(command)
                         print(f'<*> {return_string}')
                         command_success = True
                         continue
@@ -596,10 +723,10 @@ class TerminalSeeAudio(object):
                 # 1.1.2 to execute
                 if not command_success:
                     try:
-                        exec(input_[1:])
+                        exec(command)
                         self._initialization()
                         self._prepare_graph_audio(last_starting, last_ending)
-                        print(f'<*> executed `{input_[1:]}`')
+                        print(f'<*> executed `{command}`')
                         command_success = True
                         continue
                     except Exception as e:
@@ -611,20 +738,29 @@ class TerminalSeeAudio(object):
                     continue
             # 1.2 get spiral (`@`) analyzer
             elif input_.startswith('@'):
-                command = input_[1:].strip()
                 # 1.2.1 number as starting time
                 if self._is_float(command):
                     status = self._prepare_graph_spiral(float(command))
                     if status:
                         self._terminal_plot(self.spiral_graphics_path)
-                # 1.2.2 play sound
-                elif command == 'p':
-                    self._terminal_play(0, 0.1, self.spiral_ifft_audio_path)
-                # 1.2.3 plot last image
+                # 1.2.2 plot last image
                 elif command == '':
                     self._terminal_plot(self.spiral_graphics_path)
                 else:
                     print('<!> `spiral` inputs unknown')
+                continue
+            # 1.3 get piano (`#`) analyzer
+            elif input_.startswith('#'):
+                # 1.3.1 number as staring time
+                if self._is_float(command):
+                    status = self._prepare_graph_piano(float(command))
+                    if status:
+                        self._terminal_plot(self.piano_graphics_path)
+                # 1.3.2 plot last image
+                elif command == '':
+                    self._terminal_plot(self.piano_graphics_path)
+                else:
+                    print('<!> `piano` inputs unknown')
                 continue
 
             # 2. contain space case
@@ -716,17 +852,20 @@ class TerminalSeeAudio(object):
             # 3.1 `p` to play music
             elif input_ == 'p':
                 self._terminal_play(last_starting, last_ending, self.audio_part_path)
-            # 3.2 `` to show last image
+            # 3.2 `p*` to play short period audio analyzed by spectral analyzer
+            elif input_ == 'p*':
+                self._terminal_play(0, 0.1, self.ifft_audio_path)
+            # 3.3 `` to show last image
             elif input_ == '':
                 self._terminal_plot(self.graphics_path)
-            # 3.3 `q` to quit program
+            # 3.4 `q` to quit program
             elif input_ == 'q':
                 break
-            # 3.4 `r` to reset all
+            # 3.5 `r` to reset all
             elif input_ == 'r':
                 print('<!> reset all')
                 self._initial_or_restore_running()
-            # 3.5 `h` to print help file
+            # 3.6 `h` to print help file
             elif input_ == 'h':
                 self.print_help()
             # 3.* single input case error

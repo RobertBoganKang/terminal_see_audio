@@ -9,7 +9,7 @@ The following functions have been implemented:
 * split audio;
 * plot wave & spectral;
 * play audio;
-* spiral spectral analyzer;
+* spiral/piano spectral analyzer;
 
 ## Requirement
 
@@ -37,6 +37,7 @@ python see.py <input_file>
   * example: `10 20` means to split audio from **10s** to **20s**;
 * empty string `''` (press return without input): plot last generated graphics;
 * `p`: play audio;
+* `p*`: play the partition of audio where used `@` or `#` to analyze spectral;
 * `q`: quit program;
 * `r`: reset starting and ending time;
 * `m`: change the `mode` of showing graphics; there are several modes can be changed;
@@ -50,9 +51,8 @@ python see.py <input_file>
   * example: `o demo/june.ogg` or `o "demo/june.ogg"` means change input audio file to `demo/june.ogg`;
 * `tmp`: to change the temp folder for temp files;
 * `h`: to print `README.md` file (this file) as `help`;
-* `@`: spiral analyzer for short period signals by giving a starting time;
+* `@` or `#`: spiral/piano analyzer for short period signals by giving a starting time;
   * number: `@10` is to analyze `10~s` spectral;
-  * `p`: `@p` is to play last analyzed result;
   * `''`: empty is to play last analyzed spiral graphics;
 
 ### Advanced Script
