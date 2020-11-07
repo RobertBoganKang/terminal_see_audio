@@ -134,7 +134,7 @@ class TerminalSeeAudio(object):
         self.graphics_path = os.path.join(self.temp_folder, 'wave_spectral.png')
         self.spiral_graphics_path = os.path.join(self.temp_folder, 'spiral.png')
         self.piano_graphics_path = os.path.join(self.temp_folder, 'piano.png')
-        self.ifft_audio_path = os.path.join(self.temp_folder, 'spiral_ifft.wav')
+        self.ifft_audio_path = os.path.join(self.temp_folder, 'analyze_ifft.wav')
         self.audio_part_path = os.path.join(self.temp_folder, 'audio.wav')
 
     def _initialize_audio(self):
