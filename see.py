@@ -536,10 +536,10 @@ class TerminalSeeAudio(object):
         # plot cover
         left_most, _ = self._generate_key_position(self.piano_key_range[0], channel)
         right_most, _ = self._generate_key_position(self.piano_key_range[1] - 1, channel)
+        cover_x_positions = [left_most[0, 0], right_most[1, 0], right_most[1, 0], left_most[0, 0]]
         cover_y_positions = [left_most[0, 1], left_most[0, 1], left_most[0, 1] - self.piano_cover_width,
                              left_most[0, 1] - self.piano_cover_width]
-        plt.fill([left_most[0, 0], right_most[1, 0], right_most[1, 0], left_most[0, 0]], cover_y_positions,
-                 edgecolor=self.piano_base_color, facecolor=self.piano_base_color,
+        plt.fill(cover_x_positions, cover_y_positions, edgecolor=self.piano_base_color, facecolor=self.piano_base_color,
                  linewidth=self.piano_line_width, zorder=5, alpha=0.9)
         # `a4` dot
         plt.fill([-0.5, 0.5, 0.5, -0.5], cover_y_positions,
@@ -565,7 +565,10 @@ class TerminalSeeAudio(object):
             # plot
             plt.style.use('dark_background')
 
-            plt.subplots(figsize=self.piano_figure_size)
+            plt.figure(figsize=self.piano_figure_size)
+            fig = plt.subplot(111)
+            fig.set_xlim([self._generate_key_position(self.piano_key_range[0], 0)[0][0, 0] - 0.5,
+                          self._generate_key_position(self.piano_key_range[1] - 1, 0)[0][1, 0] + 0.5])
             # plot piano
             for i in range(len(fft_data)):
                 self._piano_graph_single(key_dicts[i], i)
