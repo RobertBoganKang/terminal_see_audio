@@ -435,14 +435,14 @@ class TerminalSeeAudio(object):
                          [pitch_start_ticks_position[i][1], pitch_end_ticks_position[i][1]],
                          c=self.spiral_axis_color, zorder=1, alpha=0.4, linewidth=self.spiral_line_width)
                 cir_start = Circle((pitch_start_ticks_position[i][0], pitch_start_ticks_position[i][1]), radius=0.05,
-                                   zorder=2, facecolor='black', edgecolor=self.spiral_axis_color, alpha=0.4)
+                                   zorder=1, facecolor='black', edgecolor=self.spiral_axis_color, alpha=0.4)
                 cir_end = Circle((pitch_end_ticks_position[i][0], pitch_end_ticks_position[i][1]), radius=0.05,
-                                 zorder=2, facecolor='black', edgecolor=self.spiral_axis_color, alpha=0.4)
+                                 zorder=1, facecolor='black', edgecolor=self.spiral_axis_color, alpha=0.4)
                 ax.add_patch(cir_start)
                 ax.add_patch(cir_end)
 
             # plot base axis
-            plt.plot(position_0[0], position_0[1], c=self.spiral_axis_color, linewidth=self.spiral_line_width, zorder=2,
+            plt.plot(position_0[0], position_0[1], c=self.spiral_axis_color, linewidth=self.spiral_line_width, zorder=1,
                      alpha=0.4)
 
             # plot spiral
