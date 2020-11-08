@@ -51,7 +51,6 @@ class TerminalSeeAudio(object):
         self.line_width_params = [.2, 1.2, 3]
         self.graphics_ratio = 5
         self.figure_size = (12, 4)
-        self.wave_normalize = False
         self.figure_dpi = 200
 
         # spiral analyzer
@@ -266,11 +265,15 @@ class TerminalSeeAudio(object):
         else:
             line_width = (self.line_width_params[1] - (self.line_width_params[1] - self.line_width_params[0]) /
                           self.line_width_params[-1] * duration)
+        # plot norm
+        if np.max(np.abs(data_one)):
+            data_one_norm = data_one / np.max(np.abs(data_one))
+            fig_wave.plot(time_, data_one_norm, linewidth=line_width, color=self.plot_wave_color, alpha=0.3)
+        # plot wave
         fig_wave.plot(time_, data_one, linewidth=line_width, color=self.plot_wave_color)
         fig_wave.set_xlim(left=time_[0], right=time_[-1])
         fig_wave.axes.get_yaxis().set_ticks([])
-        if not self.wave_normalize:
-            fig_wave.axes.set_ylim([-1, 1])
+        fig_wave.axes.set_ylim([-1, 1])
         fig_wave.spines['left'].set_visible(False)
         fig_wave.spines['right'].set_visible(False)
         fig_wave.spines['top'].set_visible(False)
@@ -521,6 +524,15 @@ class TerminalSeeAudio(object):
         return key_dict
 
     def _piano_graph_single(self, key_dict, channel):
+        # plot cover
+        left_most, _ = self._generate_key_position(self.piano_key_range[0], channel)
+        right_most, _ = self._generate_key_position(self.piano_key_range[1] - 1, channel)
+        cover_x_positions = [left_most[0, 0], right_most[1, 0], right_most[1, 0], left_most[0, 0]]
+        cover_y_positions = [left_most[0, 1], left_most[0, 1], left_most[0, 1] - self.piano_cover_width,
+                             left_most[0, 1] - self.piano_cover_width]
+        plt.fill(cover_x_positions, cover_y_positions, edgecolor=self.piano_base_color, facecolor=self.piano_base_color,
+                 linewidth=self.piano_line_width, zorder=5, alpha=0.9)
+        # plot key
         for k in range(self.piano_key_range[0], self.piano_key_range[1], 1):
             positions, bw = self._generate_key_position(k, channel)
             if k in key_dict:
@@ -533,18 +545,15 @@ class TerminalSeeAudio(object):
             # plot key
             plt.fill(positions[:, 0], positions[:, 1], edgecolor=self.piano_key_color, facecolor=self.piano_key_color,
                      linewidth=self.piano_line_width, zorder=2 * bw + 2, alpha=fft_values)
-        # plot cover
-        left_most, _ = self._generate_key_position(self.piano_key_range[0], channel)
-        right_most, _ = self._generate_key_position(self.piano_key_range[1] - 1, channel)
-        cover_x_positions = [left_most[0, 0], right_most[1, 0], right_most[1, 0], left_most[0, 0]]
-        cover_y_positions = [left_most[0, 1], left_most[0, 1], left_most[0, 1] - self.piano_cover_width,
-                             left_most[0, 1] - self.piano_cover_width]
-        plt.fill(cover_x_positions, cover_y_positions, edgecolor=self.piano_base_color, facecolor=self.piano_base_color,
-                 linewidth=self.piano_line_width, zorder=5, alpha=0.9)
-        # `a4` dot
-        plt.fill([-0.5, 0.5, 0.5, -0.5], cover_y_positions,
-                 edgecolor=self.a_pitch_color, facecolor=self.a_pitch_color, linewidth=self.piano_line_width,
-                 zorder=6, alpha=0.5)
+            # `a4` position
+            if k % 12 == 0:
+                if k == 0:
+                    opacity = 0.5
+                else:
+                    opacity = 0.15
+                plt.fill(positions[:, 0], cover_y_positions,
+                         edgecolor=self.a_pitch_color, facecolor=self.a_pitch_color, linewidth=self.piano_line_width,
+                         zorder=6, alpha=opacity)
 
     def _prepare_graph_piano(self, starting_time):
         valid = self._check_spiral_duration(starting_time)
@@ -687,6 +696,9 @@ class TerminalSeeAudio(object):
 
         return [x.replace(' ', '\\s') for x in glob.glob(text.replace('\\s', ' ') + '*')][state]
 
+    def _get_time(self):
+        return 0, len(self.data) / self.sample_rate
+
     def main(self, in_path):
         """ main function """
         self._get_and_fix_input_path(in_path)
@@ -828,6 +840,8 @@ class TerminalSeeAudio(object):
                                 self._initialize_audio()
                                 print('<+> file path changed')
                                 self._initial_or_restore_running()
+                                # reset time
+                                last_starting, last_ending = self._get_time()
                         else:
                             print(f'<!> file path `{try_input}` does not exist')
                     # 2.2.4 change the temp folder path
@@ -867,6 +881,8 @@ class TerminalSeeAudio(object):
             elif input_ == 'r':
                 print('<!> reset all')
                 self._initial_or_restore_running()
+                # reset time
+                last_starting, last_ending = self._get_time()
             # 3.6 `h` to print help file
             elif input_ == 'h':
                 self.print_help()
