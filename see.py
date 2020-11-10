@@ -51,15 +51,8 @@ class Common(object):
         self.plot_command = 'timg {}'
         self.play_command = 'play {}'
 
-        # colors & themes
-        self.plot_axis_color = 'white'
-        self.plot_spectral_color = 'magma'
-        self.plot_wave_color = 'mediumspringgreen'
-        self.spiral_color = 'mediumspringgreen'
+        # color & themes
         self.a_pitch_color = 'red'
-        self.spiral_axis_color = '#444'
-        self.piano_base_color = '#222'
-        self.piano_key_color = 'mediumspringgreen'
 
         # graphics modes
         self.graphics_modes = ['fft', 'fbank', 'power', 'log', 'mono', 'stereo']
@@ -312,6 +305,11 @@ class WaveSpectral(AnalyzeCommon):
         self.spectral_transform_y = 'fbank'
         self.spectral_transform_v = 'log'
 
+        # colors & themes
+        self.plot_axis_color = 'white'
+        self.plot_spectral_color = 'magma'
+        self.plot_wave_color = 'mediumspringgreen'
+
         # wave/spectral
         # line width parameters with `thin`, `thick`, `mode_switch_time`
         self.line_width_params = [.2, 1.2, 3]
@@ -474,6 +472,10 @@ class SpiralAnalyzer(AnalyzeCommon):
         # default for 12 equal temperament
         self.spiral_n_temperament = 12
 
+        # color & themes
+        self.spiral_color = 'mediumspringgreen'
+        self.spiral_axis_color = '#444'
+
     @staticmethod
     def _spiral_pitch_to_plot_position(pitch, offset):
         x_position = np.cos(pitch * 2 * np.pi + np.pi) * (pitch + offset)
@@ -594,10 +596,21 @@ class PianoAnalyzer(AnalyzeCommon):
         self.piano_line_width = 0.8
         self.piano_figure_size = (15, 5)
         self.piano_dpi = 300
-        self.piano_position_gap = 0.3
+        self.piano_position_gap = 0.4
         self.piano_cover_width = 0.1
         self.piano_key_range = [-48, 40]
         self.piano_tuning_shape_power = 1 / 2
+        self.piano_spectral_height = 0.1
+
+        # piano key size
+        # b/w width: 13.7mm/23.5mm
+        # b/w length: 9.5mm/15cm
+        self.piano_key_length = 6.382978723404255
+
+        # colors & themes
+        self.piano_base_color = '#222'
+        self.piano_key_color = 'mediumspringgreen'
+        self.piano_spectral_color = 'dimgray'
 
     def _generate_key_position(self, key, channel):
         # `0` as white, `1` as black
@@ -608,23 +621,37 @@ class PianoAnalyzer(AnalyzeCommon):
         key_octave = int(np.ceil((key + 0.5) / 12)) - 1
         middle_x = key_octave * 7 + key_position_switch[key_position]
         # get position dimension
-        # b/w width: 13.7mm/23.5mm
-        # b/w length: 9.5mm/15cm
-        piano_key_length = 6.382978723404255
         if key_bw_switch[key_position] == 0:
-            width = 1 / 2
-            length = piano_key_length
+            width = 1
+            length = self.piano_key_length
         else:
-            width = 0.5829787234042553 / 2
-            length = piano_key_length * 0.633
-        # piano gap
-        gap = channel * self.piano_position_gap
+            width = 0.5829787234042553
+            length = self.piano_key_length * 0.633
         # key position
-        position_0 = [middle_x - width, -channel * piano_key_length - gap]
-        position_1 = [middle_x + width, -channel * piano_key_length - gap]
-        position_2 = [middle_x + width, -channel * piano_key_length - length - gap]
-        position_3 = [middle_x - width, -channel * piano_key_length - length - gap]
+        one_piano_length = self.piano_key_length + self.piano_spectral_height + self.piano_position_gap
+        position_0 = [middle_x - width / 2, -channel * one_piano_length]
+        position_1 = [middle_x + width / 2, -channel * one_piano_length]
+        position_2 = [middle_x + width / 2, -channel * one_piano_length - length]
+        position_3 = [middle_x - width / 2, -channel * one_piano_length - length]
         return np.array([position_0, position_1, position_2, position_3]), key_bw_switch[key_position]
+
+    def _generate_frequency_graph_single(self, raw_keys, key_ffts, channel):
+        # get key position
+        positions_0 = []
+        positions_1 = []
+        for i in range(len(raw_keys)):
+            one_piano_length = self.piano_key_length + self.piano_position_gap
+            key_x = raw_keys[i] * 7 / 12
+            positions_0.append([key_x, -channel * one_piano_length])
+            # positions_1.append([key_x, -channel * one_piano_length + key_ffts[i] * self.piano_spectral_height])
+            positions_1.append([key_x, -channel * one_piano_length + self.piano_spectral_height])
+        for i in range(len(raw_keys) - 1):
+            x_positions = [positions_0[i][0], positions_1[i + 1][0], positions_1[i + 1][0], positions_0[i][0]]
+            y_positions = [positions_0[i][1], positions_0[i + 1][1], positions_1[i + 1][1], positions_1[i][1]]
+            freq_alpha = max(key_ffts[i], key_ffts[i + 1])
+            plt.fill(x_positions, y_positions, edgecolor=self.piano_spectral_color,
+                     facecolor=self.piano_spectral_color,
+                     linewidth=self.piano_line_width, zorder=1, alpha=freq_alpha)
 
     def _frequency_to_key(self, frequency):
         return np.log2(frequency / self.a4_frequency) * 12
@@ -632,11 +659,15 @@ class PianoAnalyzer(AnalyzeCommon):
     def _piano_key_spectral_data(self, array):
         array = self._log_min_max_transform(array)
         key_dict = {}
+        raw_keys = []
+        key_ffts = []
         for i, t in enumerate(array):
             if i > 0:
                 raw_key = self._frequency_to_key(self._fft_position_to_frequency(i))
                 key = round(raw_key)
                 if self.piano_key_range[0] <= key < self.piano_key_range[1]:
+                    raw_keys.append(raw_key)
+                    key_ffts.append(t)
                     if key not in key_dict:
                         key_dict[key] = [[t, raw_key]]
                     else:
@@ -648,7 +679,7 @@ class PianoAnalyzer(AnalyzeCommon):
         max_value = max(list(key_dict.values()))
         for k, v in key_dict.items():
             key_dict[k] = v / max_value
-        return key_dict
+        return key_dict, raw_keys, key_ffts
 
     def _piano_graph_single(self, key_dict, channel):
         # plot cover
@@ -696,7 +727,14 @@ class PianoAnalyzer(AnalyzeCommon):
             # get data for spectral
             audio_data = [x[starting_sample:starting_sample + self.analyzer_n_window] for x in self.data]
             fft_data = [self._fft_data_transform_single(x) for x in audio_data]
-            key_dicts = [self._piano_key_spectral_data(x) for x in fft_data]
+            spectral_data = [self._piano_key_spectral_data(x) for x in fft_data]
+            key_dicts = []
+            raw_keys = []
+            key_ffts = []
+            for key_dict, raw_key, key_fft, in spectral_data:
+                key_dicts.append(key_dict)
+                raw_keys.append(raw_key)
+                key_ffts.append(key_fft)
 
             # plot
             plt.style.use('dark_background')
@@ -708,6 +746,7 @@ class PianoAnalyzer(AnalyzeCommon):
             # plot piano
             for i in range(len(fft_data)):
                 self._piano_graph_single(key_dicts[i], i)
+                self._generate_frequency_graph_single(raw_keys[i], key_ffts[i], i)
 
             # set plot ratio
             plt.gca().set_aspect(1)
