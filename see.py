@@ -13,13 +13,7 @@ import soundfile as sf
 from matplotlib.patches import Circle
 
 
-class TerminalSeeAudio(object):
-    """
-    this class will plot audio similar to `Adobe Audition` with:
-        * plot wave & spectral
-        * play music
-    """
-
+class Common(object):
     def __init__(self):
         # demo mode
         self.demo_file = os.path.abspath(os.path.join(os.path.dirname(__file__), 'demo/june.ogg'))
@@ -37,38 +31,6 @@ class TerminalSeeAudio(object):
         # `mono` or `stereo` (>1 channel)
         self.channel_type = 'stereo'
 
-        # spectral mode
-        self.spectral_transform_y = 'fbank'
-        self.spectral_transform_v = 'log'
-
-        # plot & play command (path will be replaced by `{}`)
-        self.plot_command = 'timg {}'
-        self.play_command = 'play {}'
-
-        # figure parameters
-        # wave/spectral
-        # line width parameters with `thin`, `thick`, `mode_switch_time`
-        self.line_width_params = [.2, 1.2, 3]
-        self.graphics_ratio = 5
-        self.figure_size = (12, 4)
-        self.figure_dpi = 200
-
-        # spiral analyzer
-        self.spiral_dpi = 150
-        self.spiral_figure_size = (15, 15)
-        self.spiral_line_width = 1.5
-        # default for 12 equal temperament
-        self.spiral_n_temperament = 12
-
-        # piano analyzer
-        self.piano_line_width = 0.8
-        self.piano_figure_size = (15, 5)
-        self.piano_dpi = 300
-        self.piano_position_gap = 0.3
-        self.piano_cover_width = 0.1
-        self.piano_key_range = [-48, 40]
-        self.piano_tuning_shape_power = 1 / 2
-
         # audio parameters
         # resolution of frequency (y) dimension
         self.n_window = 1024
@@ -85,9 +47,9 @@ class TerminalSeeAudio(object):
         # minimum hearing frequency
         self.min_mel_freq = 16
 
-        # shell parameters
-        # timeout for shell script
-        self.sh_timeout = 10
+        # plot & play command (path will be replaced by `{}`)
+        self.plot_command = 'timg {}'
+        self.play_command = 'play {}'
 
         # colors & themes
         self.plot_axis_color = 'white'
@@ -102,18 +64,14 @@ class TerminalSeeAudio(object):
         # graphics modes
         self.graphics_modes = ['fft', 'fbank', 'power', 'log', 'mono', 'stereo']
 
-    def _get_and_fix_input_path(self, in_path):
-        """ get input path """
-        # if `None`: demo mode
-        if in_path is None:
-            if os.path.exists(self.demo_file):
-                self.input = self.demo_file
-                print(f'<+> demo file `{self.demo_file}` will be tested')
-            else:
-                raise ValueError('demo file missing, example cannot be proceeded.')
-        # regular mode
+    def _check_audio_duration_valid(self, starting, ending):
+        """ check if greater than minimum duration """
+        if ending - starting < self.min_duration:
+            print(f'<!> {ending} - {starting} = {ending - starting} (< {self.min_duration}; minimum duration)\n'
+                  f'<!> time duration too short')
+            return False
         else:
-            self.input = os.path.abspath(in_path)
+            return True
 
     def _initialization(self):
         # demo mode message
@@ -123,10 +81,6 @@ class TerminalSeeAudio(object):
         self.min_duration = self.n_window / self.sample_rate
         self.analyze_min_duration = self.analyzer_n_window / self.sample_rate
         self._check_audio_duration()
-        # initialize path autocomplete
-        readline.set_completer_delims(' \t\n;')
-        readline.parse_and_bind("tab: complete")
-        readline.set_completer(self._path_autocomplete)
 
     def _initialize_temp(self):
         """ temp file path initialization """
@@ -152,26 +106,218 @@ class TerminalSeeAudio(object):
         self.time = range(len(self.data[0]))
         self.time = [x / self.sample_rate for x in self.time]
 
+    def _get_audio_time(self):
+        return 0, len(self.data) / self.sample_rate
+
     def _check_audio_duration(self):
         """ check if raw audio too short """
         if len(self.data[0]) / self.sample_rate < self.min_duration:
             raise ValueError('audio too short; exit')
 
+    @staticmethod
+    def _is_float(string):
+        # noinspection PyBroadException
+        try:
+            float(string)
+            return True
+        except Exception:
+            return False
+
+    @staticmethod
+    def _is_int(string):
+        # noinspection PyBroadException
+        try:
+            int(string)
+            return True
+        except Exception:
+            return False
+
+    @staticmethod
+    def _calc_sp(audio, n_window, n_overlap):
+        """
+        Calculate spectrogram.
+        :param audio: list(float): audio data
+        :return: list(list(float)): the spectral data
+        """
+        ham_win = np.hamming(n_window)
+        [_, _, x] = signal.spectral.spectrogram(
+            audio,
+            window=ham_win,
+            nperseg=n_window,
+            noverlap=n_overlap,
+            detrend=False,
+            return_onesided=True,
+            mode='magnitude')
+        x = x.T
+        x = x.astype(np.float64)
+        return x
+
+    def _terminal_play(self, start, end, path):
+        """ play in terminal function """
+        if not os.path.exists(path):
+            print('<!> temp audio cannot find')
+            return
+        if end - start > self.play_max_duration:
+            print(f'<!> audio too long for {end - start}s')
+            while True:
+                answer = input('</> do you wish to play [y/n]: ')
+                if answer == 'y':
+                    break
+                elif answer == 'n':
+                    return
+                else:
+                    print('<!> please type `y` or `n`')
+                    continue
+        command = self.play_command.format(path)
+        # noinspection PyBroadException
+        try:
+            subprocess.call(command, shell=True)
+        except Exception:
+            print(f'<!> please fix problem:\n<?> {command}')
+
+    def _terminal_plot(self, path):
+        """ plot in terminal function """
+        if not os.path.exists(path):
+            print('<!> temp image cannot find')
+            return
+        command = self.plot_command.format(path)
+        # noinspection PyBroadException
+        try:
+            subprocess.call(command, shell=True)
+        except Exception:
+            print(f'<!> please fix problem:\n<?> {command}')
+
+    def print_help(self):
+        """ print help file """
+        if os.path.exists(self.readme_path):
+            print('<*> ' + 'help ...')
+            with open(self.readme_path, 'r') as f:
+                text = f.readlines()
+                for t in text:
+                    print(' | ' + t.rstrip())
+            print('<*> ' + '... help')
+        else:
+            print('<!> readme file missing')
+
+
+class AnalyzeCommon(Common):
+    def __init__(self):
+        super().__init__()
+
+    def _log_min_max_transform(self, array):
+        array = np.array([np.log(x + self.min_analyze_power) for x in array])
+        array -= np.min(array)
+        if np.max(array) != 0:
+            array /= np.max(array)
+        return array
+
+    def _fft_position_to_frequency(self, position):
+        return position * self.sample_rate / self.analyzer_n_window
+
+    def _frequency_to_pitch(self, frequency):
+        return np.log2(frequency / self.a4_frequency) + 5
+
+    def _fft_data_transform_single(self, fft_single):
+        fft_single = self._calc_sp(fft_single, self.analyzer_n_window, self.n_overlap)[0]
+        if np.max(fft_single) != 0:
+            fft_single /= np.max(fft_single)
+        return fft_single
+
     def _check_spiral_duration(self, starting_time):
-        """ check if raw audio too short for spiral plot """
+        """ check if raw audio too short for analyze plot """
         if len(self.data[0]) / self.sample_rate < self.analyze_min_duration + starting_time or starting_time < 0:
             return False
         else:
             return True
 
-    def _check_audio_duration_valid(self, starting, ending):
-        """ check if greater than minimum duration """
-        if ending - starting < self.min_duration:
-            print(f'<!> {ending} - {starting} = {ending - starting} (< {self.min_duration}; minimum duration)\n'
-                  f'<!> time duration too short')
-            return False
+    def _get_ifft_data_single(self, fft_single):
+        ff1 = np.array(list(fft_single) + list(-fft_single[::-1]))
+        ifft_single = np.real(np.fft.ifft(ff1))
+        ifft_single /= np.max(np.abs(ifft_single))
+        return ifft_single[:self.analyzer_n_window]
+
+    def _ifft_audio_export(self, fft_data):
+        ifft_data = np.transpose(np.array([self._get_ifft_data_single(x) for x in fft_data]))
+        sf.write(self.ifft_audio_path, ifft_data, samplerate=self.sample_rate)
+
+
+class Shell(Common):
+    def __init__(self):
+        # shell parameters
+        # timeout for shell script
+        super().__init__()
+        self.sh_timeout = 10
+
+        # initialize shell
+        self._initialize_shell()
+
+    @staticmethod
+    def _path_input_check(input_split):
+        return input_split[1][0] == input_split[1][-1] and (
+                input_split[1][0] == '\'' or input_split[1][0] == '\"' or input_split[1][0] == '`')
+
+    def _get_try_path(self, input_split):
+        if self._path_input_check(input_split):
+            try_input = input_split[1][1:-1]
         else:
-            return True
+            try_input = input_split[1]
+        return try_input
+
+    def _get_and_fix_input_path(self, in_path):
+        """ get input path """
+        # if `None`: demo mode
+        if in_path is None:
+            if os.path.exists(self.demo_file):
+                self.input = self.demo_file
+                print(f'<+> demo file `{self.demo_file}` will be tested')
+            else:
+                raise ValueError('demo file missing, example cannot be proceeded.')
+        # regular mode
+        else:
+            self.input = os.path.abspath(in_path)
+
+    @staticmethod
+    def _path_autocomplete(text, state):
+        """
+        [https://gist.github.com/iamatypeofwalrus/5637895]
+        This is the tab completer for systems paths.
+        Only tested on *nix systems
+        --> WATCH: space ` ` is replaced by `\\s`
+        """
+        # replace ~ with the user's home dir
+        if '~' in text:
+            text = text.replace('~', os.path.expanduser('~'))
+
+        # fix path
+        if text != '':
+            text = os.path.abspath(text).replace('//', '/')
+
+        # autocomplete directories with having a trailing slash
+        if os.path.isdir(text) and text != '/':
+            text += '/'
+
+        return [x.replace(' ', '\\s') for x in glob.glob(text.replace('\\s', ' ') + '*')][state]
+
+    def _initialize_shell(self):
+        # initialize path autocomplete
+        readline.set_completer_delims(' \t\n;')
+        readline.parse_and_bind("tab: complete")
+        readline.set_completer(self._path_autocomplete)
+
+
+class WaveSpectral(AnalyzeCommon):
+    def __init__(self):
+        super().__init__()
+        # spectral mode
+        self.spectral_transform_y = 'fbank'
+        self.spectral_transform_v = 'log'
+
+        # wave/spectral
+        # line width parameters with `thin`, `thick`, `mode_switch_time`
+        self.line_width_params = [.2, 1.2, 3]
+        self.graphics_ratio = 5
+        self.figure_size = (12, 4)
+        self.figure_dpi = 200
 
     def _mel_filter(self, spectral_raw):
         """
@@ -208,26 +354,6 @@ class TerminalSeeAudio(object):
         filter_banks = np.dot(spectral_raw, f_bank.T)
         filter_banks = np.where(filter_banks == 0, np.finfo(float).eps, filter_banks)
         return filter_banks
-
-    @staticmethod
-    def _calc_sp(audio, n_window, n_overlap):
-        """
-        Calculate spectrogram.
-        :param audio: list(float): audio data
-        :return: list(list(float)): the spectral data
-        """
-        ham_win = np.hamming(n_window)
-        [_, _, x] = signal.spectral.spectrogram(
-            audio,
-            window=ham_win,
-            nperseg=n_window,
-            noverlap=n_overlap,
-            detrend=False,
-            return_onesided=True,
-            mode='magnitude')
-        x = x.T
-        x = x.astype(np.float64)
-        return x
 
     def _data_prepare(self, starting_time, ending_time):
         """ prepare partition of audios """
@@ -331,24 +457,28 @@ class TerminalSeeAudio(object):
         plt.savefig(self.graphics_path, dpi=self.figure_dpi, bbox_inches='tight')
         return starting_time, ending_time, True
 
-    def _fft_position_to_frequency(self, position):
-        return position * self.sample_rate / self.analyzer_n_window
+    def _initial_or_restore_running(self):
+        """ first run & restore run """
+        self._prepare_graph_audio(0, len(self.data[0]) / self.sample_rate)
+        self._terminal_plot(self.graphics_path)
 
-    def _frequency_to_pitch(self, frequency):
-        return np.log2(frequency / self.a4_frequency) + 5
+
+class SpiralAnalyzer(AnalyzeCommon):
+    def __init__(self):
+        super().__init__()
+
+        # spiral analyzer
+        self.spiral_dpi = 150
+        self.spiral_figure_size = (15, 15)
+        self.spiral_line_width = 1.5
+        # default for 12 equal temperament
+        self.spiral_n_temperament = 12
 
     @staticmethod
     def _spiral_pitch_to_plot_position(pitch, offset):
         x_position = np.cos(pitch * 2 * np.pi + np.pi) * (pitch + offset)
         y_position = -np.sin(pitch * 2 * np.pi + np.pi) * (pitch + offset)
         return x_position, y_position
-
-    def _log_min_max_transform(self, array):
-        array = np.array([np.log(x + self.min_analyze_power) for x in array])
-        array -= np.min(array)
-        if np.max(array) != 0:
-            array /= np.max(array)
-        return array
 
     def _spiral_polar_transform(self, arrays):
         array_0, array_1 = arrays
@@ -376,22 +506,6 @@ class TerminalSeeAudio(object):
                     x_array_1.append(x_position)
                     y_array_1.append(y_position)
         return (x_array_0, y_array_0), (x_array_1, y_array_1), transformed_array, pitches
-
-    def _get_ifft_data_single(self, fft_single):
-        ff1 = np.array(list(fft_single) + list(-fft_single[::-1]))
-        ifft_single = np.real(np.fft.ifft(ff1))
-        ifft_single /= np.max(np.abs(ifft_single))
-        return ifft_single[:self.analyzer_n_window]
-
-    def _fft_data_transform_single(self, fft_single):
-        fft_single = self._calc_sp(fft_single, self.analyzer_n_window, self.n_overlap)[0]
-        if np.max(fft_single) != 0:
-            fft_single /= np.max(fft_single)
-        return fft_single
-
-    def _ifft_audio_export(self, fft_data):
-        ifft_data = np.transpose(np.array([self._get_ifft_data_single(x) for x in fft_data]))
-        sf.write(self.ifft_audio_path, ifft_data, samplerate=self.sample_rate)
 
     def _prepare_graph_spiral(self, starting_time):
         valid = self._check_spiral_duration(starting_time)
@@ -472,8 +586,18 @@ class TerminalSeeAudio(object):
             self._ifft_audio_export(fft_data)
             return True
 
-    def _frequency_to_key(self, frequency):
-        return np.log2(frequency / self.a4_frequency) * 12
+
+class PianoAnalyzer(AnalyzeCommon):
+    def __init__(self):
+        super().__init__()
+        # piano analyzer
+        self.piano_line_width = 0.8
+        self.piano_figure_size = (15, 5)
+        self.piano_dpi = 300
+        self.piano_position_gap = 0.3
+        self.piano_cover_width = 0.1
+        self.piano_key_range = [-48, 40]
+        self.piano_tuning_shape_power = 1 / 2
 
     def _generate_key_position(self, key, channel):
         # `0` as white, `1` as black
@@ -501,6 +625,9 @@ class TerminalSeeAudio(object):
         position_2 = [middle_x + width, -channel * piano_key_length - length - gap]
         position_3 = [middle_x - width, -channel * piano_key_length - length - gap]
         return np.array([position_0, position_1, position_2, position_3]), key_bw_switch[key_position]
+
+    def _frequency_to_key(self, frequency):
+        return np.log2(frequency / self.a4_frequency) * 12
 
     def _piano_key_spectral_data(self, array):
         array = self._log_min_max_transform(array)
@@ -592,112 +719,20 @@ class TerminalSeeAudio(object):
             self._ifft_audio_export(fft_data)
             return True
 
-    def _terminal_plot(self, path):
-        """ plot in terminal function """
-        if not os.path.exists(path):
-            print('<!> temp image cannot find')
-            return
-        command = self.plot_command.format(path)
-        # noinspection PyBroadException
-        try:
-            subprocess.call(command, shell=True)
-        except Exception:
-            print(f'<!> please fix problem:\n<?> {command}')
 
-    def _terminal_play(self, start, end, path):
-        """ play in terminal function """
-        if not os.path.exists(path):
-            print('<!> temp audio cannot find')
-            return
-        if end - start > self.play_max_duration:
-            print(f'<!> audio too long for {end - start}s')
-            while True:
-                answer = input('</> do you wish to play [y/n]: ')
-                if answer == 'y':
-                    break
-                elif answer == 'n':
-                    return
-                else:
-                    print('<!> please type `y` or `n`')
-                    continue
-        command = self.play_command.format(path)
-        # noinspection PyBroadException
-        try:
-            subprocess.call(command, shell=True)
-        except Exception:
-            print(f'<!> please fix problem:\n<?> {command}')
+class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, Shell):
+    """
+    this class will plot audio similar to `Adobe Audition` with:
+        * plot wave & spectral
+        * play music
+        * analyze spectral
+    """
 
-    @staticmethod
-    def _is_float(string):
-        # noinspection PyBroadException
-        try:
-            float(string)
-            return True
-        except Exception:
-            return False
-
-    @staticmethod
-    def _is_int(string):
-        # noinspection PyBroadException
-        try:
-            int(string)
-            return True
-        except Exception:
-            return False
-
-    def _initial_or_restore_running(self):
-        """ first run & restore run """
-        self._prepare_graph_audio(0, len(self.data[0]) / self.sample_rate)
-        self._terminal_plot(self.graphics_path)
-
-    @staticmethod
-    def _path_input_check(input_split):
-        return input_split[1][0] == input_split[1][-1] and (
-                input_split[1][0] == '\'' or input_split[1][0] == '\"' or input_split[1][0] == '`')
-
-    def _get_try_path(self, input_split):
-        if self._path_input_check(input_split):
-            try_input = input_split[1][1:-1]
-        else:
-            try_input = input_split[1]
-        return try_input
-
-    def print_help(self):
-        """ print help file """
-        if os.path.exists(self.readme_path):
-            print('<*> ' + 'help ...')
-            with open(self.readme_path, 'r') as f:
-                text = f.readlines()
-                for t in text:
-                    print(' | ' + t.rstrip())
-            print('<*> ' + '... help')
-        else:
-            print('<!> readme file missing')
-
-    @staticmethod
-    def _path_autocomplete(text, state):
-        """
-        [https://gist.github.com/iamatypeofwalrus/5637895]
-        This is the tab completer for systems paths.
-        Only tested on *nix systems
-        --> WATCH: space ` ` is replaced by `\\s`
-        """
-        # replace ~ with the user's home dir
-        if '~' in text:
-            text = text.replace('~', os.path.expanduser('~'))
-
-        # fix path
-        if text != '':
-            text = os.path.abspath(text).replace('//', '/')
-
-        # autocomplete directories with having a trailing slash
-        if os.path.isdir(text) and text != '/':
-            text += '/'
-
-        return [x.replace(' ', '\\s') for x in glob.glob(text.replace('\\s', ' ') + '*')][state]
-
-    def _get_time(self):
-        return 0, len(self.data) / self.sample_rate
+    def __init__(self):
+        WaveSpectral.__init__(self)
+        SpiralAnalyzer.__init__(self)
+        PianoAnalyzer.__init__(self)
+        Shell.__init__(self)
 
     def main(self, in_path):
         """ main function """
@@ -841,7 +876,7 @@ class TerminalSeeAudio(object):
                                 print('<+> file path changed')
                                 self._initial_or_restore_running()
                                 # reset time
-                                last_starting, last_ending = self._get_time()
+                                last_starting, last_ending = self._get_audio_time()
                         else:
                             print(f'<!> file path `{try_input}` does not exist')
                     # 2.2.4 change the temp folder path
@@ -882,7 +917,7 @@ class TerminalSeeAudio(object):
                 print('<!> reset all')
                 self._initial_or_restore_running()
                 # reset time
-                last_starting, last_ending = self._get_time()
+                last_starting, last_ending = self._get_audio_time()
             # 3.6 `h` to print help file
             elif input_ == 'h':
                 self.print_help()
