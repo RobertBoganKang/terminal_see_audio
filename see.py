@@ -23,6 +23,9 @@ class Common(object):
         self.temp_folder = os.path.join(os.path.dirname(__file__), 'tmp')
         self.readme_path = os.path.join(os.path.dirname(__file__), 'README.md')
 
+        # figure
+        self.figure_minimum_alpha = 0.05
+
         # system parameters
         # audio parameters
         self.sample_rate = 16000
@@ -569,9 +572,10 @@ class SpiralAnalyzer(AnalyzeCommon):
                 pos3 = [position_0[0][i + 1], position_0[1][i + 1]]
                 poly_position = np.array([pos0, pos1, pos2, pos3])
                 opacity = max(fft_data_transformed[i], fft_data_transformed[i + 1])
-                plt.fill(poly_position[:, 0], poly_position[:, 1], facecolor=self.spiral_color,
-                         edgecolor=self.spiral_color, linewidth=self.spiral_line_width,
-                         alpha=opacity, zorder=2)
+                if opacity > self.figure_minimum_alpha:
+                    plt.fill(poly_position[:, 0], poly_position[:, 1], facecolor=self.spiral_color,
+                             edgecolor=self.spiral_color, linewidth=self.spiral_line_width,
+                             alpha=opacity, zorder=2)
             # plot `A4` position
             cir_end = Circle((ax_position, ay_position), radius=0.2, zorder=3, facecolor=self.a_pitch_color,
                              linewidth=self.spiral_line_width, edgecolor=self.a_pitch_color, alpha=0.6)
@@ -643,15 +647,15 @@ class PianoAnalyzer(AnalyzeCommon):
             one_piano_length = self.piano_key_length + self.piano_position_gap
             key_x = raw_keys[i] * 7 / 12
             positions_0.append([key_x, -channel * one_piano_length])
-            # positions_1.append([key_x, -channel * one_piano_length + key_ffts[i] * self.piano_spectral_height])
             positions_1.append([key_x, -channel * one_piano_length + self.piano_spectral_height])
         for i in range(len(raw_keys) - 1):
             x_positions = [positions_0[i][0], positions_1[i + 1][0], positions_1[i + 1][0], positions_0[i][0]]
             y_positions = [positions_0[i][1], positions_0[i + 1][1], positions_1[i + 1][1], positions_1[i][1]]
             freq_alpha = max(key_ffts[i], key_ffts[i + 1])
-            plt.fill(x_positions, y_positions, edgecolor=self.piano_spectral_color,
-                     facecolor=self.piano_spectral_color,
-                     linewidth=self.piano_line_width, zorder=1, alpha=freq_alpha)
+            if freq_alpha > self.figure_minimum_alpha:
+                plt.fill(x_positions, y_positions, edgecolor=self.piano_spectral_color,
+                         facecolor=self.piano_spectral_color,
+                         linewidth=self.piano_line_width, zorder=1, alpha=freq_alpha)
 
     def _frequency_to_key(self, frequency):
         return np.log2(frequency / self.a4_frequency) * 12
@@ -694,15 +698,17 @@ class PianoAnalyzer(AnalyzeCommon):
         for k in range(self.piano_key_range[0], self.piano_key_range[1], 1):
             positions, bw = self._generate_key_position(k, channel)
             if k in key_dict:
-                fft_values = key_dict[k]
+                fft_value = key_dict[k]
             else:
-                fft_values = 0
+                fft_value = 0
             # background
             plt.fill(positions[:, 0], positions[:, 1], facecolor='black', edgecolor=self.piano_base_color,
                      linewidth=self.piano_line_width, zorder=2 * bw + 1)
             # plot key
-            plt.fill(positions[:, 0], positions[:, 1], edgecolor=self.piano_key_color, facecolor=self.piano_key_color,
-                     linewidth=self.piano_line_width, zorder=2 * bw + 2, alpha=fft_values)
+            if fft_value > self.figure_minimum_alpha:
+                plt.fill(positions[:, 0], positions[:, 1], edgecolor=self.piano_key_color,
+                         facecolor=self.piano_key_color,
+                         linewidth=self.piano_line_width, zorder=2 * bw + 2, alpha=fft_value)
             # `a4` position
             if k % 12 == 0:
                 if k == 0:
