@@ -53,7 +53,9 @@ python see.py <input_file>
 * `h`: to print `README.md` file (this file) as `help`;
 * `@` or `#`: spiral/piano analyzer for short period signals by giving a starting time;
   * number: `@10` is to analyze `10~s` spectral;
-  * `''`: empty is to play last analyzed spiral graphics;
+  * `''`: empty is to plot last analyzed spiral graphics;
+  * if command `#` follows two numbers, it will plot piano roll at starting time & ending time; `#10 20` will calculate the piano roll of `10s` to `20s`;
+  * command `##` will plot last calculated piano roll result;
 
 ### Advanced Script
 

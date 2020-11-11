@@ -23,23 +23,25 @@ class Common(object):
         self.temp_folder = os.path.join(os.path.dirname(__file__), 'tmp')
         self.readme_path = os.path.join(os.path.dirname(__file__), 'README.md')
 
-        # figure
+        # constants
+        self.golden_ratio = (np.sqrt(5) - 1) / 2
+        self.a4_frequency = 440
+
+        # figure parameters
         self.figure_minimum_alpha = 0.05
 
-        # system parameters
         # audio parameters
         self.sample_rate = 16000
         self.min_sample_rate = 1000
-        self.a4_frequency = 440
         # `mono` or `stereo` (>1 channel)
         self.channel_type = 'stereo'
 
-        # audio parameters
         # resolution of frequency (y) dimension
         self.n_window = 1024
         self.analyzer_n_window = 4096
         # resolution of time (x) dimension
         self.n_step = 128
+        self.piano_roll_n_step = 1024
         # max duration for audio to play (30s)
         self.play_max_duration = 30
         # spectral transform power coefficient for `power` mode
@@ -74,6 +76,7 @@ class Common(object):
         os.makedirs(self.temp_folder, exist_ok=True)
         self._initialize_audio()
         self.n_overlap = self.n_window - self.n_step
+        self.piano_roll_n_overlap = self.analyzer_n_window - self.piano_roll_n_step
         self.min_duration = self.n_window / self.sample_rate
         self.analyze_min_duration = self.analyzer_n_window / self.sample_rate
         self._check_audio_duration()
@@ -83,6 +86,7 @@ class Common(object):
         self.graphics_path = os.path.join(self.temp_folder, 'wave_spectral.png')
         self.spiral_graphics_path = os.path.join(self.temp_folder, 'spiral.png')
         self.piano_graphics_path = os.path.join(self.temp_folder, 'piano.png')
+        self.piano_roll_graphics_path = os.path.join(self.temp_folder, 'piano_roll.png')
         self.ifft_audio_path = os.path.join(self.temp_folder, 'analyze_ifft.wav')
         self.audio_part_path = os.path.join(self.temp_folder, 'audio.wav')
 
@@ -103,11 +107,11 @@ class Common(object):
         self.time = [x / self.sample_rate for x in self.time]
 
     def _get_audio_time(self):
-        return 0, len(self.data) / self.sample_rate
+        return 0, len(self.data[0]) / self.sample_rate
 
     def _check_audio_duration(self):
         """ check if raw audio too short """
-        if len(self.data[0]) / self.sample_rate < self.min_duration:
+        if self._get_audio_time()[-1] < self.min_duration:
             raise ValueError('audio too short; exit')
 
     @staticmethod
@@ -183,6 +187,20 @@ class Common(object):
         except Exception:
             print(f'<!> please fix problem:\n<?> {command}')
 
+    def _fix_input_starting_ending_time(self, starting_time, ending_time):
+        test_ending = self._get_audio_time()[-1]
+        if starting_time < 0:
+            print(f'<!> reset starting time {starting_time}-->{0}')
+            starting_time = 0
+        if ending_time < 0 or ending_time > test_ending:
+            print(f'<!> reset ending time {ending_time}-->{test_ending}')
+            ending_time = test_ending
+        if starting_time >= ending_time:
+            print('<!> starting time >= ending time ~~> reset all')
+            starting_time = 0
+            ending_time = self._get_audio_time()[-1]
+        return starting_time, ending_time
+
     def print_help(self):
         """ print help file """
         if os.path.exists(self.readme_path):
@@ -194,47 +212,6 @@ class Common(object):
             print('<*> ' + '... help')
         else:
             print('<!> readme file missing')
-
-
-class AnalyzeCommon(Common):
-    def __init__(self):
-        super().__init__()
-
-    def _log_min_max_transform(self, array):
-        array = np.array([np.log(x + self.min_analyze_power) for x in array])
-        array -= np.min(array)
-        if np.max(array) != 0:
-            array /= np.max(array)
-        return array
-
-    def _fft_position_to_frequency(self, position):
-        return position * self.sample_rate / self.analyzer_n_window
-
-    def _frequency_to_pitch(self, frequency):
-        return np.log2(frequency / self.a4_frequency) + 5
-
-    def _fft_data_transform_single(self, fft_single):
-        fft_single = self._calc_sp(fft_single, self.analyzer_n_window, self.n_overlap)[0]
-        if np.max(fft_single) != 0:
-            fft_single /= np.max(fft_single)
-        return fft_single
-
-    def _check_spiral_duration(self, starting_time):
-        """ check if raw audio too short for analyze plot """
-        if len(self.data[0]) / self.sample_rate < self.analyze_min_duration + starting_time or starting_time < 0:
-            return False
-        else:
-            return True
-
-    def _get_ifft_data_single(self, fft_single):
-        ff1 = np.array(list(fft_single) + list(-fft_single[::-1]))
-        ifft_single = np.real(np.fft.ifft(ff1))
-        ifft_single /= np.max(np.abs(ifft_single))
-        return ifft_single[:self.analyzer_n_window]
-
-    def _ifft_audio_export(self, fft_data):
-        ifft_data = np.transpose(np.array([self._get_ifft_data_single(x) for x in fft_data]))
-        sf.write(self.ifft_audio_path, ifft_data, samplerate=self.sample_rate)
 
 
 class Shell(Common):
@@ -301,6 +278,125 @@ class Shell(Common):
         readline.set_completer(self._path_autocomplete)
 
 
+class AnalyzeCommon(Common):
+    def __init__(self):
+        super().__init__()
+
+    def _log_min_max_transform(self, array):
+        array = np.log(np.array(array) + self.min_analyze_power)
+        array -= np.min(array)
+        if np.max(array) != 0:
+            array /= np.max(array)
+        return array
+
+    def _fft_position_to_frequency(self, position):
+        return position * self.sample_rate / self.analyzer_n_window
+
+    def _frequency_to_pitch(self, frequency):
+        return np.log2(frequency / self.a4_frequency) + 5
+
+    def _fft_data_transform_single(self, fft_single):
+        fft_single = self._calc_sp(fft_single, self.analyzer_n_window, self.n_overlap)
+        if np.max(fft_single) != 0:
+            fft_single /= np.max(fft_single)
+        return fft_single
+
+    def _check_analyze_duration(self, starting_time):
+        """ check if raw audio too short for analyze plot """
+        if self._get_audio_time()[-1] < self.analyze_min_duration + starting_time or starting_time < 0:
+            return False
+        else:
+            return True
+
+    def _get_ifft_data_single(self, fft_single):
+        ff1 = np.array(list(fft_single) + list(-fft_single[::-1]))
+        ifft_single = np.real(np.fft.ifft(ff1))
+        ifft_single /= np.max(np.abs(ifft_single))
+        return ifft_single[:self.analyzer_n_window]
+
+    def _ifft_audio_export(self, fft_data):
+        ifft_data = np.transpose(np.array([self._get_ifft_data_single(x) for x in fft_data]))
+        sf.write(self.ifft_audio_path, ifft_data, samplerate=self.sample_rate)
+
+
+class PianoCommon(AnalyzeCommon):
+    def __init__(self):
+        super().__init__()
+        self.piano_tuning_shape_power = 1 / 2
+        self.piano_key_range = [-48, 40]
+        self.piano_spectral_height = 0.1
+        self.piano_position_gap = 0.4
+        self.piano_line_width = 0.8
+        self.piano_cover_width = 0.1
+        # piano key size
+        # b/w width: 13.7mm/23.5mm
+        # b/w length: 9.5mm/15cm
+        self.piano_key_length = 6.382978723404255
+        self.piano_roll_key_length = 4
+        # `0` as white, `1` as black key
+        self.piano_key_bw_switch = [0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1]
+
+        # colors & themes
+        self.piano_base_color = '#222'
+        self.piano_roll_base_color = '#444'
+        self.piano_roll_black_key_color = '#333'
+        self.piano_key_color = 'mediumspringgreen'
+        self.piano_roll_color = 'mediumspringgreen'
+        self.piano_spectral_color = 'dimgray'
+
+    def _piano_tuning_method(self, key, value):
+        # set `^` or `n` shape tuning
+        return np.mean(value[:, 0] * np.power(1 - 2 * np.abs(key - value[:, 1]), self.piano_tuning_shape_power))
+
+    def _frequency_to_key(self, frequency):
+        return np.log2(frequency / self.a4_frequency) * 12
+
+    def _piano_generate_key_position(self, key, channel, piano_key_length):
+        # `7` for octave switch
+        key_position_switch = [0, 0.5, 1, 2, 2.5, 3, 3.5, 4, 5, 5.5, 6, 6.5]
+        key_position = key % 12
+        key_octave = int(np.ceil((key + 0.5) / 12)) - 1
+        middle_x = key_octave * 7 + key_position_switch[key_position]
+        # get position dimension
+        if self.piano_key_bw_switch[key_position] == 0:
+            width = 1
+            length = piano_key_length
+        else:
+            width = 0.5829787234042553
+            length = piano_key_length * 0.633
+        # key position
+        one_piano_length = piano_key_length + self.piano_spectral_height + self.piano_position_gap
+        position_0 = [middle_x - width / 2, -channel * one_piano_length]
+        position_1 = [middle_x + width / 2, -channel * one_piano_length]
+        position_2 = [middle_x + width / 2, -channel * one_piano_length - length]
+        position_3 = [middle_x - width / 2, -channel * one_piano_length - length]
+        return np.array([position_0, position_1, position_2, position_3]), self.piano_key_bw_switch[key_position]
+
+    def _piano_key_spectral_data(self, array):
+        array = self._log_min_max_transform(array)
+        key_dict = {}
+        raw_keys = []
+        key_ffts = []
+        for i, t in enumerate(array):
+            if i > 0:
+                raw_key = self._frequency_to_key(self._fft_position_to_frequency(i))
+                key = round(raw_key)
+                if self.piano_key_range[0] <= key < self.piano_key_range[1]:
+                    raw_keys.append(raw_key)
+                    key_ffts.append(t)
+                    if key not in key_dict:
+                        key_dict[key] = [[t, raw_key]]
+                    else:
+                        key_dict[key].append([t, raw_key])
+        for k, v in key_dict.items():
+            v = np.array(v)
+            key_dict[k] = self._piano_tuning_method(k, v)
+        max_value = max(list(key_dict.values()))
+        for k, v in key_dict.items():
+            key_dict[k] = v / max_value
+        return key_dict, raw_keys, key_ffts
+
+
 class WaveSpectral(AnalyzeCommon):
     def __init__(self):
         super().__init__()
@@ -358,17 +454,7 @@ class WaveSpectral(AnalyzeCommon):
 
     def _data_prepare(self, starting_time, ending_time):
         """ prepare partition of audios """
-        test_ending = len(self.data[0]) / self.sample_rate
-        if starting_time < 0:
-            print(f'<!> reset starting time {starting_time}-->{0}')
-            starting_time = 0
-        if ending_time < 0 or ending_time > test_ending:
-            print(f'<!> reset ending time {ending_time}-->{test_ending}')
-            ending_time = test_ending
-        if starting_time >= ending_time:
-            print('<!> starting time >= ending time ~~> reset all')
-            starting_time = 0
-            ending_time = len(self.data[0]) / self.sample_rate
+        starting_time, ending_time = self._fix_input_starting_ending_time(starting_time, ending_time)
         if not self._check_audio_duration_valid(starting_time, ending_time):
             return None, None, starting_time, ending_time, False
         # extract starting & ending sample
@@ -460,7 +546,7 @@ class WaveSpectral(AnalyzeCommon):
 
     def _initial_or_restore_running(self):
         """ first run & restore run """
-        self._prepare_graph_audio(0, len(self.data[0]) / self.sample_rate)
+        self._prepare_graph_audio(0, self._get_audio_time()[-1])
         self._terminal_plot(self.graphics_path)
 
 
@@ -513,11 +599,11 @@ class SpiralAnalyzer(AnalyzeCommon):
         return (x_array_0, y_array_0), (x_array_1, y_array_1), transformed_array, pitches
 
     def _prepare_graph_spiral(self, starting_time):
-        valid = self._check_spiral_duration(starting_time)
+        valid = self._check_analyze_duration(starting_time)
         if not valid:
             print(
                 f'<!> starting time set false\n'
-                f'<!> number should be `0`~ `{len(self.data[0]) / self.sample_rate - self.analyze_min_duration}`s'
+                f'<!> number should be `0`~ `{self._get_audio_time()[-1] - self.analyze_min_duration}`s'
             )
             return False
         else:
@@ -593,102 +679,35 @@ class SpiralAnalyzer(AnalyzeCommon):
             return True
 
 
-class PianoAnalyzer(AnalyzeCommon):
+class PianoAnalyzer(PianoCommon):
     def __init__(self):
         super().__init__()
         # piano analyzer
-        self.piano_line_width = 0.8
         self.piano_figure_size = (15, 5)
         self.piano_dpi = 300
-        self.piano_position_gap = 0.4
-        self.piano_cover_width = 0.1
-        self.piano_key_range = [-48, 40]
-        self.piano_tuning_shape_power = 1 / 2
-        self.piano_spectral_height = 0.1
 
-        # piano key size
-        # b/w width: 13.7mm/23.5mm
-        # b/w length: 9.5mm/15cm
-        self.piano_key_length = 6.382978723404255
-
-        # colors & themes
-        self.piano_base_color = '#222'
-        self.piano_key_color = 'mediumspringgreen'
-        self.piano_spectral_color = 'dimgray'
-
-    def _generate_key_position(self, key, channel):
-        # `0` as white, `1` as black
-        key_bw_switch = [0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1]
-        # `7` for octave switch
-        key_position_switch = [0, 0.5, 1, 2, 2.5, 3, 3.5, 4, 5, 5.5, 6, 6.5]
-        key_position = key % 12
-        key_octave = int(np.ceil((key + 0.5) / 12)) - 1
-        middle_x = key_octave * 7 + key_position_switch[key_position]
-        # get position dimension
-        if key_bw_switch[key_position] == 0:
-            width = 1
-            length = self.piano_key_length
-        else:
-            width = 0.5829787234042553
-            length = self.piano_key_length * 0.633
-        # key position
-        one_piano_length = self.piano_key_length + self.piano_spectral_height + self.piano_position_gap
-        position_0 = [middle_x - width / 2, -channel * one_piano_length]
-        position_1 = [middle_x + width / 2, -channel * one_piano_length]
-        position_2 = [middle_x + width / 2, -channel * one_piano_length - length]
-        position_3 = [middle_x - width / 2, -channel * one_piano_length - length]
-        return np.array([position_0, position_1, position_2, position_3]), key_bw_switch[key_position]
-
-    def _generate_frequency_graph_single(self, raw_keys, key_ffts, channel):
+    def _piano_generate_frequency_graph_single(self, raw_key, key_fft, channel):
         # get key position
         positions_0 = []
         positions_1 = []
-        for i in range(len(raw_keys)):
+        for i in range(len(raw_key)):
             one_piano_length = self.piano_key_length + self.piano_position_gap
-            key_x = raw_keys[i] * 7 / 12
+            key_x = raw_key[i] * 7 / 12
             positions_0.append([key_x, -channel * one_piano_length])
             positions_1.append([key_x, -channel * one_piano_length + self.piano_spectral_height])
-        for i in range(len(raw_keys) - 1):
+        for i in range(len(raw_key) - 1):
             x_positions = [positions_0[i][0], positions_1[i + 1][0], positions_1[i + 1][0], positions_0[i][0]]
             y_positions = [positions_0[i][1], positions_0[i + 1][1], positions_1[i + 1][1], positions_1[i][1]]
-            freq_alpha = max(key_ffts[i], key_ffts[i + 1])
+            freq_alpha = max(key_fft[i], key_fft[i + 1])
             if freq_alpha > self.figure_minimum_alpha:
                 plt.fill(x_positions, y_positions, edgecolor=self.piano_spectral_color,
                          facecolor=self.piano_spectral_color,
                          linewidth=self.piano_line_width, zorder=1, alpha=freq_alpha)
 
-    def _frequency_to_key(self, frequency):
-        return np.log2(frequency / self.a4_frequency) * 12
-
-    def _piano_key_spectral_data(self, array):
-        array = self._log_min_max_transform(array)
-        key_dict = {}
-        raw_keys = []
-        key_ffts = []
-        for i, t in enumerate(array):
-            if i > 0:
-                raw_key = self._frequency_to_key(self._fft_position_to_frequency(i))
-                key = round(raw_key)
-                if self.piano_key_range[0] <= key < self.piano_key_range[1]:
-                    raw_keys.append(raw_key)
-                    key_ffts.append(t)
-                    if key not in key_dict:
-                        key_dict[key] = [[t, raw_key]]
-                    else:
-                        key_dict[key].append([t, raw_key])
-        for k, v in key_dict.items():
-            # set `^` or `n` shape tuning
-            v = np.array(v)
-            key_dict[k] = np.mean(v[:, 0] * np.power(1 - 2 * np.abs(k - v[:, 1]), self.piano_tuning_shape_power))
-        max_value = max(list(key_dict.values()))
-        for k, v in key_dict.items():
-            key_dict[k] = v / max_value
-        return key_dict, raw_keys, key_ffts
-
     def _piano_graph_single(self, key_dict, channel):
         # plot cover
-        left_most, _ = self._generate_key_position(self.piano_key_range[0], channel)
-        right_most, _ = self._generate_key_position(self.piano_key_range[1] - 1, channel)
+        left_most, _ = self._piano_generate_key_position(self.piano_key_range[0], channel, self.piano_key_length)
+        right_most, _ = self._piano_generate_key_position(self.piano_key_range[1] - 1, channel, self.piano_key_length)
         cover_x_positions = [left_most[0, 0], right_most[1, 0], right_most[1, 0], left_most[0, 0]]
         cover_y_positions = [left_most[0, 1], left_most[0, 1], left_most[0, 1] - self.piano_cover_width,
                              left_most[0, 1] - self.piano_cover_width]
@@ -696,7 +715,7 @@ class PianoAnalyzer(AnalyzeCommon):
                  linewidth=self.piano_line_width, zorder=5, alpha=0.9)
         # plot key
         for k in range(self.piano_key_range[0], self.piano_key_range[1], 1):
-            positions, bw = self._generate_key_position(k, channel)
+            positions, bw = self._piano_generate_key_position(k, channel, self.piano_key_length)
             if k in key_dict:
                 fft_value = key_dict[k]
             else:
@@ -720,11 +739,11 @@ class PianoAnalyzer(AnalyzeCommon):
                          zorder=6, alpha=opacity)
 
     def _prepare_graph_piano(self, starting_time):
-        valid = self._check_spiral_duration(starting_time)
+        valid = self._check_analyze_duration(starting_time)
         if not valid:
             print(
                 f'<!> starting time set false\n'
-                f'<!> number should be `0`~ `{len(self.data[0]) / self.sample_rate - self.analyze_min_duration}`s'
+                f'<!> number should be `0`~ `{self._get_audio_time()[-1] - self.analyze_min_duration}`s'
             )
             return False
         else:
@@ -732,7 +751,7 @@ class PianoAnalyzer(AnalyzeCommon):
             starting_sample = int(starting_time * self.sample_rate)
             # get data for spectral
             audio_data = [x[starting_sample:starting_sample + self.analyzer_n_window] for x in self.data]
-            fft_data = [self._fft_data_transform_single(x) for x in audio_data]
+            fft_data = [self._fft_data_transform_single(x)[0] for x in audio_data]
             spectral_data = [self._piano_key_spectral_data(x) for x in fft_data]
             key_dicts = []
             raw_keys = []
@@ -747,12 +766,14 @@ class PianoAnalyzer(AnalyzeCommon):
 
             plt.figure(figsize=self.piano_figure_size)
             fig = plt.subplot(111)
-            fig.set_xlim([self._generate_key_position(self.piano_key_range[0], 0)[0][0, 0] - 0.5,
-                          self._generate_key_position(self.piano_key_range[1] - 1, 0)[0][1, 0] + 0.5])
+            fig.set_xlim(
+                [self._piano_generate_key_position(self.piano_key_range[0], 0, self.piano_key_length)[0][0, 0] - 0.5,
+                 self._piano_generate_key_position(self.piano_key_range[1] - 1, 0, self.piano_key_length)[0][
+                     1, 0] + 0.5])
             # plot piano
             for i in range(len(fft_data)):
                 self._piano_graph_single(key_dicts[i], i)
-                self._generate_frequency_graph_single(raw_keys[i], key_ffts[i], i)
+                self._piano_generate_frequency_graph_single(raw_keys[i], key_ffts[i], i)
 
             # set plot ratio
             plt.gca().set_aspect(1)
@@ -765,7 +786,122 @@ class PianoAnalyzer(AnalyzeCommon):
             return True
 
 
-class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, Shell):
+class PianoRoll(PianoCommon):
+    def __init__(self):
+        super().__init__()
+        self.piano_roll_figure_size = (12, 9)
+        self.piano_roll_dpi = 200
+        self.piano_roll_length_ratio = 3
+        self.piano_roll_length = (
+                (self.piano_key_range[1] - self.piano_key_range[0]) * 7 / 12 * self.piano_roll_length_ratio
+        )
+
+    @staticmethod
+    def _piano_roll_key_to_location_range(key):
+        return (key - 0.5) * 7 / 12, (key + 0.5) * 7 / 12
+
+    def _piano_roll_indicator(self):
+        """ piano roll base """
+        # plot cover & frame
+        top_most, _ = self._piano_generate_key_position(self.piano_key_range[0], 0, self.piano_roll_key_length)
+        bottom_most, _ = self._piano_generate_key_position(self.piano_key_range[1] - 1, 0, self.piano_roll_key_length)
+        cover_x_positions = [top_most[0, 1], top_most[0, 1], top_most[0, 1] - self.piano_cover_width,
+                             top_most[0, 1] - self.piano_cover_width]
+        frame_x_positions = [top_most[0, 1], top_most[0, 1], top_most[0, 1] + self.piano_roll_length,
+                             top_most[0, 1] + self.piano_roll_length]
+        cover_y_positions = [top_most[0, 0], bottom_most[1, 0], bottom_most[1, 0], top_most[0, 0]]
+        plt.fill(cover_x_positions, cover_y_positions, edgecolor=self.piano_roll_base_color,
+                 facecolor=self.piano_base_color,
+                 linewidth=self.piano_line_width, zorder=2, alpha=0.9)
+        plt.fill(frame_x_positions, cover_y_positions, edgecolor=self.piano_roll_base_color,
+                 facecolor='black',
+                 linewidth=self.piano_line_width, zorder=1)
+        base_x_positions = [0, self.piano_roll_length, self.piano_roll_length, 0]
+        # plot key & piano roll base
+        for k in range(self.piano_key_range[0], self.piano_key_range[1], 1):
+            positions, bw = self._piano_generate_key_position(k, 0, self.piano_roll_key_length)
+            bottom_position, top_position = self._piano_roll_key_to_location_range(k)
+            base_y_positions = [top_position, top_position, bottom_position, bottom_position]
+            # background
+            if bw:
+                key_color = self.piano_roll_black_key_color
+                roll_color = self.piano_roll_black_key_color
+                alpha = 0.6
+            else:
+                key_color = 'black'
+                if k % 12 == 0 or k % 12 == 1:
+                    roll_color = self.a_pitch_color
+                    if k in {0, 1}:
+                        alpha = 0.3
+                    else:
+                        alpha = 0.1
+                else:
+                    roll_color = 'black'
+                    alpha = 0.6
+            # plot key
+            plt.fill(positions[:, 1], positions[:, 0], facecolor=key_color, edgecolor=self.piano_roll_base_color,
+                     linewidth=self.piano_line_width, zorder=bw + 1)
+            # plot piano roll base
+            plt.fill(base_x_positions, base_y_positions, facecolor=roll_color, zorder=1, alpha=alpha)
+
+            # plot grid
+            plt.plot([base_x_positions[0], base_x_positions[1]], [base_y_positions[-1], base_y_positions[-1]],
+                     c=self.piano_roll_base_color, linewidth=self.piano_line_width, alpha=0.5, zorder=4)
+            # makeup edge line
+            if k == self.piano_key_range[0]:
+                plt.plot([base_x_positions[0], base_x_positions[1]], [base_y_positions[0], base_y_positions[0]],
+                         c=self.piano_roll_base_color, linewidth=self.piano_line_width, alpha=0.5, zorder=4)
+
+    def _piano_roll_generate_frequency_graph_single(self, key_dict, step, all_step_number):
+        # get key position
+        step_size = self.piano_roll_length / all_step_number
+        for k, v in key_dict.items():
+            key_0, key_1 = self._piano_roll_key_to_location_range(k)
+            x_positions = [step * step_size, (step + 1) * step_size, (step + 1) * step_size, step * step_size]
+            y_positions = [key_0, key_0, key_1, key_1]
+            freq_alpha = v
+            if freq_alpha > self.figure_minimum_alpha:
+                plt.fill(x_positions, y_positions, facecolor=self.piano_roll_color, zorder=3, alpha=freq_alpha)
+
+    def prepare_graph_piano_roll(self, starting_time, ending_time):
+        # fix time first
+        starting_time, ending_time = self._fix_input_starting_ending_time(starting_time, ending_time)
+        if ending_time - starting_time < self.analyze_min_duration:
+            print('<!> audio too short to show piano roll')
+            return False
+        else:
+            # prepare spectrum
+            # extract starting & ending sample
+            starting_sample = int(self.sample_rate * starting_time)
+            ending_sample = int(self.sample_rate * ending_time)
+            # to `mono` for piano roll
+            data_ = np.mean(self.data, axis=0)
+            fft_data = self._calc_sp(data_[starting_sample:ending_sample], self.analyzer_n_window,
+                                     self.piano_roll_n_overlap)
+            # plot
+            plt.style.use('dark_background')
+            plt.figure(figsize=self.piano_roll_figure_size)
+            fig = plt.subplot(111)
+            fig.set_ylim([self._piano_generate_key_position(self.piano_key_range[0], 0, self.piano_roll_key_length)[0][
+                              0, 0] - 0.5,
+                          self._piano_generate_key_position(self.piano_key_range[1] - 1, 0, self.piano_roll_key_length)[
+                              0][1, 0] + 0.5])
+            fig.set_xlim([-self.piano_roll_key_length - 0.5, self.piano_roll_length + 0.5])
+            # plot piano base
+            self._piano_roll_indicator()
+            # plot piano roll
+            for i, data in enumerate(fft_data):
+                key_dict, raw_key, key_fft = self._piano_key_spectral_data(data)
+                self._piano_roll_generate_frequency_graph_single(key_dict, i, len(fft_data))
+            # set plot ratio
+            plt.gca().set_aspect(1)
+            plt.axis('off')
+            self._initialize_temp()
+            plt.savefig(self.piano_roll_graphics_path, dpi=self.piano_roll_dpi, bbox_inches='tight')
+            return True
+
+
+class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, Shell):
     """
     this class will plot audio similar to `Adobe Audition` with:
         * plot wave & spectral
@@ -777,6 +913,7 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, Shell):
         WaveSpectral.__init__(self)
         SpiralAnalyzer.__init__(self)
         PianoAnalyzer.__init__(self)
+        PianoRoll.__init__(self)
         Shell.__init__(self)
 
     def main(self, in_path):
@@ -786,8 +923,7 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, Shell):
         self._initialization()
         self._initialize_temp()
         # prepare
-        last_starting = 0
-        last_ending = len(self.data[0]) / self.sample_rate
+        last_starting, last_ending = self._get_audio_time()
         # 0. first run
         self._initial_or_restore_running()
         # loop to get inputs
@@ -850,9 +986,22 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, Shell):
                     status = self._prepare_graph_piano(float(command))
                     if status:
                         self._terminal_plot(self.piano_graphics_path)
-                # 1.3.2 plot last image
+                # 1.3.2 plot last piano image
                 elif command == '':
                     self._terminal_plot(self.piano_graphics_path)
+                # 1.3.3 plot last piano image
+                elif command == '#':
+                    self._terminal_plot(self.piano_roll_graphics_path)
+                # 1.3.4 two numbers: piano roll
+                elif ' ' in command:
+                    piano_inputs = command.split()
+                    if len(piano_inputs) == 2 and self._is_float(piano_inputs[0]) and self._is_float(piano_inputs[1]):
+                        piano_inputs = [float(x) for x in piano_inputs]
+                        self.prepare_graph_piano_roll(piano_inputs[0], piano_inputs[1])
+                        self._terminal_plot(self.piano_roll_graphics_path)
+                    else:
+                        print('<!> piano analyzer inputs unknown')
+                        continue
                 else:
                     print('<!> `piano` inputs unknown')
                 continue
