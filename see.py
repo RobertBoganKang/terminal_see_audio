@@ -813,7 +813,7 @@ class PianoRoll(PianoCommon):
         cover_y_positions = [top_most[0, 0], bottom_most[1, 0], bottom_most[1, 0], top_most[0, 0]]
         plt.fill(cover_x_positions, cover_y_positions, edgecolor=self.piano_roll_base_color,
                  facecolor=self.piano_base_color,
-                 linewidth=self.piano_line_width, zorder=2, alpha=0.9)
+                 linewidth=self.piano_line_width, zorder=3, alpha=0.9)
         plt.fill(frame_x_positions, cover_y_positions, edgecolor=self.piano_roll_base_color,
                  facecolor='black',
                  linewidth=self.piano_line_width, zorder=1)
