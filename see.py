@@ -789,7 +789,7 @@ class PianoAnalyzer(PianoCommon):
 class PianoRoll(PianoCommon):
     def __init__(self):
         super().__init__()
-        self.piano_roll_figure_size = (12, 9)
+        self.piano_roll_figure_size = (20, 15)
         self.piano_roll_dpi = 300
         self.piano_roll_length_ratio = 3
         self.piano_roll_length = (
@@ -886,7 +886,7 @@ class PianoRoll(PianoCommon):
                               0, 0] - 0.5,
                           self._piano_generate_key_position(self.piano_key_range[1] - 1, 0, self.piano_roll_key_length)[
                               0][1, 0] + 0.5])
-            fig.set_xlim([-self.piano_roll_key_length - 0.5, self.piano_roll_length + 0.5])
+            fig.set_xlim([-self.piano_roll_key_length - 0.2, self.piano_roll_length + 0.2])
             # plot piano base
             self._piano_roll_indicator()
             # plot piano roll
@@ -1001,7 +1001,6 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, S
                         self._terminal_plot(self.piano_roll_graphics_path)
                     else:
                         print('<!> piano analyzer inputs unknown')
-                        continue
                 else:
                     print('<!> `piano` inputs unknown')
                 continue
