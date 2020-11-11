@@ -790,7 +790,7 @@ class PianoRoll(PianoCommon):
     def __init__(self):
         super().__init__()
         self.piano_roll_figure_size = (12, 9)
-        self.piano_roll_dpi = 200
+        self.piano_roll_dpi = 300
         self.piano_roll_length_ratio = 3
         self.piano_roll_length = (
                 (self.piano_key_range[1] - self.piano_key_range[0]) * 7 / 12 * self.piano_roll_length_ratio
