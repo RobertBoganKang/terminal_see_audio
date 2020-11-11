@@ -101,7 +101,7 @@ class Common(object):
         # fix mono mode
         self.data = np.array(self.data)
         if len(self.data.shape) == 1:
-            self.data = [self.data]
+            self.data = np.array([self.data])
         self.channel_num = len(self.data)
         self.time = range(len(self.data[0]))
         self.time = [x / self.sample_rate for x in self.time]
@@ -572,7 +572,8 @@ class SpiralAnalyzer(AnalyzeCommon):
         return x_position, y_position
 
     def _spiral_polar_transform(self, arrays):
-        array_0, array_1 = arrays
+        array_0 = arrays[0]
+        array_1 = arrays[1]
         array_0 = self._log_min_max_transform(array_0)
         array_1 = self._log_min_max_transform(array_1)
         x_array_0 = []
@@ -615,7 +616,7 @@ class SpiralAnalyzer(AnalyzeCommon):
                 audio_data = [audio_data, audio_data]
             else:
                 audio_data = [x[starting_sample:starting_sample + self.analyzer_n_window] for x in self.data]
-            fft_data = [self._fft_data_transform_single(x) for x in audio_data]
+            fft_data = [self._fft_data_transform_single(x)[0] for x in audio_data]
 
             # prepare data
             position_0, position_1, fft_data_transformed, pitches = self._spiral_polar_transform(fft_data)
