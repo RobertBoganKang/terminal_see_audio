@@ -1021,8 +1021,9 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, S
                     piano_inputs = command.split()
                     if len(piano_inputs) == 2 and self._is_float(piano_inputs[0]) and self._is_float(piano_inputs[1]):
                         piano_inputs = [float(x) for x in piano_inputs]
-                        self.prepare_graph_piano_roll(piano_inputs[0], piano_inputs[1])
-                        self._terminal_plot(self.piano_roll_graphics_path)
+                        status = self.prepare_graph_piano_roll(piano_inputs[0], piano_inputs[1])
+                        if status:
+                            self._terminal_plot(self.piano_roll_graphics_path)
                     else:
                         print('<!> piano analyzer inputs unknown')
                 else:
