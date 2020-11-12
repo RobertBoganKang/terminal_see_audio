@@ -19,8 +19,10 @@ Terminal library: `ffmpeg`, `sox`.
 
 ### Image Viewer Library
 
-* `T-IMG` library can be found at [timg](https://github.com/hzeller/timg/) and install;
-* `Terminal Image Viewer (TIV)` library can be found at [tiv](https://github.com/stefanhaustein/TerminalImageViewer) and install;
+There are several options:
+
+* `T-IMG` library can be found at [timg](https://github.com/hzeller/timg/) and install (need to set parameter `self.plot_command='timg {}'`);
+* `Terminal Image Viewer (TIV)` library can be found at [tiv](https://github.com/stefanhaustein/TerminalImageViewer) and install (default);
 
 ## Usage tutorial
 
