@@ -17,7 +17,10 @@ Python library `matplotlib`, `numpy`, `scipy`, `librosa`, `soundfile`, `pypng`.
 
 Terminal library: `ffmpeg`, `sox`.
 
-`T-IMG` library is needed at [timg](https://github.com/hzeller/timg/) and install.
+### Image Viewer Library
+
+* `T-IMG` library can be found at [timg](https://github.com/hzeller/timg/) and install;
+* `Terminal Image Viewer (TIV)` library can be found at [tiv](https://github.com/stefanhaustein/TerminalImageViewer) and install;
 
 ## Usage tutorial
 

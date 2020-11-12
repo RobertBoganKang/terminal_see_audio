@@ -53,7 +53,7 @@ class Common(object):
         self.min_mel_freq = 16
 
         # plot & play command (path will be replaced by `{}`)
-        self.plot_command = 'timg {}'
+        self.plot_command = 'tiv {}'
         self.play_command = 'play {}'
 
         # color & themes
@@ -336,7 +336,7 @@ class WaveSpectral(AnalyzeCommon):
         self.line_width_params = [.2, 1.2, 3]
         self.graphics_ratio = 5
         self.figure_size = (12, 4)
-        self.figure_dpi = 200
+        self.figure_dpi = 300
 
     def _mel_filter(self, spectral_raw):
         """
