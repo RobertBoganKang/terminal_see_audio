@@ -610,7 +610,6 @@ class PianoCommon(AnalyzeCommon):
         self.piano_spectral_height = 0.1
         self.piano_position_gap = 0.4
         self.piano_line_width = 0.8
-        self.piano_cover_width = 0.1
 
         # `0` as white, `1` as black key
         self.piano_key_bw_switch = [0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1]
@@ -661,6 +660,7 @@ class PianoAnalyzer(PianoCommon):
         # piano analyzer
         self.piano_figure_size = (15, 5)
         self.piano_dpi = 300
+        self.piano_cover_width = 0.1
         # piano key size
         # b/w width: 13.7mm/23.5mm
         # b/w length: 9.5mm/15cm
@@ -671,7 +671,7 @@ class PianoAnalyzer(PianoCommon):
         positions_0 = []
         positions_1 = []
         for i in range(len(raw_key)):
-            one_piano_length = self.piano_key_length + self.piano_position_gap
+            one_piano_length = self.piano_key_length + self.piano_spectral_height + self.piano_position_gap
             key_x = raw_key[i] * 7 / 12
             positions_0.append([key_x, -channel * one_piano_length])
             positions_1.append([key_x, -channel * one_piano_length + self.piano_spectral_height])
@@ -792,6 +792,7 @@ class PianoRoll(PianoCommon):
         super().__init__()
         self.piano_roll_figure_size = (20, 15)
         self.piano_roll_dpi = 200
+        self.piano_roll_cover_width = 0.2
         self.piano_roll_key_length = 8
         self.piano_roll_length_ratio = 3
         self.piano_roll_length = (
@@ -800,7 +801,7 @@ class PianoRoll(PianoCommon):
 
     @staticmethod
     def _piano_roll_key_to_location_range(key):
-        return (key - 0.5), (key + 0.5)
+        return key - 0.5, key + 0.5
 
     def _piano_roll_generate_key_position(self, key):
         # `7` for octave switch
@@ -833,7 +834,7 @@ class PianoRoll(PianoCommon):
         # plot cover & frame
         top_most, _ = self._piano_roll_generate_key_position(self.piano_key_range[0])
         bottom_most, _ = self._piano_roll_generate_key_position(self.piano_key_range[1] - 1)
-        cover_x_positions = [0, 0, - self.piano_cover_width, - self.piano_cover_width]
+        cover_x_positions = [0, 0, - self.piano_roll_cover_width, - self.piano_roll_cover_width]
         frame_x_positions = [0, 0, self.piano_roll_length, self.piano_roll_length]
         cover_y_positions = [top_most[0, 0], bottom_most[1, 0], bottom_most[1, 0], top_most[0, 0]]
         plt.fill(cover_x_positions, cover_y_positions, edgecolor=self.piano_roll_base_color,
