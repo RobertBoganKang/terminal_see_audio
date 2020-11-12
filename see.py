@@ -319,84 +319,6 @@ class AnalyzeCommon(Common):
         sf.write(self.ifft_audio_path, ifft_data, samplerate=self.sample_rate)
 
 
-class PianoCommon(AnalyzeCommon):
-    def __init__(self):
-        super().__init__()
-        self.piano_tuning_shape_power = 1 / 2
-        self.piano_key_range = [-48, 40]
-        self.piano_spectral_height = 0.1
-        self.piano_position_gap = 0.4
-        self.piano_line_width = 0.8
-        self.piano_cover_width = 0.1
-        # piano key size
-        # b/w width: 13.7mm/23.5mm
-        # b/w length: 9.5mm/15cm
-        self.piano_key_length = 6.382978723404255
-        self.piano_roll_key_length = 4
-        # `0` as white, `1` as black key
-        self.piano_key_bw_switch = [0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1]
-
-        # colors & themes
-        self.piano_base_color = '#222'
-        self.piano_roll_base_color = '#444'
-        self.piano_roll_black_key_color = '#333'
-        self.piano_key_color = 'mediumspringgreen'
-        self.piano_roll_color = 'mediumspringgreen'
-        self.piano_spectral_color = 'dimgray'
-
-    def _piano_tuning_method(self, key, value):
-        # set `^` or `n` shape tuning
-        return np.mean(value[:, 0] * np.power(1 - 2 * np.abs(key - value[:, 1]), self.piano_tuning_shape_power))
-
-    def _frequency_to_key(self, frequency):
-        return np.log2(frequency / self.a4_frequency) * 12
-
-    def _piano_generate_key_position(self, key, channel, piano_key_length):
-        # `7` for octave switch
-        key_position_switch = [0, 0.5, 1, 2, 2.5, 3, 3.5, 4, 5, 5.5, 6, 6.5]
-        key_position = key % 12
-        key_octave = int(np.ceil((key + 0.5) / 12)) - 1
-        middle_x = key_octave * 7 + key_position_switch[key_position]
-        # get position dimension
-        if self.piano_key_bw_switch[key_position] == 0:
-            width = 1
-            length = piano_key_length
-        else:
-            width = 0.5829787234042553
-            length = piano_key_length * 0.633
-        # key position
-        one_piano_length = piano_key_length + self.piano_spectral_height + self.piano_position_gap
-        position_0 = [middle_x - width / 2, -channel * one_piano_length]
-        position_1 = [middle_x + width / 2, -channel * one_piano_length]
-        position_2 = [middle_x + width / 2, -channel * one_piano_length - length]
-        position_3 = [middle_x - width / 2, -channel * one_piano_length - length]
-        return np.array([position_0, position_1, position_2, position_3]), self.piano_key_bw_switch[key_position]
-
-    def _piano_key_spectral_data(self, array):
-        array = self._log_min_max_transform(array)
-        key_dict = {}
-        raw_keys = []
-        key_ffts = []
-        for i, t in enumerate(array):
-            if i > 0:
-                raw_key = self._frequency_to_key(self._fft_position_to_frequency(i))
-                key = round(raw_key)
-                if self.piano_key_range[0] <= key < self.piano_key_range[1]:
-                    raw_keys.append(raw_key)
-                    key_ffts.append(t)
-                    if key not in key_dict:
-                        key_dict[key] = [[t, raw_key]]
-                    else:
-                        key_dict[key].append([t, raw_key])
-        for k, v in key_dict.items():
-            v = np.array(v)
-            key_dict[k] = self._piano_tuning_method(k, v)
-        max_value = max(list(key_dict.values()))
-        for k, v in key_dict.items():
-            key_dict[k] = v / max_value
-        return key_dict, raw_keys, key_ffts
-
-
 class WaveSpectral(AnalyzeCommon):
     def __init__(self):
         super().__init__()
@@ -680,6 +602,90 @@ class SpiralAnalyzer(AnalyzeCommon):
             return True
 
 
+class PianoCommon(AnalyzeCommon):
+    def __init__(self):
+        super().__init__()
+        self.piano_tuning_shape_power = 1 / 2
+        self.piano_key_range = [-48, 40]
+        self.piano_spectral_height = 0.1
+        self.piano_position_gap = 0.4
+        self.piano_line_width = 0.8
+        self.piano_cover_width = 0.1
+        # piano key size
+        # b/w width: 13.7mm/23.5mm
+        # b/w length: 9.5mm/15cm
+        self.piano_key_length = 6.382978723404255
+        self.piano_roll_key_length = 4
+        # `0` as white, `1` as black key
+        self.piano_key_bw_switch = [0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1]
+        # `7` for octave switch
+        self.piano_key_position_base = [0, 0.5, 1, 2, 2.5, 3, 3.5, 4, 5, 5.5, 6, 6.5]
+        self.piano_roll_position_baseline = [0, 4 / 7, 8 / 7, 12 / 7, 81 / 35, 102 / 35, 123 / 35, 144 / 35, 33 / 7,
+                                             37 / 7, 41 / 7, 45 / 7]
+        self.piano_roll_key_width = [4 / 7, 4 / 7, 4 / 7, 3 / 5, 3 / 5, 3 / 5, 3 / 5, 3 / 5, 4 / 7, 4 / 7, 4 / 7, 4 / 7]
+        self.piano_roll_position_fix = (
+                self.piano_key_position_base[2] - self.piano_roll_position_baseline[2] + 1 / 2 - 2 / 7)
+
+        # colors & themes
+        self.piano_base_color = '#222'
+        self.piano_roll_base_color = '#444'
+        self.piano_roll_black_key_color = '#333'
+        self.piano_key_color = 'mediumspringgreen'
+        self.piano_roll_color = 'mediumspringgreen'
+        self.piano_spectral_color = 'dimgray'
+
+    def _piano_tuning_method(self, key, value):
+        # set `^` or `n` shape tuning
+        return np.mean(value[:, 0] * np.power(1 - 2 * np.abs(key - value[:, 1]), self.piano_tuning_shape_power))
+
+    def _frequency_to_key(self, frequency):
+        return np.log2(frequency / self.a4_frequency) * 12
+
+    def _piano_generate_key_position(self, key, channel, piano_key_length):
+
+        key_position = key % 12
+        key_octave = int(np.ceil((key + 0.5) / 12)) - 1
+        middle_x = key_octave * 7 + self.piano_key_position_base[key_position]
+        # get position dimension
+        if self.piano_key_bw_switch[key_position] == 0:
+            width = 1
+            length = piano_key_length
+        else:
+            width = 0.5829787234042553
+            length = piano_key_length * 0.633
+        # key position
+        one_piano_length = piano_key_length + self.piano_spectral_height + self.piano_position_gap
+        position_0 = [middle_x - width / 2, -channel * one_piano_length]
+        position_1 = [middle_x + width / 2, -channel * one_piano_length]
+        position_2 = [middle_x + width / 2, -channel * one_piano_length - length]
+        position_3 = [middle_x - width / 2, -channel * one_piano_length - length]
+        return np.array([position_0, position_1, position_2, position_3]), self.piano_key_bw_switch[key_position]
+
+    def _piano_key_spectral_data(self, array):
+        array = self._log_min_max_transform(array)
+        key_dict = {}
+        raw_keys = []
+        key_ffts = []
+        for i, t in enumerate(array):
+            if i > 0:
+                raw_key = self._frequency_to_key(self._fft_position_to_frequency(i))
+                key = round(raw_key)
+                if self.piano_key_range[0] <= key < self.piano_key_range[1]:
+                    raw_keys.append(raw_key)
+                    key_ffts.append(t)
+                    if key not in key_dict:
+                        key_dict[key] = [[t, raw_key]]
+                    else:
+                        key_dict[key].append([t, raw_key])
+        for k, v in key_dict.items():
+            v = np.array(v)
+            key_dict[k] = self._piano_tuning_method(k, v)
+        max_value = max(list(key_dict.values()))
+        for k, v in key_dict.items():
+            key_dict[k] = v / max_value
+        return key_dict, raw_keys, key_ffts
+
+
 class PianoAnalyzer(PianoCommon):
     def __init__(self):
         super().__init__()
@@ -797,9 +803,13 @@ class PianoRoll(PianoCommon):
                 (self.piano_key_range[1] - self.piano_key_range[0]) * 7 / 12 * self.piano_roll_length_ratio
         )
 
-    @staticmethod
-    def _piano_roll_key_to_location_range(key):
-        return (key - 0.5) * 7 / 12, (key + 0.5) * 7 / 12
+    def _piano_roll_key_to_location_range(self, key):
+        key_position = key % 12
+        key_octave = int(np.ceil((key + 0.5) / 12)) - 1
+        key_width = self.piano_roll_key_width[key_position] / 2
+        piano_roll_baseline = self.piano_roll_position_baseline[key_position] + 7 * key_octave
+        return (piano_roll_baseline - key_width + self.piano_roll_position_fix,
+                piano_roll_baseline + key_width + self.piano_roll_position_fix)
 
     def _piano_roll_indicator(self):
         """ piano roll base """
@@ -813,7 +823,7 @@ class PianoRoll(PianoCommon):
         cover_y_positions = [top_most[0, 0], bottom_most[1, 0], bottom_most[1, 0], top_most[0, 0]]
         plt.fill(cover_x_positions, cover_y_positions, edgecolor=self.piano_roll_base_color,
                  facecolor=self.piano_base_color,
-                 linewidth=self.piano_line_width, zorder=3, alpha=0.9)
+                 linewidth=self.piano_line_width, zorder=5, alpha=0.9)
         plt.fill(frame_x_positions, cover_y_positions, edgecolor=self.piano_roll_base_color,
                  facecolor='black',
                  linewidth=self.piano_line_width, zorder=1)
