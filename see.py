@@ -611,20 +611,9 @@ class PianoCommon(AnalyzeCommon):
         self.piano_position_gap = 0.4
         self.piano_line_width = 0.8
         self.piano_cover_width = 0.1
-        # piano key size
-        # b/w width: 13.7mm/23.5mm
-        # b/w length: 9.5mm/15cm
-        self.piano_key_length = 6.382978723404255
-        self.piano_roll_key_length = 4
+
         # `0` as white, `1` as black key
         self.piano_key_bw_switch = [0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1]
-        # `7` for octave switch
-        self.piano_key_position_base = [0, 0.5, 1, 2, 2.5, 3, 3.5, 4, 5, 5.5, 6, 6.5]
-        self.piano_roll_position_baseline = [0, 4 / 7, 8 / 7, 12 / 7, 81 / 35, 102 / 35, 123 / 35, 144 / 35, 33 / 7,
-                                             37 / 7, 41 / 7, 45 / 7]
-        self.piano_roll_key_width = [4 / 7, 4 / 7, 4 / 7, 3 / 5, 3 / 5, 3 / 5, 3 / 5, 3 / 5, 4 / 7, 4 / 7, 4 / 7, 4 / 7]
-        self.piano_roll_position_fix = (
-                self.piano_key_position_base[2] - self.piano_roll_position_baseline[2] + 1 / 2 - 2 / 7)
 
         # colors & themes
         self.piano_base_color = '#222'
@@ -640,26 +629,6 @@ class PianoCommon(AnalyzeCommon):
 
     def _frequency_to_key(self, frequency):
         return np.log2(frequency / self.a4_frequency) * 12
-
-    def _piano_generate_key_position(self, key, channel, piano_key_length):
-
-        key_position = key % 12
-        key_octave = int(np.ceil((key + 0.5) / 12)) - 1
-        middle_x = key_octave * 7 + self.piano_key_position_base[key_position]
-        # get position dimension
-        if self.piano_key_bw_switch[key_position] == 0:
-            width = 1
-            length = piano_key_length
-        else:
-            width = 0.5829787234042553
-            length = piano_key_length * 0.633
-        # key position
-        one_piano_length = piano_key_length + self.piano_spectral_height + self.piano_position_gap
-        position_0 = [middle_x - width / 2, -channel * one_piano_length]
-        position_1 = [middle_x + width / 2, -channel * one_piano_length]
-        position_2 = [middle_x + width / 2, -channel * one_piano_length - length]
-        position_3 = [middle_x - width / 2, -channel * one_piano_length - length]
-        return np.array([position_0, position_1, position_2, position_3]), self.piano_key_bw_switch[key_position]
 
     def _piano_key_spectral_data(self, array):
         array = self._log_min_max_transform(array)
@@ -692,6 +661,10 @@ class PianoAnalyzer(PianoCommon):
         # piano analyzer
         self.piano_figure_size = (15, 5)
         self.piano_dpi = 300
+        # piano key size
+        # b/w width: 13.7mm/23.5mm
+        # b/w length: 9.5mm/15cm
+        self.piano_key_length = 6.382978723404255
 
     def _piano_generate_frequency_graph_single(self, raw_key, key_fft, channel):
         # get key position
@@ -713,8 +686,8 @@ class PianoAnalyzer(PianoCommon):
 
     def _piano_graph_single(self, key_dict, channel):
         # plot cover
-        left_most, _ = self._piano_generate_key_position(self.piano_key_range[0], channel, self.piano_key_length)
-        right_most, _ = self._piano_generate_key_position(self.piano_key_range[1] - 1, channel, self.piano_key_length)
+        left_most, _ = self._piano_generate_key_position(self.piano_key_range[0], channel)
+        right_most, _ = self._piano_generate_key_position(self.piano_key_range[1] - 1, channel)
         cover_x_positions = [left_most[0, 0], right_most[1, 0], right_most[1, 0], left_most[0, 0]]
         cover_y_positions = [left_most[0, 1], left_most[0, 1], left_most[0, 1] - self.piano_cover_width,
                              left_most[0, 1] - self.piano_cover_width]
@@ -722,7 +695,7 @@ class PianoAnalyzer(PianoCommon):
                  linewidth=self.piano_line_width, zorder=5, alpha=0.9)
         # plot key
         for k in range(self.piano_key_range[0], self.piano_key_range[1], 1):
-            positions, bw = self._piano_generate_key_position(k, channel, self.piano_key_length)
+            positions, bw = self._piano_generate_key_position(k, channel)
             if k in key_dict:
                 fft_value = key_dict[k]
             else:
@@ -744,6 +717,27 @@ class PianoAnalyzer(PianoCommon):
                 plt.fill(positions[:, 0], cover_y_positions,
                          edgecolor=self.a_pitch_color, facecolor=self.a_pitch_color, linewidth=self.piano_line_width,
                          zorder=6, alpha=opacity)
+
+    def _piano_generate_key_position(self, key, channel):
+        # `7` for octave switch
+        key_position_switch = [0, 0.5, 1, 2, 2.5, 3, 3.5, 4, 5, 5.5, 6, 6.5]
+        key_position = key % 12
+        key_octave = int(np.ceil((key + 0.5) / 12)) - 1
+        middle_x = key_octave * 7 + key_position_switch[key_position]
+        # get position dimension
+        if self.piano_key_bw_switch[key_position] == 0:
+            width = 1
+            length = self.piano_key_length
+        else:
+            width = 0.5829787234042553
+            length = self.piano_key_length * 0.633
+        # key position
+        one_piano_length = self.piano_key_length + self.piano_spectral_height + self.piano_position_gap
+        position_0 = [middle_x - width / 2, -channel * one_piano_length]
+        position_1 = [middle_x + width / 2, -channel * one_piano_length]
+        position_2 = [middle_x + width / 2, -channel * one_piano_length - length]
+        position_3 = [middle_x - width / 2, -channel * one_piano_length - length]
+        return np.array([position_0, position_1, position_2, position_3]), self.piano_key_bw_switch[key_position]
 
     def _prepare_graph_piano(self, starting_time):
         valid = self._check_analyze_duration(starting_time)
@@ -774,8 +768,8 @@ class PianoAnalyzer(PianoCommon):
             plt.figure(figsize=self.piano_figure_size)
             fig = plt.subplot(111)
             fig.set_xlim(
-                [self._piano_generate_key_position(self.piano_key_range[0], 0, self.piano_key_length)[0][0, 0] - 0.5,
-                 self._piano_generate_key_position(self.piano_key_range[1] - 1, 0, self.piano_key_length)[0][
+                [self._piano_generate_key_position(self.piano_key_range[0], 0)[0][0, 0] - 0.5,
+                 self._piano_generate_key_position(self.piano_key_range[1] - 1, 0)[0][
                      1, 0] + 0.5])
             # plot piano
             for i in range(len(fft_data)):
@@ -797,40 +791,60 @@ class PianoRoll(PianoCommon):
     def __init__(self):
         super().__init__()
         self.piano_roll_figure_size = (20, 15)
-        self.piano_roll_dpi = 300
+        self.piano_roll_dpi = 200
+        self.piano_roll_key_length = 8
         self.piano_roll_length_ratio = 3
         self.piano_roll_length = (
-                (self.piano_key_range[1] - self.piano_key_range[0]) * 7 / 12 * self.piano_roll_length_ratio
+                (self.piano_key_range[1] - self.piano_key_range[0]) * self.piano_roll_length_ratio
         )
 
-    def _piano_roll_key_to_location_range(self, key):
+    @staticmethod
+    def _piano_roll_key_to_location_range(key):
+        return (key - 0.5), (key + 0.5)
+
+    def _piano_roll_generate_key_position(self, key):
+        # `7` for octave switch
+        key_position_switch = range(12)
         key_position = key % 12
         key_octave = int(np.ceil((key + 0.5) / 12)) - 1
-        key_width = self.piano_roll_key_width[key_position] / 2
-        piano_roll_baseline = self.piano_roll_position_baseline[key_position] + 7 * key_octave
-        return (piano_roll_baseline - key_width + self.piano_roll_position_fix,
-                piano_roll_baseline + key_width + self.piano_roll_position_fix)
+        middle_x = key_octave * 12 + key_position_switch[key_position]
+        # white key width makeup
+        lower_makeup = 0
+        higher_makeup = 0
+        if self.piano_key_bw_switch[(key - 1) % 12] == 1:
+            lower_makeup = 0.5
+        if self.piano_key_bw_switch[(key + 1) % 12] == 1:
+            higher_makeup = 0.5
+        # get position dimension
+        width = 1
+        if self.piano_key_bw_switch[key_position] == 0:
+            length = self.piano_roll_key_length
+        else:
+            length = self.piano_roll_key_length * 0.633
+        # key position
+        position_0 = [middle_x - width / 2 - lower_makeup, -self.piano_roll_key_length]
+        position_1 = [middle_x + width / 2 + higher_makeup, -self.piano_roll_key_length]
+        position_2 = [middle_x + width / 2 + higher_makeup, -self.piano_roll_key_length + length]
+        position_3 = [middle_x - width / 2 - lower_makeup, -self.piano_roll_key_length + length]
+        return np.array([position_0, position_1, position_2, position_3]), self.piano_key_bw_switch[key_position]
 
     def _piano_roll_indicator(self):
         """ piano roll base """
         # plot cover & frame
-        top_most, _ = self._piano_generate_key_position(self.piano_key_range[0], 0, self.piano_roll_key_length)
-        bottom_most, _ = self._piano_generate_key_position(self.piano_key_range[1] - 1, 0, self.piano_roll_key_length)
-        cover_x_positions = [top_most[0, 1], top_most[0, 1], top_most[0, 1] - self.piano_cover_width,
-                             top_most[0, 1] - self.piano_cover_width]
-        frame_x_positions = [top_most[0, 1], top_most[0, 1], top_most[0, 1] + self.piano_roll_length,
-                             top_most[0, 1] + self.piano_roll_length]
+        top_most, _ = self._piano_roll_generate_key_position(self.piano_key_range[0])
+        bottom_most, _ = self._piano_roll_generate_key_position(self.piano_key_range[1] - 1)
+        cover_x_positions = [0, 0, - self.piano_cover_width, - self.piano_cover_width]
+        frame_x_positions = [0, 0, self.piano_roll_length, self.piano_roll_length]
         cover_y_positions = [top_most[0, 0], bottom_most[1, 0], bottom_most[1, 0], top_most[0, 0]]
         plt.fill(cover_x_positions, cover_y_positions, edgecolor=self.piano_roll_base_color,
                  facecolor=self.piano_base_color,
                  linewidth=self.piano_line_width, zorder=5, alpha=0.9)
         plt.fill(frame_x_positions, cover_y_positions, edgecolor=self.piano_roll_base_color,
-                 facecolor='black',
-                 linewidth=self.piano_line_width, zorder=1)
+                 facecolor='black', linewidth=self.piano_line_width, zorder=1)
         base_x_positions = [0, self.piano_roll_length, self.piano_roll_length, 0]
         # plot key & piano roll base
         for k in range(self.piano_key_range[0], self.piano_key_range[1], 1):
-            positions, bw = self._piano_generate_key_position(k, 0, self.piano_roll_key_length)
+            positions, bw = self._piano_roll_generate_key_position(k)
             bottom_position, top_position = self._piano_roll_key_to_location_range(k)
             base_y_positions = [top_position, top_position, bottom_position, bottom_position]
             # background
@@ -893,10 +907,8 @@ class PianoRoll(PianoCommon):
             plt.style.use('dark_background')
             plt.figure(figsize=self.piano_roll_figure_size)
             fig = plt.subplot(111)
-            fig.set_ylim([self._piano_generate_key_position(self.piano_key_range[0], 0, self.piano_roll_key_length)[0][
-                              0, 0] - 0.5,
-                          self._piano_generate_key_position(self.piano_key_range[1] - 1, 0, self.piano_roll_key_length)[
-                              0][1, 0] + 0.5])
+            fig.set_ylim([self._piano_roll_generate_key_position(self.piano_key_range[0])[0][0, 0] - 0.5,
+                          self._piano_roll_generate_key_position(self.piano_key_range[1] - 1)[0][1, 0] + 0.5])
             fig.set_xlim([-self.piano_roll_key_length - 0.2, self.piano_roll_length + 0.2])
             # plot piano base
             self._piano_roll_indicator()
