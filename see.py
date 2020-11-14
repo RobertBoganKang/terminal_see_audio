@@ -56,7 +56,7 @@ class Common(object):
         self.min_mel_freq = 16
 
         # plot & play command (path will be replaced by `{}`)
-        self.plot_command = 'timg {}'
+        self.plot_command = 'tiv {}'
         self.play_command = 'play {}'
 
         # color & themes
