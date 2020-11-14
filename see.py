@@ -544,7 +544,7 @@ class SpiralAnalyzer(AnalyzeCommon):
             starting_sample = int(starting_time * self.sample_rate)
             # get data for spectral
             if len(self.data) != 2:
-                audio_data = np.sum(self.data, axis=0)
+                audio_data = np.sum(self.data, axis=0)[starting_sample:starting_sample + self.analyzer_n_window]
                 audio_data = [audio_data, audio_data]
             else:
                 audio_data = [x[starting_sample:starting_sample + self.analyzer_n_window] for x in self.data]
