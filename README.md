@@ -41,7 +41,7 @@ python see.py <input_file>
 * `two numbers`: starting time & ending time;
   * example: `10 20` means to split audio from **10s** to **20s**;
 * empty string `''` (press return without input): plot last generated graphics;
-* `p`: play audio;
+* `p`: play last analyzed audio;
   * `p*`: play the partition of audio where used `@`, `#` or `^` to analyze spectral;
 * `q`: quit program;
 * `r`: reset starting and ending time;
@@ -63,6 +63,9 @@ python see.py <input_file>
   * command `##` will plot last calculated piano roll result;
 * `^`: calculate the spectral tuning peaks frequencies (peaks);
   * number: `^10` is to extract `10~s` peaks frequencies components, music note names, and its frequency power at combined channel `*` and separate channel `number`;
+* `>`: to play sine wave the given frequency;
+  * `number+Hz`: to play sound directly from number of frequency; `>440Hz` is to play sound at `440Hz`;
+  * `music notes name`: to play sound translate from music notes; `>a4` is to play `a4` notes; `>a4-50c` is to play sound at `a4` but with `50` cents lower;
 
 ### Advanced Script
 

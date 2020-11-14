@@ -34,6 +34,7 @@ class Common(object):
         # audio parameters
         self.sample_rate = 16000
         self.min_sample_rate = 1000
+        self.max_hearing_frequency = 20000
         # `mono` or `stereo` (>1 channel)
         self.channel_type = 'stereo'
 
@@ -90,8 +91,9 @@ class Common(object):
         self.spiral_graphics_path = os.path.join(self.temp_folder, 'spiral.png')
         self.piano_graphics_path = os.path.join(self.temp_folder, 'piano.png')
         self.piano_roll_graphics_path = os.path.join(self.temp_folder, 'piano_roll.png')
-        self.ifft_audio_path = os.path.join(self.temp_folder, 'analyze_ifft.wav')
         self.audio_part_path = os.path.join(self.temp_folder, 'audio.wav')
+        self.ifft_audio_path = os.path.join(self.temp_folder, 'analyze_ifft.wav')
+        self.pitch_audio_path = os.path.join(self.temp_folder, 'pitch.wav')
 
     def _initialize_audio(self):
         """ read audio and prepare data """
@@ -284,6 +286,8 @@ class Shell(Common):
 class AnalyzeCommon(Common):
     def __init__(self):
         super().__init__()
+        # key names
+        self.note_name_lib = ['A', 'A#', 'B', 'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#']
 
     def _log_min_max_transform(self, array, log=True):
         if log:
@@ -298,6 +302,12 @@ class AnalyzeCommon(Common):
 
     def _frequency_to_pitch(self, frequency):
         return np.log2(frequency / self.a4_frequency) + 5
+
+    def _key_to_frequency(self, key, remainder=0):
+        return 2 ** (key / 12 + remainder / 1200) * self.a4_frequency
+
+    def _frequency_to_key(self, frequency):
+        return np.log2(frequency / self.a4_frequency) * 12
 
     def _fft_data_transform_single(self, fft_single):
         fft_single = self._calc_sp(fft_single, self.analyzer_n_window, self.n_overlap)
@@ -626,9 +636,6 @@ class PianoCommon(AnalyzeCommon):
         # set `^` or `n` shape tuning
         return np.mean(value[:, 0] * np.power(1 - 2 * np.abs(key - value[:, 1]), self.piano_tuning_shape_power))
 
-    def _frequency_to_key(self, frequency):
-        return np.log2(frequency / self.a4_frequency) * 12
-
     def _piano_key_spectral_data(self, array):
         key_dict = {}
         raw_keys = []
@@ -932,14 +939,11 @@ class PeakAnalyzer(AnalyzeCommon):
         self.peak_tuning_coefficient = 40
         self.peak_analyze_min_threshold = 0.1
 
-        # name of key name
-        self.key_name_lib = ['A', 'A#', 'B', 'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#']
-
     def _frequency_to_music_pitch(self, frequency):
         raw_key = np.log2(frequency / 440) * 12
         key = round(raw_key)
         remainder_in_cent = (raw_key - key) * 100
-        key_name = self.key_name_lib[key % 12]
+        key_name = self.note_name_lib[key % 12]
         key_octave = (key + 9) // 12 + 4
         return key_name, key_octave, remainder_in_cent
 
@@ -1015,7 +1019,7 @@ class PeakAnalyzer(AnalyzeCommon):
                     channel_name = '*'
                 else:
                     channel_name = str(i)
-                print(f'<+> channel ({channel_name}):')
+                print(f'<*> channel ({channel_name}):')
                 modified_peak_info = self._peak_weighted_sum_fix_tuning_pk(log_fft_data_multiple[i],
                                                                            raw_peak_info_multiple[i],
                                                                            fft_data_multiple[i])
@@ -1027,7 +1031,94 @@ class PeakAnalyzer(AnalyzeCommon):
             self._ifft_audio_export(self._log_min_max_transform(fft_data, log=False))
 
 
-class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, PeakAnalyzer, Shell):
+class PlayPitch(AnalyzeCommon):
+    def __init__(self):
+        super().__init__()
+        self.pitch_play_time = 0.5
+
+    def _translate_music_note_name(self, string):
+        """ translate music notes """
+        # get note name
+        if string[1] == '#':
+            note_name = string[:2].upper()
+            i = 2
+        else:
+            note_name = string[0].upper()
+            i = 1
+        if note_name not in self.note_name_lib:
+            return None
+        key_position = self.note_name_lib.index(note_name)
+
+        # get note octave
+        j = i
+        while j < len(string):
+            if string[j] not in ['+', '-']:
+                j += 1
+            else:
+                break
+        note_octave = string[i:j]
+        if not self._is_int(note_octave):
+            return None
+        key_octave = int(note_octave) - 4
+        if key_position >= 3:
+            key_octave -= 1
+        # if too large `>20kHz`
+        if key_octave > 6:
+            return None
+
+        # get cents
+        if j != len(string):
+            if string[-1].lower() == 'c':
+                k = len(string) - 1
+            else:
+                k = len(string)
+            note_cent = string[j:k]
+            if not self._is_float(note_cent):
+                return None
+            key_cent = float(note_cent)
+        else:
+            key_cent = 0
+
+        # combine to frequency
+        frequency = self._key_to_frequency(key_position + 12 * key_octave, remainder=key_cent)
+        return frequency
+
+    def _translate_to_frequency(self, string):
+        """ translate command to frequency """
+        string = string.strip()
+        if 'hz' in string.lower():
+            freq = string[:-2]
+            if self._is_float(freq):
+                return float(freq)
+            else:
+                return None
+        else:
+            return self._translate_music_note_name(string)
+
+    def _pitch_generate_wave(self, frequency):
+        """ get wave data for specific frequency """
+        wave_data = []
+        for i in range(int(self.pitch_play_time * self.sample_rate)):
+            wave_data.append(np.sin(frequency * 2 * np.pi * (i / self.sample_rate)))
+        return np.array(wave_data)
+
+    def _pitch_export_wave_frequency(self, string):
+        frequency = self._translate_to_frequency(string)
+        if frequency is None:
+            print(f'<!> pitch input `{string}` unknown or frequency too high')
+            return False
+        else:
+            show_frequency = round(frequency, 3)
+            if frequency > self.max_hearing_frequency:
+                print(f'<!> higher than hearing frequency `{show_frequency}Hz` (>`{self.max_hearing_frequency}Hz`)')
+                return False
+            print(f'<*> `{show_frequency}Hz`')
+            wave_data = self._pitch_generate_wave(frequency)
+            sf.write(self.pitch_audio_path, wave_data, samplerate=self.sample_rate)
+            return True
+
+
+class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, PeakAnalyzer, PlayPitch, Shell):
     """
     this class will plot audio similar to `Adobe Audition` with:
         * plot wave & spectral
@@ -1041,6 +1132,7 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
         PianoAnalyzer.__init__(self)
         PianoRoll.__init__(self)
         PeakAnalyzer.__init__(self)
+        PlayPitch.__init__(self)
         Shell.__init__(self)
 
     def main(self, in_path):
@@ -1140,6 +1232,12 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
                 else:
                     print('<!> tuning frequency inputs unknown')
                 continue
+            # 1.5 play frequency or music notes
+            elif input_.startswith('>'):
+                status = self._pitch_export_wave_frequency(command)
+                if status:
+                    self._terminal_play(0, 1, self.pitch_audio_path)
+                continue
 
             # 2. contain space case
             if ' ' in input_:
@@ -1229,10 +1327,10 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
                     continue
 
             # 3. single input
-            # 3.1 `p` to play music
+            # 3.1 `p` to play last audio
             elif input_ == 'p':
                 self._terminal_play(last_starting, last_ending, self.audio_part_path)
-            # 3.2 `p*` to play short period audio analyzed by spectral analyzer
+            # 3.2 `p*` to play last short period audio analyzed by spectral analyzer
             elif input_ == 'p*':
                 self._terminal_play(0, 0.1, self.ifft_audio_path)
             # 3.3 `` to show last image
