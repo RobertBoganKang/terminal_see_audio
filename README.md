@@ -13,7 +13,7 @@ The following functions have been implemented:
 
 ## Requirement
 
-Python library `matplotlib`, `numpy`, `scipy`, `librosa`, `soundfile`, `pypng`.
+Python library `matplotlib`, `numpy`, `scipy`, `librosa`, `soundfile`, `pypng`, `peakutils`.
 
 Terminal library: `ffmpeg`, `sox`.
 
@@ -42,7 +42,7 @@ python see.py <input_file>
   * example: `10 20` means to split audio from **10s** to **20s**;
 * empty string `''` (press return without input): plot last generated graphics;
 * `p`: play audio;
-* `p*`: play the partition of audio where used `@` or `#` to analyze spectral;
+  * `p*`: play the partition of audio where used `@`, `#` or `^` to analyze spectral;
 * `q`: quit program;
 * `r`: reset starting and ending time;
 * `m`: change the `mode` of showing graphics; there are several modes can be changed;
@@ -61,6 +61,8 @@ python see.py <input_file>
   * `''`: empty is to plot last analyzed spiral graphics;
   * if command `#` follows two numbers, it will plot piano roll at starting time & ending time; `#10 20` will calculate the piano roll of `10s` to `20s`;
   * command `##` will plot last calculated piano roll result;
+* `^`: calculate the spectral tuning peaks frequencies (peaks);
+  * number: `^10` is to extract `10~s` peaks frequencies components, music note names, and its frequency power at combined channel `*` and separate channel `number`;
 
 ### Advanced Script
 

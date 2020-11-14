@@ -8,6 +8,7 @@ import sys
 import librosa
 import matplotlib.pyplot as plt
 import numpy as np
+import peakutils
 import scipy.signal as signal
 import soundfile as sf
 from matplotlib.patches import Circle
@@ -38,7 +39,8 @@ class Common(object):
 
         # resolution of frequency (y) dimension
         self.n_window = 1024
-        self.analyzer_n_window = 4096
+        # analyzer time
+        self.analyzer_time = 0.256
         # resolution of time (x) dimension
         self.n_step = 128
         self.piano_roll_n_step = 1024
@@ -76,6 +78,7 @@ class Common(object):
         os.makedirs(self.temp_folder, exist_ok=True)
         self._initialize_audio()
         self.n_overlap = self.n_window - self.n_step
+        self.analyzer_n_window = int(self.analyzer_time * self.sample_rate)
         self.piano_roll_n_overlap = self.analyzer_n_window - self.piano_roll_n_step
         self.min_duration = self.n_window / self.sample_rate
         self.analyze_min_duration = self.analyzer_n_window / self.sample_rate
@@ -282,8 +285,9 @@ class AnalyzeCommon(Common):
     def __init__(self):
         super().__init__()
 
-    def _log_min_max_transform(self, array):
-        array = np.log(np.array(array) + self.min_analyze_power)
+    def _log_min_max_transform(self, array, log=True):
+        if log:
+            array = np.log(np.array(array) + self.min_analyze_power)
         array -= np.min(array)
         if np.max(array) != 0:
             array /= np.max(array)
@@ -297,8 +301,6 @@ class AnalyzeCommon(Common):
 
     def _fft_data_transform_single(self, fft_single):
         fft_single = self._calc_sp(fft_single, self.analyzer_n_window, self.n_overlap)
-        if np.max(fft_single) != 0:
-            fft_single /= np.max(fft_single)
         return fft_single
 
     def _check_analyze_duration(self, starting_time):
@@ -496,8 +498,6 @@ class SpiralAnalyzer(AnalyzeCommon):
     def _spiral_polar_transform(self, arrays):
         array_0 = arrays[0]
         array_1 = arrays[1]
-        array_0 = self._log_min_max_transform(array_0)
-        array_1 = self._log_min_max_transform(array_1)
         x_array_0 = []
         y_array_0 = []
         x_array_1 = []
@@ -538,7 +538,7 @@ class SpiralAnalyzer(AnalyzeCommon):
                 audio_data = [audio_data, audio_data]
             else:
                 audio_data = [x[starting_sample:starting_sample + self.analyzer_n_window] for x in self.data]
-            fft_data = [self._fft_data_transform_single(x)[0] for x in audio_data]
+            fft_data = self._log_min_max_transform([self._fft_data_transform_single(x)[0] for x in audio_data])
 
             # prepare data
             position_0, position_1, fft_data_transformed, pitches = self._spiral_polar_transform(fft_data)
@@ -598,7 +598,7 @@ class SpiralAnalyzer(AnalyzeCommon):
             plt.savefig(self.spiral_graphics_path, dpi=self.spiral_dpi, bbox_inches='tight')
 
             # prepare ifft play
-            self._ifft_audio_export(fft_data)
+            self._ifft_audio_export(self._log_min_max_transform(fft_data, log=False))
             return True
 
 
@@ -630,7 +630,6 @@ class PianoCommon(AnalyzeCommon):
         return np.log2(frequency / self.a4_frequency) * 12
 
     def _piano_key_spectral_data(self, array):
-        array = self._log_min_max_transform(array)
         key_dict = {}
         raw_keys = []
         key_ffts = []
@@ -783,7 +782,7 @@ class PianoAnalyzer(PianoCommon):
             plt.savefig(self.piano_graphics_path, dpi=self.piano_dpi, bbox_inches='tight')
 
             # prepare ifft play
-            self._ifft_audio_export(fft_data)
+            self._ifft_audio_export(self._log_min_max_transform(fft_data, log=False))
             return True
 
 
@@ -889,7 +888,7 @@ class PianoRoll(PianoCommon):
             if freq_alpha > self.figure_minimum_alpha:
                 plt.fill(x_positions, y_positions, facecolor=self.piano_roll_color, zorder=3, alpha=freq_alpha)
 
-    def prepare_graph_piano_roll(self, starting_time, ending_time):
+    def _prepare_graph_piano_roll(self, starting_time, ending_time):
         # fix time first
         starting_time, ending_time = self._fix_input_starting_ending_time(starting_time, ending_time)
         if ending_time - starting_time < self.analyze_min_duration:
@@ -902,8 +901,9 @@ class PianoRoll(PianoCommon):
             ending_sample = int(self.sample_rate * ending_time)
             # to `mono` for piano roll
             data_ = np.mean(self.data, axis=0)
-            fft_data = self._calc_sp(data_[starting_sample:ending_sample], self.analyzer_n_window,
-                                     self.piano_roll_n_overlap)
+            fft_data = self._log_min_max_transform(
+                self._calc_sp(data_[starting_sample:ending_sample], self.analyzer_n_window,
+                              self.piano_roll_n_overlap))
             # plot
             plt.style.use('dark_background')
             plt.figure(figsize=self.piano_roll_figure_size)
@@ -925,7 +925,109 @@ class PianoRoll(PianoCommon):
             return True
 
 
-class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, Shell):
+class PeakAnalyzer(AnalyzeCommon):
+    def __init__(self):
+        super().__init__()
+        self.peak_analyze_coefficient = 80
+        self.peak_tuning_coefficient = 40
+        self.peak_analyze_min_threshold = 0.1
+
+        # name of key name
+        self.key_name_lib = ['A', 'A#', 'B', 'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#']
+
+    def _frequency_to_music_pitch(self, frequency):
+        raw_key = np.log2(frequency / 440) * 12
+        key = round(raw_key)
+        remainder_in_cent = (raw_key - key) * 100
+        key_name = self.key_name_lib[key % 12]
+        key_octave = (key + 9) // 12 + 4
+        return key_name, key_octave, remainder_in_cent
+
+    def _peak_fft_to_pk_info(self, fft_data):
+        """ extract peak from fft data """
+        minimum_distance = int(self.analyzer_n_window / self.sample_rate * self.peak_analyze_coefficient)
+        indexes = peakutils.indexes(fft_data, thres=self.peak_analyze_min_threshold, min_dist=minimum_distance)
+        raw_peak_info = []
+        for i in indexes:
+            raw_peak_info.append([i, fft_data[i]])
+        raw_peak_info.sort(key=lambda x: x[-1], reverse=True)
+        return raw_peak_info
+
+    def _peak_weighted_sum_fix_tuning_pk(self, log_fft_data, raw_peak_info, fft_data):
+        """ use weighted sum to fix peak center frequency """
+        tuning_range = self.analyzer_n_window / self.sample_rate * self.peak_tuning_coefficient
+        half_tuning_range = int(tuning_range / 2)
+        modified_peak_info = []
+        for fft_position, _ in raw_peak_info:
+            if fft_position > half_tuning_range:
+                position_range = [fft_position - half_tuning_range, fft_position + half_tuning_range]
+                around_peak_data = log_fft_data[position_range[0]:position_range[1] + 1]
+                around_peak_data = np.array(around_peak_data)
+                around_peak_data /= np.sum(around_peak_data)
+                around_peak_position = np.array(range(position_range[0], position_range[1] + 1))
+                position_weighted_sum = np.sum(around_peak_data * around_peak_position)
+                raw_peak_power = fft_data[fft_position]
+                modified_peak_info.append([position_weighted_sum, raw_peak_power])
+        return modified_peak_info
+
+    def _peak_show_peak_information(self, peak_info):
+        for fft_position, peak_power in peak_info:
+            frequency = self._fft_position_to_frequency(fft_position)
+            key_name, key_octave, remainder_in_cent = self._frequency_to_music_pitch(frequency)
+            if remainder_in_cent > 0:
+                add_sign = '+'
+            else:
+                add_sign = ''
+            print(
+                f' | {round(frequency, 3)}Hz --> '
+                f'{key_name}{key_octave}{add_sign}{round(remainder_in_cent, 2)}c ~~> '
+                f'{round(peak_power * 100, 2)}%')
+
+    def _prepare_audio_peak_info(self, starting_time):
+        valid = self._check_analyze_duration(starting_time)
+        if not valid:
+            print(
+                f'<!> starting time set false\n'
+                f'<!> number should be `0`~ `{self._get_audio_time()[-1] - self.analyze_min_duration}`s')
+        else:
+            # get starting sample index
+            starting_sample = int(starting_time * self.sample_rate)
+            # get data for spectral
+            audio_data_combine_channel = np.mean(self.data, axis=0)[
+                                         starting_sample:starting_sample + self.analyzer_n_window]
+            audio_data_separate_channel = [x[starting_sample:starting_sample + self.analyzer_n_window] for x in
+                                           self.data]
+            fft_data = [self._fft_data_transform_single(x)[0] for x in audio_data_separate_channel]
+            fft_data_combine_channel = self._log_min_max_transform(
+                self._fft_data_transform_single(audio_data_combine_channel)[0], log=False)
+            log_fft_data_combine_channel = self._log_min_max_transform(
+                self._fft_data_transform_single(audio_data_combine_channel)[0])
+            if len(self.data) > 1:
+                fft_data_multiple = [fft_data_combine_channel] + list(self._log_min_max_transform(fft_data, log=False))
+                log_fft_data_multiple = [log_fft_data_combine_channel] + list(self._log_min_max_transform(fft_data))
+            else:
+                fft_data_multiple = [fft_data_combine_channel]
+                log_fft_data_multiple = [log_fft_data_combine_channel]
+            raw_peak_info_multiple = [self._peak_fft_to_pk_info(x) for x in log_fft_data_multiple]
+            print(f'<*> peaks @ `{starting_time}s`...')
+            for i in range(len(raw_peak_info_multiple)):
+                if i == 0:
+                    channel_name = '*'
+                else:
+                    channel_name = str(i)
+                print(f'<+> channel ({channel_name}):')
+                modified_peak_info = self._peak_weighted_sum_fix_tuning_pk(log_fft_data_multiple[i],
+                                                                           raw_peak_info_multiple[i],
+                                                                           fft_data_multiple[i])
+                # show information
+                self._peak_show_peak_information(modified_peak_info)
+            print('<*> ...')
+
+            # prepare ifft play
+            self._ifft_audio_export(self._log_min_max_transform(fft_data, log=False))
+
+
+class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, PeakAnalyzer, Shell):
     """
     this class will plot audio similar to `Adobe Audition` with:
         * plot wave & spectral
@@ -938,6 +1040,7 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, S
         SpiralAnalyzer.__init__(self)
         PianoAnalyzer.__init__(self)
         PianoRoll.__init__(self)
+        PeakAnalyzer.__init__(self)
         Shell.__init__(self)
 
     def main(self, in_path):
@@ -1021,13 +1124,21 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, S
                     piano_inputs = command.split()
                     if len(piano_inputs) == 2 and self._is_float(piano_inputs[0]) and self._is_float(piano_inputs[1]):
                         piano_inputs = [float(x) for x in piano_inputs]
-                        status = self.prepare_graph_piano_roll(piano_inputs[0], piano_inputs[1])
+                        status = self._prepare_graph_piano_roll(piano_inputs[0], piano_inputs[1])
                         if status:
                             self._terminal_plot(self.piano_roll_graphics_path)
                     else:
                         print('<!> piano analyzer inputs unknown')
                 else:
                     print('<!> `piano` inputs unknown')
+                continue
+            # 1.4 get tuning frequencies (`^`)
+            elif input_.startswith('^'):
+                # 1.4.1 number as staring time
+                if self._is_float(command):
+                    self._prepare_audio_peak_info(float(command))
+                else:
+                    print('<!> tuning frequency inputs unknown')
                 continue
 
             # 2. contain space case
@@ -1139,6 +1250,10 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, S
             # 3.6 `h` to print help file
             elif input_ == 'h':
                 self.print_help()
+            # 3.7 `testing` to test experimental functions
+            # TODO: test functions here
+            elif input_ == 'test':
+                print('<!> no experimental function now')
             # 3.* single input case error
             else:
                 print('<!> unknown command')
