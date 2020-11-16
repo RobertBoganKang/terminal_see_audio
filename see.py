@@ -872,6 +872,8 @@ class TuningAnalyzer(AnalyzeCommon):
         self.tuning_line_width = 0.7
         self.tuning_target_line_width = 1.2
         self.tuning_dpi = 300
+        # define max layer number
+        self.tuning_max_layer = 48
 
         # color & theme
         self.tuning_base_color = '#444'
@@ -892,6 +894,8 @@ class TuningAnalyzer(AnalyzeCommon):
             if i > 0:
                 frequency = self._fft_position_to_frequency(i)
                 layer, position = self._tuning_get_layer_position(frequency, tuning)
+                if layer > self.tuning_max_layer:
+                    break
                 position_x_0 = layer - array_0[i] / 2
                 position_x_1 = layer + array_1[i] / 2
                 position_y = position
