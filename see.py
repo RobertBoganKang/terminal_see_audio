@@ -224,6 +224,11 @@ class Common(object):
             print('<!> readme file missing')
 
     @staticmethod
+    def _set_1to1_ratio_figure():
+        plt.gca().set_aspect(1)
+        plt.axis('off')
+
+    @staticmethod
     def _matplotlib_clear_memory(fig):
         plt.cla()
         plt.clf()
@@ -647,7 +652,6 @@ class SpiralAnalyzer(AnalyzeCommon):
             ax_position, ay_position = self._spiral_pitch_to_plot_position(5, 0)
 
             # making plots
-
             fig = plt.figure(figsize=self.spiral_figure_size)
             ax = fig.add_subplot(111)
 
@@ -685,8 +689,7 @@ class SpiralAnalyzer(AnalyzeCommon):
             ax.add_patch(cir_end)
 
             # set figure ratio
-            plt.gca().set_aspect(1)
-            plt.axis('off')
+            self._set_1to1_ratio_figure()
 
             # save figure
             fig.savefig(self.spiral_graphics_path, dpi=self.spiral_dpi, bbox_inches='tight')
@@ -855,7 +858,6 @@ class PianoAnalyzer(PianoCommon):
                 key_ffts.append(key_fft)
 
             # plot
-
             fig = plt.figure(figsize=self.piano_figure_size)
             ax = fig.add_subplot(111)
             ax.set_xlim(
@@ -868,8 +870,7 @@ class PianoAnalyzer(PianoCommon):
                 self._piano_generate_frequency_graph_single(ax, raw_keys[i], key_ffts[i], i)
 
             # set plot ratio
-            plt.gca().set_aspect(1)
-            plt.axis('off')
+            self._set_1to1_ratio_figure()
 
             fig.savefig(self.piano_graphics_path, dpi=self.piano_dpi, bbox_inches='tight')
             self._matplotlib_clear_memory(fig)
@@ -967,7 +968,6 @@ class TuningAnalyzer(AnalyzeCommon):
             # get position info
             position_info = self._tuning_get_positions(fft_data, tuning)
             # plot
-
             fig = plt.figure(figsize=self.tuning_figure_size)
             ax = fig.add_subplot(111)
             ax.set_ylim(bottom=-0.5, top=0.5)
@@ -1103,7 +1103,6 @@ class PianoRoll(PianoCommon):
                 self._calc_sp(data_[starting_sample:ending_sample], self.analyzer_n_window,
                               self.piano_roll_n_overlap))
             # plot
-
             fig = plt.figure(figsize=self.piano_roll_figure_size)
             ax = plt.subplot(111)
             ax.set_ylim([self._piano_roll_generate_key_position(self.piano_key_range[0])[0][0, 0] - 0.5,
@@ -1173,10 +1172,10 @@ class PeakAnalyzer(AnalyzeCommon):
 
             print(
                 f' | {round(frequency, 3)}Hz '
-                f'({key_name}{key_octave}{self._add_sign(remainder_in_cent)}{round(remainder_in_cent, 2)}c) --> '
-                f'{round(modified_frequency, 3)}Hz '
-                f'({key_name_1}{key_octave_1}{self._add_sign(remainder_in_cent_1)}{round(remainder_in_cent_1, 2)}c) ~~> '
-                f'{round(peak_power * 100, 2)}%')
+                f'({key_name}{key_octave}{self._add_sign(remainder_in_cent)}{round(remainder_in_cent, 2)}c)'
+                f' --> {round(modified_frequency, 3)}Hz '
+                f'({key_name_1}{key_octave_1}{self._add_sign(remainder_in_cent_1)}{round(remainder_in_cent_1, 2)}c)'
+                f' ~~> {round(peak_power * 100, 2)}%')
 
     def _prepare_audio_peak_info(self, starting_time):
         valid = self._check_analyze_duration(starting_time)
