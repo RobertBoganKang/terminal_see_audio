@@ -61,8 +61,9 @@ python see.py <input_file>
   * `''`: empty is to plot last analyzed spiral graphics;
   * if command `#` follows two numbers, it will plot piano roll at starting time & ending time; `#10 20` will calculate the piano roll of `10s` to `20s`;
   * command `##` will plot last calculated piano roll result;
-* `^`: calculate the spectral tuning peaks frequencies (peaks);
-  * number: `^10` is to extract `10~s` peaks frequencies components, music note names, and its frequency power at combined channel `*` and separate channel `number`;
+* `^`: calculate the spectral tuning peaks frequencies (peaks) and plot;
+  * `number`: `^10` is to extract `10~s` peaks frequencies components, music note names, and its frequency power at combined channel `*` and separate channel `number`;
+  * `two numbers`: `starting time` + `tuning frequency (Hz)`, then plot tuning graphics, `^0 99.041Hz` to plot tuning graphics at `0~s` with tuning frequency `99.041Hz`;
 * `>`: to play sine wave the given frequency;
   * `number+Hz`: to play sound directly from number of frequency; `>440Hz` is to play sound at `440Hz`;
   * `music notes name`: to play sound translate from music notes; `>a4` is to play `a4` notes; `>a4-50c` is to play sound at `a4` but with `50` cents lower;
