@@ -411,7 +411,7 @@ class AnalyzeCommon(Common):
             audio_data = [audio_data, audio_data]
         else:
             audio_data = [x[starting_sample:starting_sample + self.analyzer_n_window] for x in self.data]
-        fft_data = self._log_min_max_transform([self._fft_data_transform_single(x)[0] for x in audio_data])
+        fft_data = [self._fft_data_transform_single(x)[0] for x in audio_data]
         return fft_data
 
     def _translate_string_to_frequency(self, string):
@@ -638,8 +638,9 @@ class SpiralAnalyzer(AnalyzeCommon):
         else:
             # prepare fft data
             fft_data = self._analyze_get_audio_fft_data(starting_time)
+            log_fft_data = self._log_min_max_transform(fft_data)
             # prepare data
-            position_0, position_1, fft_data_transformed, pitches = self._spiral_polar_transform(fft_data)
+            position_0, position_1, fft_data_transformed, pitches = self._spiral_polar_transform(log_fft_data)
             min_pitch = pitches[0]
             # pitch ticks for `n` temperament
             pitch_ticks_end = [
@@ -693,7 +694,6 @@ class SpiralAnalyzer(AnalyzeCommon):
 
             # save figure
             fig.savefig(self.spiral_graphics_path, dpi=self.spiral_dpi, bbox_inches='tight')
-
             self._matplotlib_clear_memory(fig)
 
             # prepare ifft play
@@ -965,8 +965,9 @@ class TuningAnalyzer(AnalyzeCommon):
                 print(f'<!> tuning frequency too low (<{self.min_hearing_frequency})')
             # prepare fft data
             fft_data = self._analyze_get_audio_fft_data(starting_time)
+            log_fft_data = self._log_min_max_transform(fft_data)
             # get position info
-            position_info = self._tuning_get_positions(fft_data, tuning)
+            position_info = self._tuning_get_positions(log_fft_data, tuning)
             # plot
             fig = plt.figure(figsize=self.tuning_figure_size)
             ax = fig.add_subplot(111)
