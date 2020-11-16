@@ -1,3 +1,4 @@
+import gc
 import glob
 import os
 import readline
@@ -64,6 +65,9 @@ class Common(object):
 
         # graphics modes
         self.graphics_modes = ['fft', 'fbank', 'power', 'log', 'mono', 'stereo']
+
+        # plot mode
+        plt.style.use('dark_background')
 
     def _check_audio_duration_valid(self, starting, ending):
         """ check if greater than minimum duration """
@@ -218,6 +222,13 @@ class Common(object):
             print('<*> ' + '... help')
         else:
             print('<!> readme file missing')
+
+    @staticmethod
+    def _matplotlib_clear_memory(fig):
+        plt.cla()
+        plt.clf()
+        plt.close(fig)
+        gc.collect()
 
 
 class Shell(Common):
@@ -544,8 +555,7 @@ class WaveSpectral(AnalyzeCommon):
         """ prepare graphics and audio files """
         # default settings
         grid = plt.GridSpec(self.graphics_ratio * self.channel_num, 1, wspace=0, hspace=0)
-        plt.figure(figsize=self.figure_size)
-        plt.style.use('dark_background')
+        fig = plt.figure(figsize=self.figure_size)
 
         data_, time_, starting_time, ending_time, valid = self._data_prepare(starting_time, ending_time)
         if not valid:
@@ -555,7 +565,8 @@ class WaveSpectral(AnalyzeCommon):
             self._plot_wave(data_[i], time_, grid, i)
 
         # save figure
-        plt.savefig(self.graphics_path, dpi=self.figure_dpi, bbox_inches='tight')
+        fig.savefig(self.graphics_path, dpi=self.figure_dpi, bbox_inches='tight')
+        self._matplotlib_clear_memory(fig)
         return starting_time, ending_time, True
 
     def _initial_or_restore_running(self):
@@ -636,14 +647,15 @@ class SpiralAnalyzer(AnalyzeCommon):
             ax_position, ay_position = self._spiral_pitch_to_plot_position(5, 0)
 
             # making plots
-            plt.style.use('dark_background')
-            fig, ax = plt.subplots(figsize=self.spiral_figure_size)
+
+            fig = plt.figure(figsize=self.spiral_figure_size)
+            ax = fig.add_subplot(111)
 
             # plot ticks for `n` temperament
             for i in range(len(pitch_end_ticks_position)):
-                plt.plot([pitch_start_ticks_position[i][0], pitch_end_ticks_position[i][0]],
-                         [pitch_start_ticks_position[i][1], pitch_end_ticks_position[i][1]],
-                         c=self.spiral_axis_color, zorder=1, alpha=0.4, linewidth=self.spiral_line_width)
+                ax.plot([pitch_start_ticks_position[i][0], pitch_end_ticks_position[i][0]],
+                        [pitch_start_ticks_position[i][1], pitch_end_ticks_position[i][1]],
+                        c=self.spiral_axis_color, zorder=1, alpha=0.4, linewidth=self.spiral_line_width)
                 cir_start = Circle((pitch_start_ticks_position[i][0], pitch_start_ticks_position[i][1]), radius=0.05,
                                    zorder=1, facecolor='black', edgecolor=self.spiral_axis_color, alpha=0.4)
                 cir_end = Circle((pitch_end_ticks_position[i][0], pitch_end_ticks_position[i][1]), radius=0.05,
@@ -652,8 +664,8 @@ class SpiralAnalyzer(AnalyzeCommon):
                 ax.add_patch(cir_end)
 
             # plot base axis
-            plt.plot(position_0[0], position_0[1], c=self.spiral_axis_color, linewidth=self.spiral_line_width, zorder=1,
-                     alpha=0.4)
+            ax.plot(position_0[0], position_0[1], c=self.spiral_axis_color, linewidth=self.spiral_line_width, zorder=1,
+                    alpha=0.4)
 
             # plot spiral
             for i in range(len(position_0[0]) - 1):
@@ -664,9 +676,9 @@ class SpiralAnalyzer(AnalyzeCommon):
                 poly_position = np.array([pos0, pos1, pos2, pos3])
                 opacity = max(fft_data_transformed[i], fft_data_transformed[i + 1])
                 if opacity > self.figure_minimum_alpha:
-                    plt.fill(poly_position[:, 0], poly_position[:, 1], facecolor=self.spiral_color,
-                             edgecolor=self.spiral_color, linewidth=self.spiral_line_width,
-                             alpha=opacity, zorder=2)
+                    ax.fill(poly_position[:, 0], poly_position[:, 1], facecolor=self.spiral_color,
+                            edgecolor=self.spiral_color, linewidth=self.spiral_line_width,
+                            alpha=opacity, zorder=2)
             # plot `A4` position
             cir_end = Circle((ax_position, ay_position), radius=0.2, zorder=3, facecolor=self.a_pitch_color,
                              linewidth=self.spiral_line_width, edgecolor=self.a_pitch_color, alpha=0.6)
@@ -677,7 +689,9 @@ class SpiralAnalyzer(AnalyzeCommon):
             plt.axis('off')
 
             # save figure
-            plt.savefig(self.spiral_graphics_path, dpi=self.spiral_dpi, bbox_inches='tight')
+            fig.savefig(self.spiral_graphics_path, dpi=self.spiral_dpi, bbox_inches='tight')
+
+            self._matplotlib_clear_memory(fig)
 
             # prepare ifft play
             self._ifft_audio_export(self._log_min_max_transform(fft_data, log=False))
@@ -744,7 +758,7 @@ class PianoAnalyzer(PianoCommon):
         # b/w length: 9.5mm/15cm
         self.piano_key_length = 6.382978723404255
 
-    def _piano_generate_frequency_graph_single(self, raw_key, key_fft, channel):
+    def _piano_generate_frequency_graph_single(self, ax, raw_key, key_fft, channel):
         # get key position
         positions_0 = []
         positions_1 = []
@@ -758,19 +772,19 @@ class PianoAnalyzer(PianoCommon):
             y_positions = [positions_0[i][1], positions_0[i + 1][1], positions_1[i + 1][1], positions_1[i][1]]
             freq_alpha = max(key_fft[i], key_fft[i + 1])
             if freq_alpha > self.figure_minimum_alpha:
-                plt.fill(x_positions, y_positions, edgecolor=self.piano_spectral_color,
-                         facecolor=self.piano_spectral_color,
-                         linewidth=self.piano_line_width, zorder=1, alpha=freq_alpha)
+                ax.fill(x_positions, y_positions, edgecolor=self.piano_spectral_color,
+                        facecolor=self.piano_spectral_color,
+                        linewidth=self.piano_line_width, zorder=1, alpha=freq_alpha)
 
-    def _piano_graph_single(self, key_dict, channel):
+    def _piano_graph_single(self, ax, key_dict, channel):
         # plot cover
         left_most, _ = self._piano_generate_key_position(self.piano_key_range[0], channel)
         right_most, _ = self._piano_generate_key_position(self.piano_key_range[1] - 1, channel)
         cover_x_positions = [left_most[0, 0], right_most[1, 0], right_most[1, 0], left_most[0, 0]]
         cover_y_positions = [left_most[0, 1], left_most[0, 1], left_most[0, 1] - self.piano_cover_width,
                              left_most[0, 1] - self.piano_cover_width]
-        plt.fill(cover_x_positions, cover_y_positions, edgecolor=self.piano_base_color, facecolor=self.piano_base_color,
-                 linewidth=self.piano_line_width, zorder=5, alpha=0.9)
+        ax.fill(cover_x_positions, cover_y_positions, edgecolor=self.piano_base_color, facecolor=self.piano_base_color,
+                linewidth=self.piano_line_width, zorder=5, alpha=0.9)
         # plot key
         for k in range(self.piano_key_range[0], self.piano_key_range[1], 1):
             positions, bw = self._piano_generate_key_position(k, channel)
@@ -779,22 +793,22 @@ class PianoAnalyzer(PianoCommon):
             else:
                 fft_value = 0
             # background
-            plt.fill(positions[:, 0], positions[:, 1], facecolor='black', edgecolor=self.piano_base_color,
-                     linewidth=self.piano_line_width, zorder=2 * bw + 1)
+            ax.fill(positions[:, 0], positions[:, 1], facecolor='black', edgecolor=self.piano_base_color,
+                    linewidth=self.piano_line_width, zorder=2 * bw + 1)
             # plot key
             if fft_value > self.figure_minimum_alpha:
-                plt.fill(positions[:, 0], positions[:, 1], edgecolor=self.piano_key_color,
-                         facecolor=self.piano_key_color,
-                         linewidth=self.piano_line_width, zorder=2 * bw + 2, alpha=fft_value)
+                ax.fill(positions[:, 0], positions[:, 1], edgecolor=self.piano_key_color,
+                        facecolor=self.piano_key_color,
+                        linewidth=self.piano_line_width, zorder=2 * bw + 2, alpha=fft_value)
             # `a4` position
             if k % 12 == 0:
                 if k == 0:
                     opacity = 0.5
                 else:
                     opacity = 0.15
-                plt.fill(positions[:, 0], cover_y_positions,
-                         edgecolor=self.a_pitch_color, facecolor=self.a_pitch_color, linewidth=self.piano_line_width,
-                         zorder=6, alpha=opacity)
+                ax.fill(positions[:, 0], cover_y_positions,
+                        edgecolor=self.a_pitch_color, facecolor=self.a_pitch_color, linewidth=self.piano_line_width,
+                        zorder=6, alpha=opacity)
 
     def _piano_generate_key_position(self, key, channel):
         # `7` for octave switch
@@ -841,24 +855,24 @@ class PianoAnalyzer(PianoCommon):
                 key_ffts.append(key_fft)
 
             # plot
-            plt.style.use('dark_background')
 
-            plt.figure(figsize=self.piano_figure_size)
-            fig = plt.subplot(111)
-            fig.set_xlim(
+            fig = plt.figure(figsize=self.piano_figure_size)
+            ax = fig.add_subplot(111)
+            ax.set_xlim(
                 [self._piano_generate_key_position(self.piano_key_range[0], 0)[0][0, 0] - 0.5,
                  self._piano_generate_key_position(self.piano_key_range[1] - 1, 0)[0][
                      1, 0] + 0.5])
             # plot piano
             for i in range(len(fft_data)):
-                self._piano_graph_single(key_dicts[i], i)
-                self._piano_generate_frequency_graph_single(raw_keys[i], key_ffts[i], i)
+                self._piano_graph_single(ax, key_dicts[i], i)
+                self._piano_generate_frequency_graph_single(ax, raw_keys[i], key_ffts[i], i)
 
             # set plot ratio
             plt.gca().set_aspect(1)
             plt.axis('off')
 
-            plt.savefig(self.piano_graphics_path, dpi=self.piano_dpi, bbox_inches='tight')
+            fig.savefig(self.piano_graphics_path, dpi=self.piano_dpi, bbox_inches='tight')
+            self._matplotlib_clear_memory(fig)
 
             # prepare ifft play
             self._ifft_audio_export(self._log_min_max_transform(fft_data, log=False))
@@ -902,7 +916,7 @@ class TuningAnalyzer(AnalyzeCommon):
                 position_info.append([position_x_0, position_x_1, position_y, layer])
         return position_info
 
-    def _tuning_plot(self, position_info):
+    def _tuning_plot(self, ax, position_info):
         position_stack = []
         position_sub_stack = []
         for i in range(len(position_info) - 1):
@@ -915,9 +929,9 @@ class TuningAnalyzer(AnalyzeCommon):
                 position_sub_stack.append([position_x_0, position_y])
                 # plot frequencies
                 if alpha > self.figure_minimum_alpha:
-                    plt.fill(x_positions, y_positions, edgecolor=self.tuning_spectral_color,
-                             facecolor=self.tuning_spectral_color,
-                             linewidth=self.tuning_line_width, zorder=2, alpha=alpha)
+                    ax.fill(x_positions, y_positions, edgecolor=self.tuning_spectral_color,
+                            facecolor=self.tuning_spectral_color,
+                            linewidth=self.tuning_line_width, zorder=2, alpha=alpha)
             else:
                 position_stack.append(position_sub_stack)
                 position_sub_stack = []
@@ -926,11 +940,11 @@ class TuningAnalyzer(AnalyzeCommon):
         for positions in position_stack:
             positions = np.array(positions)
             max_position_x = positions[-1, 0]
-            plt.plot(positions[:, 0], positions[:, 1], c=self.tuning_base_color, alpha=0.4,
-                     linewidth=self.tuning_line_width, zorder=1)
+            ax.plot(positions[:, 0], positions[:, 1], c=self.tuning_base_color, alpha=0.4,
+                    linewidth=self.tuning_line_width, zorder=1)
         # plot tuning line
-        plt.plot([0, max_position_x], [0, 0], c=self.a_pitch_color, alpha=0.3,
-                 linewidth=self.tuning_target_line_width, zorder=3)
+        ax.plot([0, max_position_x], [0, 0], c=self.a_pitch_color, alpha=0.3,
+                linewidth=self.tuning_target_line_width, zorder=3)
         return max_position_x
 
     def _prepare_graph_tuning(self, starting_time, tuning_string):
@@ -953,15 +967,17 @@ class TuningAnalyzer(AnalyzeCommon):
             # get position info
             position_info = self._tuning_get_positions(fft_data, tuning)
             # plot
-            plt.style.use('dark_background')
-            plt.figure(figsize=self.tuning_figure_size)
-            fig = plt.subplot(111)
-            fig.set_ylim(bottom=-0.5, top=0.5)
-            max_x_position = self._tuning_plot(position_info)
-            fig.set_xlim(left=-0.5, right=max_x_position + 0.5)
+
+            fig = plt.figure(figsize=self.tuning_figure_size)
+            ax = fig.add_subplot(111)
+            ax.set_ylim(bottom=-0.5, top=0.5)
+            max_x_position = self._tuning_plot(ax, position_info)
+            ax.set_xlim(left=-0.5, right=max_x_position + 0.5)
 
             plt.axis('off')
-            plt.savefig(self.tuning_graphics_path, dpi=self.tuning_dpi, bbox_inches='tight')
+            fig.savefig(self.tuning_graphics_path, dpi=self.tuning_dpi, bbox_inches='tight')
+
+            self._matplotlib_clear_memory(fig)
 
             # prepare ifft play
             self._ifft_audio_export(self._log_min_max_transform(fft_data, log=False))
@@ -1010,7 +1026,7 @@ class PianoRoll(PianoCommon):
         position_3 = [middle_x - width / 2 - lower_makeup, -self.piano_roll_key_length + length]
         return np.array([position_0, position_1, position_2, position_3]), self.piano_key_bw_switch[key_position]
 
-    def _piano_roll_indicator(self):
+    def _piano_roll_indicator(self, ax):
         """ piano roll base """
         # plot cover & frame
         top_most, _ = self._piano_roll_generate_key_position(self.piano_key_range[0])
@@ -1018,11 +1034,11 @@ class PianoRoll(PianoCommon):
         cover_x_positions = [0, 0, - self.piano_roll_cover_width, - self.piano_roll_cover_width]
         frame_x_positions = [0, 0, self.piano_roll_length, self.piano_roll_length]
         cover_y_positions = [top_most[0, 0], bottom_most[1, 0], bottom_most[1, 0], top_most[0, 0]]
-        plt.fill(cover_x_positions, cover_y_positions, edgecolor=self.piano_roll_base_color,
-                 facecolor=self.piano_base_color,
-                 linewidth=self.piano_line_width, zorder=5, alpha=0.9)
-        plt.fill(frame_x_positions, cover_y_positions, edgecolor=self.piano_roll_base_color,
-                 facecolor='black', linewidth=self.piano_line_width, zorder=1)
+        ax.fill(cover_x_positions, cover_y_positions, edgecolor=self.piano_roll_base_color,
+                facecolor=self.piano_base_color,
+                linewidth=self.piano_line_width, zorder=5, alpha=0.9)
+        ax.fill(frame_x_positions, cover_y_positions, edgecolor=self.piano_roll_base_color,
+                facecolor='black', linewidth=self.piano_line_width, zorder=1)
         base_x_positions = [0, self.piano_roll_length, self.piano_roll_length, 0]
         # plot key & piano roll base
         for k in range(self.piano_key_range[0], self.piano_key_range[1], 1):
@@ -1046,20 +1062,20 @@ class PianoRoll(PianoCommon):
                     roll_color = 'black'
                     alpha = 0.6
             # plot key
-            plt.fill(positions[:, 1], positions[:, 0], facecolor=key_color, edgecolor=self.piano_roll_base_color,
-                     linewidth=self.piano_line_width, zorder=bw + 1)
+            ax.fill(positions[:, 1], positions[:, 0], facecolor=key_color, edgecolor=self.piano_roll_base_color,
+                    linewidth=self.piano_line_width, zorder=bw + 1)
             # plot piano roll base
-            plt.fill(base_x_positions, base_y_positions, facecolor=roll_color, zorder=1, alpha=alpha)
+            ax.fill(base_x_positions, base_y_positions, facecolor=roll_color, zorder=1, alpha=alpha)
 
             # plot grid
-            plt.plot([base_x_positions[0], base_x_positions[1]], [base_y_positions[-1], base_y_positions[-1]],
-                     c=self.piano_roll_base_color, linewidth=self.piano_line_width, alpha=0.5, zorder=4)
+            ax.plot([base_x_positions[0], base_x_positions[1]], [base_y_positions[-1], base_y_positions[-1]],
+                    c=self.piano_roll_base_color, linewidth=self.piano_line_width, alpha=0.5, zorder=4)
             # makeup edge line
             if k == self.piano_key_range[0]:
-                plt.plot([base_x_positions[0], base_x_positions[1]], [base_y_positions[0], base_y_positions[0]],
-                         c=self.piano_roll_base_color, linewidth=self.piano_line_width, alpha=0.5, zorder=4)
+                ax.plot([base_x_positions[0], base_x_positions[1]], [base_y_positions[0], base_y_positions[0]],
+                        c=self.piano_roll_base_color, linewidth=self.piano_line_width, alpha=0.5, zorder=4)
 
-    def _piano_roll_generate_frequency_graph_single(self, key_dict, step, all_step_number):
+    def _piano_roll_generate_frequency_graph_single(self, ax, key_dict, step, all_step_number):
         # get key position
         step_size = self.piano_roll_length / all_step_number
         for k, v in key_dict.items():
@@ -1068,7 +1084,7 @@ class PianoRoll(PianoCommon):
             y_positions = [key_0, key_0, key_1, key_1]
             freq_alpha = v
             if freq_alpha > self.figure_minimum_alpha:
-                plt.fill(x_positions, y_positions, facecolor=self.piano_roll_color, zorder=3, alpha=freq_alpha)
+                ax.fill(x_positions, y_positions, facecolor=self.piano_roll_color, zorder=3, alpha=freq_alpha)
 
     def _prepare_graph_piano_roll(self, starting_time, ending_time):
         # fix time first
@@ -1087,23 +1103,23 @@ class PianoRoll(PianoCommon):
                 self._calc_sp(data_[starting_sample:ending_sample], self.analyzer_n_window,
                               self.piano_roll_n_overlap))
             # plot
-            plt.style.use('dark_background')
-            plt.figure(figsize=self.piano_roll_figure_size)
-            fig = plt.subplot(111)
-            fig.set_ylim([self._piano_roll_generate_key_position(self.piano_key_range[0])[0][0, 0] - 0.5,
-                          self._piano_roll_generate_key_position(self.piano_key_range[1] - 1)[0][1, 0] + 0.5])
-            fig.set_xlim([-self.piano_roll_key_length - 0.2, self.piano_roll_length + 0.2])
+
+            fig = plt.figure(figsize=self.piano_roll_figure_size)
+            ax = plt.subplot(111)
+            ax.set_ylim([self._piano_roll_generate_key_position(self.piano_key_range[0])[0][0, 0] - 0.5,
+                         self._piano_roll_generate_key_position(self.piano_key_range[1] - 1)[0][1, 0] + 0.5])
+            ax.set_xlim([-self.piano_roll_key_length - 0.2, self.piano_roll_length + 0.2])
             # plot piano base
-            self._piano_roll_indicator()
+            self._piano_roll_indicator(ax)
             # plot piano roll
             for i, data in enumerate(fft_data):
                 key_dict, raw_key, key_fft = self._piano_key_spectral_data(data)
-                self._piano_roll_generate_frequency_graph_single(key_dict, i, len(fft_data))
+                self._piano_roll_generate_frequency_graph_single(ax, key_dict, i, len(fft_data))
             # set plot ratio
             plt.gca().set_aspect(1)
             plt.axis('off')
-            self._initialize_temp()
-            plt.savefig(self.piano_roll_graphics_path, dpi=self.piano_roll_dpi, bbox_inches='tight')
+            fig.savefig(self.piano_roll_graphics_path, dpi=self.piano_roll_dpi, bbox_inches='tight')
+            self._matplotlib_clear_memory(fig)
             return True
 
 
@@ -1209,7 +1225,7 @@ class PeakAnalyzer(AnalyzeCommon):
 class PlayPitch(AnalyzeCommon):
     def __init__(self):
         super().__init__()
-        self.pitch_play_time = 0.5
+        self.pitch_play_time = 0.8
 
     def _pitch_generate_wave(self, frequency):
         """ get wave data for specific frequency """
@@ -1359,6 +1375,9 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
                         status = self._prepare_graph_tuning(start_timing, command_split[1])
                         if status:
                             self._terminal_plot(self.tuning_graphics_path)
+                        else:
+                            print('<!> tuning frequency error')
+                            continue
                     else:
                         print('<!> please check number of tuning input')
                 else:
