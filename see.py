@@ -398,6 +398,18 @@ class AnalyzeCommon(Common):
         fft_data = self._log_min_max_transform([self._fft_data_transform_single(x)[0] for x in audio_data])
         return fft_data
 
+    def _translate_string_to_frequency(self, string):
+        """ translate command to frequency """
+        string = string.strip()
+        if 'hz' in string.lower():
+            freq = string[:-2]
+            if self._is_float(freq):
+                return float(freq)
+            else:
+                return None
+        else:
+            return self._translate_music_note_name_to_frequency(string)
+
 
 class WaveSpectral(AnalyzeCommon):
     def __init__(self):
@@ -917,7 +929,7 @@ class TuningAnalyzer(AnalyzeCommon):
                  linewidth=self.tuning_target_line_width, zorder=3)
         return max_position_x
 
-    def _prepare_graph_tuning(self, starting_time, tuning):
+    def _prepare_graph_tuning(self, starting_time, tuning_string):
         valid = self._check_analyze_duration(starting_time)
         if not valid:
             print(
@@ -926,6 +938,12 @@ class TuningAnalyzer(AnalyzeCommon):
             )
             return False
         else:
+            # translate tuning
+            tuning = self._translate_string_to_frequency(tuning_string)
+            if tuning is None:
+                return False
+            if tuning < self.min_hearing_frequency:
+                print(f'<!> tuning frequency too low (<{self.min_hearing_frequency})')
             # prepare fft data
             fft_data = self._analyze_get_audio_fft_data(starting_time)
             # get position info
@@ -943,6 +961,7 @@ class TuningAnalyzer(AnalyzeCommon):
 
             # prepare ifft play
             self._ifft_audio_export(self._log_min_max_transform(fft_data, log=False))
+            return True
 
 
 class PianoRoll(PianoCommon):
@@ -1118,21 +1137,25 @@ class PeakAnalyzer(AnalyzeCommon):
                 modified_peak_info.append([fft_position, position_weighted_sum, raw_peak_power])
         return modified_peak_info
 
+    @staticmethod
+    def _add_sign(number):
+        if number > 0:
+            return '+'
+        else:
+            return ''
+
     def _peak_show_peak_information(self, peak_info):
         for fft_position, modified_position, peak_power in peak_info:
             frequency = self._fft_position_to_frequency(fft_position)
             modified_frequency = self._fft_position_to_frequency(modified_position)
             key_name, key_octave, remainder_in_cent = self._translate_frequency_to_music_note(frequency)
             key_name_1, key_octave_1, remainder_in_cent_1 = self._translate_frequency_to_music_note(modified_frequency)
-            if remainder_in_cent > 0:
-                add_sign = '+'
-            else:
-                add_sign = ''
+
             print(
                 f' | {round(frequency, 3)}Hz '
-                f'({key_name}{key_octave}{add_sign}{round(remainder_in_cent, 2)}c) --> '
+                f'({key_name}{key_octave}{self._add_sign(remainder_in_cent)}{round(remainder_in_cent, 2)}c) --> '
                 f'{round(modified_frequency, 3)}Hz '
-                f'({key_name_1}{key_octave_1}{add_sign}{round(remainder_in_cent_1, 2)}c) ~~> '
+                f'({key_name_1}{key_octave_1}{self._add_sign(remainder_in_cent_1)}{round(remainder_in_cent_1, 2)}c) ~~> '
                 f'{round(peak_power * 100, 2)}%')
 
     def _prepare_audio_peak_info(self, starting_time):
@@ -1184,18 +1207,6 @@ class PlayPitch(AnalyzeCommon):
         super().__init__()
         self.pitch_play_time = 0.5
 
-    def _translate_to_frequency(self, string):
-        """ translate command to frequency """
-        string = string.strip()
-        if 'hz' in string.lower():
-            freq = string[:-2]
-            if self._is_float(freq):
-                return float(freq)
-            else:
-                return None
-        else:
-            return self._translate_music_note_name_to_frequency(string)
-
     def _pitch_generate_wave(self, frequency):
         """ get wave data for specific frequency """
         wave_data = []
@@ -1204,7 +1215,7 @@ class PlayPitch(AnalyzeCommon):
         return np.array(wave_data)
 
     def _pitch_export_wave_frequency(self, string):
-        frequency = self._translate_to_frequency(string)
+        frequency = self._translate_string_to_frequency(string)
         if frequency is None:
             print(f'<!> pitch input `{string}` unknown or frequency too high')
             return False
@@ -1332,7 +1343,7 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
                 # 1.4.1 number as staring time
                 if self._is_float(command):
                     self._prepare_audio_peak_info(float(command))
-                # 1.4.2 two numbers: starting time + frequency(Hz)
+                # 1.4.2 two numbers: starting time + frequency
                 elif ' ' in command:
                     command_split = command.split()
                     if len(command_split) == 2:
@@ -1341,18 +1352,9 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
                         else:
                             print('<!> tuning starting time error')
                             continue
-                        if command_split[1].lower().endswith('hz'):
-                            command_split[1] = command_split[1][:-2]
-                        if self._is_float(command_split[1]):
-                            frequency = float(command_split[1])
-                            if frequency > self.min_hearing_frequency:
-                                # correct case
-                                self._prepare_graph_tuning(start_timing, frequency)
-                                self._terminal_plot(self.tuning_graphics_path)
-                            else:
-                                print(f'<!> tuning frequency too low (<{self.min_hearing_frequency})')
-                        else:
-                            print('<!> tuning frequency error')
+                        status = self._prepare_graph_tuning(start_timing, command_split[1])
+                        if status:
+                            self._terminal_plot(self.tuning_graphics_path)
                     else:
                         print('<!> please check number of tuning input')
                 else:
