@@ -30,7 +30,7 @@ class Common(object):
         self.a4_frequency = 440
 
         # figure parameters
-        self.figure_minimum_alpha = 0.05
+        self.figure_minimum_alpha = 0.01
 
         # audio parameters
         self.sample_rate = 16000
@@ -44,7 +44,7 @@ class Common(object):
         # resolution of frequency (y) dimension
         self.n_window = 1024
         # analyzer time
-        self.analyzer_time = 0.256
+        self.analyzer_time = 0.512
         # resolution of time (x) dimension
         self.n_step = 128
         self.piano_roll_n_step = 1024
@@ -326,8 +326,8 @@ class AnalyzeCommon(Common):
     def _frequency_to_key(self, frequency):
         return np.log2(frequency / self.a4_frequency) * 12
 
-    def _fft_data_transform_single(self, fft_single):
-        fft_single = self._calc_sp(fft_single, self.analyzer_n_window, self.n_overlap)
+    def _fft_data_transform_single(self, audio_data_single):
+        fft_single = self._calc_sp(audio_data_single, self.analyzer_n_window, self.n_overlap)
         return fft_single
 
     def _check_analyze_duration(self, starting_time):
@@ -576,6 +576,7 @@ class WaveSpectral(AnalyzeCommon):
 
     def _initial_or_restore_running(self):
         """ first run & restore run """
+        self._initialization()
         self._prepare_graph_audio(0, self._get_audio_time()[-1])
         self._terminal_plot(self.graphics_path)
 
@@ -893,6 +894,7 @@ class TuningAnalyzer(AnalyzeCommon):
         # color & theme
         self.tuning_base_color = '#444'
         self.tuning_spectral_color = 'mediumspringgreen'
+        self.tuning_line_color = 'red'
 
     @staticmethod
     def _tuning_get_layer_position(frequency, tuning):
@@ -944,7 +946,7 @@ class TuningAnalyzer(AnalyzeCommon):
             ax.plot(positions[:, 0], positions[:, 1], c=self.tuning_base_color, alpha=0.4,
                     linewidth=self.tuning_line_width, zorder=1)
         # plot tuning line
-        ax.plot([0, max_position_x], [0, 0], c=self.a_pitch_color, alpha=0.3,
+        ax.plot([0, max_position_x], [0, 0], c=self.tuning_line_color, alpha=0.3,
                 linewidth=self.tuning_target_line_width, zorder=3)
         return max_position_x
 
@@ -1435,7 +1437,7 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
                         if self._is_int(input_split[1]):
                             if int(input_split[1]) >= self.min_sample_rate:
                                 self.sample_rate = int(input_split[1])
-                                self._initialize_audio()
+                                self._initialization()
                                 # recalculating
                                 self._prepare_graph_audio(last_starting, last_ending)
                                 print(f'<+> sample rate `{input_split[1]}` set')
