@@ -1,0 +1,7 @@
+matplotlib
+numpy
+scipy
+librosa
+soundfile
+pypng
+peakutils

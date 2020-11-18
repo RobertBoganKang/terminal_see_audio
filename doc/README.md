@@ -4,17 +4,9 @@
 
 类似于 `Adobe Audition`，本项目可以帮助我们快速在终端中查看音频信息。 
 
-以下功能已经实现：
-
-* 切割音频；
-* 画波形图、频谱图；
-* 播放音频；
-* 螺旋、钢琴频谱分析；
-* 调音；
-
 ## 环境要求
 
-Python库 `matplotlib`, `numpy`, `scipy`, `librosa`, `soundfile`, `pypng`, `peakutils`。
+Python库可以使用`pip install -r requrements.txt`安装。
 
 终端库：`ffmpeg`, `sox`。
 

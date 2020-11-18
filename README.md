@@ -4,17 +4,9 @@
 
 Similar to `Adobe Audition`. This project will check the audio information quickly inside of terminal. 
 
-The following functions have been implemented:
-
-* split audio;
-* plot wave & spectral;
-* play audio;
-* spiral/piano spectral analyzer;
-* tuning;
-
 ## Requirement
 
-Python library `matplotlib`, `numpy`, `scipy`, `librosa`, `soundfile`, `pypng`, `peakutils`.
+Python library can be installed with `pip install -r requrements.txt`.
 
 Terminal library: `ffmpeg`, `sox`.
 
