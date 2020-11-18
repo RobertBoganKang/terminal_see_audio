@@ -10,6 +10,7 @@ The following functions have been implemented:
 * plot wave & spectral;
 * play audio;
 * spiral/piano spectral analyzer;
+* tuning;
 
 ## Requirement
 
@@ -49,6 +50,7 @@ python see.py <input_file>
   * `fft` and `fbank` changes the `y` axis transform;
   * `power` and `log` change the color density (spectral values) transform of graphics;
   * `mono` and `stereo` change the channel number to be `1` or `not 1` if have;
+  * `spectral` and `phase`: the `phase` mode will consider phase into the program if channel number is 2;
   * example: `m fft` means switch to `fft` mode;
 * `sr`: change the sample rate of showing audio;
   * example: `sr 16000` means switch to `16000Hz` sample rate;

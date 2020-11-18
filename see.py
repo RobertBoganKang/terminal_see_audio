@@ -1,3 +1,4 @@
+import colorsys
 import gc
 import glob
 import os
@@ -46,7 +47,9 @@ class Common(object):
         # analyzer time
         self.analyzer_time = 0.512
         # resolution of time (x) dimension
-        self.n_step = 128
+        # self.n_step = 128
+        self.n_min_step = 32
+        self.n_spectral_max_width = 2048
         self.piano_roll_n_step = 1024
         # max duration for audio to play (30s)
         self.play_max_duration = 30
@@ -64,7 +67,7 @@ class Common(object):
         self.a_pitch_color = 'red'
 
         # graphics modes
-        self.graphics_modes = ['fft', 'fbank', 'power', 'log', 'mono', 'stereo']
+        self.graphics_modes = ['fft', 'fbank', 'power', 'log', 'mono', 'stereo', 'phase', 'spectral']
 
         # plot mode
         plt.style.use('dark_background')
@@ -82,12 +85,16 @@ class Common(object):
         # demo mode message
         os.makedirs(self.temp_folder, exist_ok=True)
         self._initialize_audio()
-        self.n_overlap = self.n_window - self.n_step
         self.analyzer_n_window = int(self.analyzer_time * self.sample_rate)
         self.piano_roll_n_overlap = self.analyzer_n_window - self.piano_roll_n_step
         self.min_duration = self.n_window / self.sample_rate
         self.analyze_min_duration = self.analyzer_n_window / self.sample_rate
         self._check_audio_duration()
+
+    def _initialize_spectral(self, starting_time, ending_time):
+        n_step = int((ending_time - starting_time) * self.sample_rate / self.n_spectral_max_width)
+        n_step = max(self.n_min_step, n_step)
+        self.n_overlap = self.n_window - n_step
 
     def _initialize_temp(self):
         """ temp file path initialization """
@@ -117,11 +124,11 @@ class Common(object):
         self.time = [x / self.sample_rate for x in self.time]
 
     def _get_audio_time(self):
-        return 0, len(self.data[0]) / self.sample_rate
+        return len(self.data[0]) / self.sample_rate
 
     def _check_audio_duration(self):
         """ check if raw audio too short """
-        if self._get_audio_time()[-1] < self.min_duration:
+        if self._get_audio_time() < self.min_duration:
             raise ValueError('audio too short; exit')
 
     @staticmethod
@@ -143,24 +150,39 @@ class Common(object):
             return False
 
     @staticmethod
-    def _calc_sp(audio, n_window, n_overlap):
+    def _calc_sp(audio, n_window, n_overlap, angle=False):
         """
-        Calculate spectrogram.
+        Calculate spectrogram or angle.
         :param audio: list(float): audio data
-        :return: list(list(float)): the spectral data
+        :return: list(list(float)): the spectral data or angles
         """
         ham_win = np.hamming(n_window)
-        [_, _, x] = signal.spectral.spectrogram(
-            audio,
-            window=ham_win,
-            nperseg=n_window,
-            noverlap=n_overlap,
-            detrend=False,
-            return_onesided=True,
-            mode='magnitude')
-        x = x.T
-        x = x.astype(np.float64)
-        return x
+        if angle:
+            [_, _, sp] = signal.spectral.spectrogram(
+                audio,
+                window=ham_win,
+                nperseg=n_window,
+                noverlap=n_overlap,
+                detrend=False,
+                return_onesided=True,
+                mode='complex')
+            sp = sp.T
+            sp = sp.astype(np.complex64)
+            x = np.abs(sp)
+            y = np.angle(sp)
+            return x, y
+        else:
+            [_, _, x] = signal.spectral.spectrogram(
+                audio,
+                window=ham_win,
+                nperseg=n_window,
+                noverlap=n_overlap,
+                detrend=False,
+                return_onesided=True,
+                mode='magnitude')
+            x = x.T
+            x = x.astype(np.float64)
+            return x
 
     def _terminal_play(self, start, end, path):
         """ play in terminal function """
@@ -198,7 +220,7 @@ class Common(object):
             print(f'<!> please fix problem:\n<?> {command}')
 
     def _fix_input_starting_ending_time(self, starting_time, ending_time):
-        test_ending = self._get_audio_time()[-1]
+        test_ending = self._get_audio_time()
         if starting_time < 0:
             print(f'<!> reset starting time {starting_time}-->{0}')
             starting_time = 0
@@ -208,7 +230,7 @@ class Common(object):
         if starting_time >= ending_time:
             print('<!> starting time >= ending time ~~> reset all')
             starting_time = 0
-            ending_time = self._get_audio_time()[-1]
+            ending_time = self._get_audio_time()
         return starting_time, ending_time
 
     def print_help(self):
@@ -234,6 +256,14 @@ class Common(object):
         plt.clf()
         plt.close(fig)
         gc.collect()
+
+    @staticmethod
+    def _max_norm(array, min_transform=False):
+        if min_transform:
+            array -= np.min(array)
+        if np.max(array) != 0:
+            array /= np.max(np.abs(array))
+        return array
 
 
 class Shell(Common):
@@ -306,12 +336,11 @@ class AnalyzeCommon(Common):
         # key names
         self.note_name_lib = ['A', 'A#', 'B', 'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#']
 
-    def _log_min_max_transform(self, array, log=True):
+    def _analyze_log_min_max_transform(self, array, log=True):
         if log:
             array = np.log(np.array(array) + self.min_analyze_power)
         array -= np.min(array)
-        if np.max(array) != 0:
-            array /= np.max(array)
+        array = self._max_norm(array)
         return array
 
     def _fft_position_to_frequency(self, position):
@@ -332,7 +361,7 @@ class AnalyzeCommon(Common):
 
     def _check_analyze_duration(self, starting_time):
         """ check if raw audio too short for analyze plot """
-        if self._get_audio_time()[-1] < self.analyze_min_duration + starting_time or starting_time < 0:
+        if self._get_audio_time() < self.analyze_min_duration + starting_time or starting_time < 0:
             return False
         else:
             return True
@@ -433,10 +462,11 @@ class WaveSpectral(AnalyzeCommon):
         # spectral mode
         self.spectral_transform_y = 'fbank'
         self.spectral_transform_v = 'log'
+        self.spectral_phase_mode = 'spectral'
 
         # colors & themes
         self.plot_axis_color = 'white'
-        self.plot_spectral_color = 'magma'
+        self.plot_spectral_color = 'inferno'
         self.plot_wave_color = 'mediumspringgreen'
 
         # wave/spectral
@@ -470,8 +500,11 @@ class WaveSpectral(AnalyzeCommon):
             f_left = int(round(filter_edge[m - 1]))
             f_center = int(round(filter_edge[m]))
             f_right = int(round(filter_edge[m + 1]))
-            # `+1` to avoid broken image (modified)
-            f_right += 1
+            # fix broken image
+            if f_left == f_center:
+                f_left -= 1
+            if f_right == f_center:
+                f_right += 1
 
             for k in range(f_left, f_center):
                 f_bank[m - 1, k] = (k - f_left) / (f_center - f_left)
@@ -481,6 +514,19 @@ class WaveSpectral(AnalyzeCommon):
         filter_banks = np.dot(spectral_raw, f_bank.T)
         filter_banks = np.where(filter_banks == 0, np.finfo(float).eps, filter_banks)
         return filter_banks
+
+    def _spectral_transform(self, spectral, clip_power=None):
+        if clip_power is None:
+            clip_power = self.min_hearing_power
+        if self.spectral_transform_v == 'power':
+            spectral = np.power(spectral, self.spectral_power_transform_coefficient)
+        elif self.spectral_transform_v == 'log':
+            spectral = np.clip(spectral, clip_power, None)
+            spectral = np.log(spectral)
+        else:
+            raise ValueError(f'spectral transform `Values` [{self.spectral_transform_v}] unrecognized')
+        spectral = self._max_norm(spectral)
+        return spectral
 
     def _data_prepare(self, starting_time, ending_time):
         """ prepare partition of audios """
@@ -511,9 +557,9 @@ class WaveSpectral(AnalyzeCommon):
         # plot norm
         if np.max(np.abs(data_one)):
             data_one_norm = data_one / np.max(np.abs(data_one))
-            fig_wave.plot(time_, data_one_norm, linewidth=line_width, color=self.plot_wave_color, alpha=0.3)
+            fig_wave.plot(time_, data_one_norm, linewidth=line_width, color=self.plot_wave_color, alpha=0.3, zorder=1)
         # plot wave
-        fig_wave.plot(time_, data_one, linewidth=line_width, color=self.plot_wave_color)
+        fig_wave.plot(time_, data_one, linewidth=line_width, color=self.plot_wave_color, zorder=2)
         fig_wave.set_xlim(left=time_[0], right=time_[-1])
         fig_wave.axes.get_yaxis().set_ticks([])
         fig_wave.axes.set_ylim([-1, 1])
@@ -538,14 +584,7 @@ class WaveSpectral(AnalyzeCommon):
         else:
             raise ValueError(f'spectral transform `Y` [{self.spectral_transform_y}] unrecognized')
         # transform to show
-        spectral -= np.min(spectral)
-        if self.spectral_transform_v == 'power':
-            spectral = np.power(spectral, self.spectral_power_transform_coefficient)
-        elif self.spectral_transform_v == 'log':
-            spectral = np.clip(spectral, self.min_hearing_power, None)
-            spectral = np.log(spectral)
-        else:
-            raise ValueError(f'spectral transform `Values` [{self.spectral_transform_v}] unrecognized')
+        spectral = self._spectral_transform(spectral)
         spectral = np.flip(spectral, axis=1)
         spectral = np.transpose(spectral)
 
@@ -556,17 +595,75 @@ class WaveSpectral(AnalyzeCommon):
         fig_spectral.imshow(spectral, aspect='auto', cmap=self.plot_spectral_color)
         fig_spectral.axis('off')
 
+    def _plot_phase(self, data, grid):
+        """ plot phase """
+        # plot phase
+        data_0 = data[0]
+        data_1 = data[1]
+        fft_0, phase_0 = self._calc_sp(data_0, self.n_window, self.n_overlap, angle=True)
+        fft_1, phase_1 = self._calc_sp(data_1, self.n_window, self.n_overlap, angle=True)
+
+        fft_data = (fft_0 + fft_1) / 2
+        fft_magnitude_tendency = np.abs(self._spectral_transform(fft_0) - self._spectral_transform(fft_1))
+        phase_data = phase_1 - phase_0
+        phase_data = np.mod(phase_data / 2 / np.pi, 1)
+        if self.spectral_transform_y == 'fbank':
+            phase_data = self._mel_filter(phase_data)
+            fft_data = self._mel_filter(fft_data)
+            fft_magnitude_tendency = self._mel_filter(fft_magnitude_tendency)
+        elif self.spectral_transform_y == 'fft':
+            pass
+        else:
+            raise ValueError(f'phase transform `Y` [{self.spectral_transform_y}] unrecognized')
+        fft_data = self._max_norm(self._spectral_transform(fft_data, clip_power=self.min_hearing_power),
+                                  min_transform=True)
+        fft_magnitude_tendency = self._max_norm(fft_magnitude_tendency)
+        image_reconstruction = []
+        for i in range(len(fft_data)):
+            one_row = []
+            for j in range(len(fft_data[0])):
+                h = phase_data[i][j]
+                s = 1 - fft_magnitude_tendency[i][j]
+                v = fft_data[i][j]
+                rgb = colorsys.hsv_to_rgb(h, s, v)
+                one_row.append(rgb)
+            image_reconstruction.append(one_row)
+        # transform to show
+        image_reconstruction = np.flip(image_reconstruction, axis=1)
+        image_reconstruction = np.transpose(image_reconstruction, axes=(1, 0, 2))
+        # plot
+        fig_phase = plt.subplot(
+            grid[self.channel_num:self.graphics_ratio * self.channel_num, 0])
+        fig_phase.imshow(image_reconstruction, aspect='auto')
+        fig_phase.axis('off')
+
     def _prepare_graph_audio(self, starting_time, ending_time):
         """ prepare graphics and audio files """
+        if len(self.data) != 2:
+            if self.spectral_phase_mode == 'phase':
+                print('<!> `phase` mode cannot be set since `channel_number!=2`\n'
+                      '<!> revert to `spectral` mode')
+            self.spectral_phase_mode = 'spectral'
+        if self.spectral_phase_mode == 'phase':
+            phase = True
+        elif self.spectral_phase_mode == 'spectral':
+            phase = False
+        else:
+            raise ValueError(f'`spectral/phase` mode [{self.spectral_phase_mode}] unrecognized')
         # default settings
         grid = plt.GridSpec(self.graphics_ratio * self.channel_num, 1, wspace=0, hspace=0)
         fig = plt.figure(figsize=self.figure_size)
 
         data_, time_, starting_time, ending_time, valid = self._data_prepare(starting_time, ending_time)
+        self._initialize_spectral(starting_time, ending_time)
         if not valid:
             return starting_time, ending_time, False
+        # plot image
+        if phase:
+            self._plot_phase(data_, grid)
         for i in range(len(data_)):
-            self._plot_spectral(data_[i], grid, i)
+            if not phase:
+                self._plot_spectral(data_[i], grid, i)
             self._plot_wave(data_[i], time_, grid, i)
 
         # save figure
@@ -577,7 +674,8 @@ class WaveSpectral(AnalyzeCommon):
     def _initial_or_restore_running(self):
         """ first run & restore run """
         self._initialization()
-        self._prepare_graph_audio(0, self._get_audio_time()[-1])
+        self._initialize_spectral(0, self._get_audio_time())
+        self._prepare_graph_audio(0, self._get_audio_time())
         self._terminal_plot(self.graphics_path)
 
 
@@ -633,13 +731,13 @@ class SpiralAnalyzer(AnalyzeCommon):
         if not valid:
             print(
                 f'<!> starting time set false\n'
-                f'<!> number should be `0`~ `{self._get_audio_time()[-1] - self.analyze_min_duration}`s'
+                f'<!> number should be `0`~ `{self._get_audio_time() - self.analyze_min_duration}`s'
             )
             return False
         else:
             # prepare fft data
             fft_data = self._analyze_get_audio_fft_data(starting_time)
-            log_fft_data = self._log_min_max_transform(fft_data)
+            log_fft_data = self._analyze_log_min_max_transform(fft_data)
             # prepare data
             position_0, position_1, fft_data_transformed, pitches = self._spiral_polar_transform(log_fft_data)
             min_pitch = pitches[0]
@@ -698,7 +796,7 @@ class SpiralAnalyzer(AnalyzeCommon):
             self._matplotlib_clear_memory(fig)
 
             # prepare ifft play
-            self._ifft_audio_export(self._log_min_max_transform(fft_data, log=False))
+            self._ifft_audio_export(self._analyze_log_min_max_transform(fft_data, log=False))
             return True
 
 
@@ -840,7 +938,7 @@ class PianoAnalyzer(PianoCommon):
         if not valid:
             print(
                 f'<!> starting time set false\n'
-                f'<!> number should be `0`~ `{self._get_audio_time()[-1] - self.analyze_min_duration}`s'
+                f'<!> number should be `0`~ `{self._get_audio_time() - self.analyze_min_duration}`s'
             )
             return False
         else:
@@ -877,7 +975,7 @@ class PianoAnalyzer(PianoCommon):
             self._matplotlib_clear_memory(fig)
 
             # prepare ifft play
-            self._ifft_audio_export(self._log_min_max_transform(fft_data, log=False))
+            self._ifft_audio_export(self._analyze_log_min_max_transform(fft_data, log=False))
             return True
 
 
@@ -955,7 +1053,7 @@ class TuningAnalyzer(AnalyzeCommon):
         if not valid:
             print(
                 f'<!> starting time set false\n'
-                f'<!> number should be `0`~ `{self._get_audio_time()[-1] - self.analyze_min_duration}`s'
+                f'<!> number should be `0`~ `{self._get_audio_time() - self.analyze_min_duration}`s'
             )
             return False
         else:
@@ -967,7 +1065,7 @@ class TuningAnalyzer(AnalyzeCommon):
                 print(f'<!> tuning frequency too low (<{self.min_hearing_frequency})')
             # prepare fft data
             fft_data = self._analyze_get_audio_fft_data(starting_time)
-            log_fft_data = self._log_min_max_transform(fft_data)
+            log_fft_data = self._analyze_log_min_max_transform(fft_data)
             # get position info
             position_info = self._tuning_get_positions(log_fft_data, tuning)
             # plot
@@ -983,7 +1081,7 @@ class TuningAnalyzer(AnalyzeCommon):
             self._matplotlib_clear_memory(fig)
 
             # prepare ifft play
-            self._ifft_audio_export(self._log_min_max_transform(fft_data, log=False))
+            self._ifft_audio_export(self._analyze_log_min_max_transform(fft_data, log=False))
             return True
 
 
@@ -1096,13 +1194,14 @@ class PianoRoll(PianoCommon):
             print('<!> audio too short to show piano roll')
             return False
         else:
+            self._initialize_spectral(starting_time, ending_time)
             # prepare spectrum
             # extract starting & ending sample
             starting_sample = int(self.sample_rate * starting_time)
             ending_sample = int(self.sample_rate * ending_time)
             # to `mono` for piano roll
             data_ = np.mean(self.data, axis=0)
-            fft_data = self._log_min_max_transform(
+            fft_data = self._analyze_log_min_max_transform(
                 self._calc_sp(data_[starting_sample:ending_sample], self.analyzer_n_window,
                               self.piano_roll_n_overlap))
             # plot
@@ -1185,7 +1284,7 @@ class PeakAnalyzer(AnalyzeCommon):
         if not valid:
             print(
                 f'<!> starting time set false\n'
-                f'<!> number should be `0`~ `{self._get_audio_time()[-1] - self.analyze_min_duration}`s')
+                f'<!> number should be `0`~ `{self._get_audio_time() - self.analyze_min_duration}`s')
         else:
             # get starting sample index
             starting_sample = int(starting_time * self.sample_rate)
@@ -1195,13 +1294,15 @@ class PeakAnalyzer(AnalyzeCommon):
             audio_data_separate_channel = [x[starting_sample:starting_sample + self.analyzer_n_window] for x in
                                            self.data]
             fft_data = [self._fft_data_transform_single(x)[0] for x in audio_data_separate_channel]
-            fft_data_combine_channel = self._log_min_max_transform(
+            fft_data_combine_channel = self._analyze_log_min_max_transform(
                 self._fft_data_transform_single(audio_data_combine_channel)[0], log=False)
-            log_fft_data_combine_channel = self._log_min_max_transform(
+            log_fft_data_combine_channel = self._analyze_log_min_max_transform(
                 self._fft_data_transform_single(audio_data_combine_channel)[0])
             if len(self.data) > 1:
-                fft_data_multiple = [fft_data_combine_channel] + list(self._log_min_max_transform(fft_data, log=False))
-                log_fft_data_multiple = [log_fft_data_combine_channel] + list(self._log_min_max_transform(fft_data))
+                fft_data_multiple = [fft_data_combine_channel] + list(
+                    self._analyze_log_min_max_transform(fft_data, log=False))
+                log_fft_data_multiple = [log_fft_data_combine_channel] + list(
+                    self._analyze_log_min_max_transform(fft_data))
             else:
                 fft_data_multiple = [fft_data_combine_channel]
                 log_fft_data_multiple = [log_fft_data_combine_channel]
@@ -1221,7 +1322,7 @@ class PeakAnalyzer(AnalyzeCommon):
             print('<*> ...')
 
             # prepare ifft play
-            self._ifft_audio_export(self._log_min_max_transform(fft_data, log=False))
+            self._ifft_audio_export(self._analyze_log_min_max_transform(fft_data, log=False))
 
 
 class PlayPitch(AnalyzeCommon):
@@ -1278,7 +1379,8 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
         self._initialization()
         self._initialize_temp()
         # prepare
-        last_starting, last_ending = self._get_audio_time()
+        last_starting = 0
+        last_ending = self._get_audio_time()
         # 0. first run
         self._initial_or_restore_running()
         # loop to get inputs
@@ -1427,6 +1529,8 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
                             elif input_split[1] in ['mono', 'stereo']:
                                 self.channel_type = input_split[1]
                                 self._initialize_audio()
+                            elif input_split[1] in ['spectral', 'phase']:
+                                self.spectral_phase_mode = input_split[1]
                             # recalculating
                             self._prepare_graph_audio(last_starting, last_ending)
                             print(f'<+> mode `{input_split[1]}` set')
@@ -1456,7 +1560,8 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
                                 print('<+> file path changed')
                                 self._initial_or_restore_running()
                                 # reset time
-                                last_starting, last_ending = self._get_audio_time()
+                                last_starting = 0
+                                last_ending = self._get_audio_time()
                         else:
                             print(f'<!> file path `{try_input}` does not exist')
                     # 2.2.4 change the temp folder path
@@ -1497,7 +1602,8 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
                 print('<!> reset all')
                 self._initial_or_restore_running()
                 # reset time
-                last_starting, last_ending = self._get_audio_time()
+                last_starting = 0
+                last_ending = self._get_audio_time()
             # 3.6 `h` to print help file
             elif input_ == 'h':
                 self.print_help()
