@@ -47,10 +47,8 @@ class Common(object):
         # analyzer time
         self.analyzer_time = 0.512
         # resolution of time (x) dimension
-        # self.n_step = 128
         self.n_min_step = 32
         self.n_spectral_max_width = 2048
-        self.piano_roll_n_step = 1024
         # max duration for audio to play (30s)
         self.play_max_duration = 30
         # spectral transform power coefficient for `power` mode
@@ -86,7 +84,6 @@ class Common(object):
         os.makedirs(self.temp_folder, exist_ok=True)
         self._initialize_audio()
         self.analyzer_n_window = int(self.analyzer_time * self.sample_rate)
-        self.piano_roll_n_overlap = self.analyzer_n_window - self.piano_roll_n_step
         self.min_duration = self.n_window / self.sample_rate
         self.analyze_min_duration = self.analyzer_n_window / self.sample_rate
         self._check_audio_duration()
@@ -265,6 +262,26 @@ class Common(object):
             array /= np.max(np.abs(array))
         return array
 
+    def _phase_mode_check(self):
+        if len(self.data) != 2:
+            if self.spectral_phase_mode == 'phase':
+                print('<!> `phase` mode cannot be set since `channel_number!=2`\n'
+                      '<!> revert to `spectral` mode')
+            self.spectral_phase_mode = 'spectral'
+        if self.spectral_phase_mode == 'phase':
+            phase = True
+        elif self.spectral_phase_mode == 'spectral':
+            phase = False
+        else:
+            raise ValueError(f'`spectral/phase` mode [{self.spectral_phase_mode}] unrecognized')
+        return phase
+
+    @staticmethod
+    def _hsb_to_rgb(h, s, b):
+        rgb = colorsys.hsv_to_rgb(h, s, b)
+        rgb_color = '#' + ''.join(['{:02x}'.format(int(x * 255)) for x in rgb])
+        return rgb_color
+
 
 class Shell(Common):
     def __init__(self):
@@ -330,133 +347,7 @@ class Shell(Common):
         readline.set_completer(self._path_autocomplete)
 
 
-class AnalyzeCommon(Common):
-    def __init__(self):
-        super().__init__()
-        # key names
-        self.note_name_lib = ['A', 'A#', 'B', 'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#']
-
-    def _analyze_log_min_max_transform(self, array, log=True):
-        if log:
-            array = np.log(np.array(array) + self.min_analyze_power)
-        array -= np.min(array)
-        array = self._max_norm(array)
-        return array
-
-    def _fft_position_to_frequency(self, position):
-        return position * self.sample_rate / self.analyzer_n_window
-
-    def _frequency_to_pitch(self, frequency):
-        return np.log2(frequency / self.a4_frequency) + 5
-
-    def _key_to_frequency(self, key, remainder=0):
-        return 2 ** (key / 12 + remainder / 1200) * self.a4_frequency
-
-    def _frequency_to_key(self, frequency):
-        return np.log2(frequency / self.a4_frequency) * 12
-
-    def _fft_data_transform_single(self, audio_data_single):
-        fft_single = self._calc_sp(audio_data_single, self.analyzer_n_window, self.n_overlap)
-        return fft_single
-
-    def _check_analyze_duration(self, starting_time):
-        """ check if raw audio too short for analyze plot """
-        if self._get_audio_time() < self.analyze_min_duration + starting_time or starting_time < 0:
-            return False
-        else:
-            return True
-
-    def _get_ifft_data_single(self, fft_single):
-        ff1 = np.array(list(fft_single) + list(-fft_single[::-1]))
-        ifft_single = np.real(np.fft.ifft(ff1))
-        ifft_single /= np.max(np.abs(ifft_single))
-        return ifft_single[:self.analyzer_n_window]
-
-    def _ifft_audio_export(self, fft_data):
-        ifft_data = np.transpose(np.array([self._get_ifft_data_single(x) for x in fft_data]))
-        sf.write(self.ifft_audio_path, ifft_data, samplerate=self.sample_rate)
-
-    def _translate_music_note_name_to_frequency(self, string):
-        """ translate music notes """
-        # get note name
-        if string[1] == '#':
-            note_name = string[:2].upper()
-            i = 2
-        else:
-            note_name = string[0].upper()
-            i = 1
-        if note_name not in self.note_name_lib:
-            return None
-        key_position = self.note_name_lib.index(note_name)
-
-        # get note octave
-        j = i
-        while j < len(string):
-            if string[j] not in ['+', '-']:
-                j += 1
-            else:
-                break
-        note_octave = string[i:j]
-        if not self._is_int(note_octave):
-            return None
-        key_octave = int(note_octave) - 4
-        if key_position >= 3:
-            key_octave -= 1
-        # if too large `>20kHz`
-        if key_octave > 6:
-            return None
-
-        # get cents
-        if j != len(string):
-            if string[-1].lower() == 'c':
-                k = len(string) - 1
-            else:
-                k = len(string)
-            note_cent = string[j:k]
-            if not self._is_float(note_cent):
-                return None
-            key_cent = float(note_cent)
-        else:
-            key_cent = 0
-
-        # combine to frequency
-        frequency = self._key_to_frequency(key_position + 12 * key_octave, remainder=key_cent)
-        return frequency
-
-    def _translate_frequency_to_music_note(self, frequency):
-        raw_key = np.log2(frequency / 440) * 12
-        key = round(raw_key)
-        remainder_in_cent = (raw_key - key) * 100
-        key_name = self.note_name_lib[key % 12]
-        key_octave = (key + 9) // 12 + 4
-        return key_name, key_octave, remainder_in_cent
-
-    def _analyze_get_audio_fft_data(self, starting_time):
-        # get starting sample index
-        starting_sample = int(starting_time * self.sample_rate)
-        # get data for spectral
-        if len(self.data) != 2:
-            audio_data = np.sum(self.data, axis=0)[starting_sample:starting_sample + self.analyzer_n_window]
-            audio_data = [audio_data, audio_data]
-        else:
-            audio_data = [x[starting_sample:starting_sample + self.analyzer_n_window] for x in self.data]
-        fft_data = [self._fft_data_transform_single(x)[0] for x in audio_data]
-        return fft_data
-
-    def _translate_string_to_frequency(self, string):
-        """ translate command to frequency """
-        string = string.strip()
-        if 'hz' in string.lower():
-            freq = string[:-2]
-            if self._is_float(freq):
-                return float(freq)
-            else:
-                return None
-        else:
-            return self._translate_music_note_name_to_frequency(string)
-
-
-class WaveSpectral(AnalyzeCommon):
+class WaveSpectral(Common):
     def __init__(self):
         super().__init__()
         # spectral mode
@@ -515,7 +406,7 @@ class WaveSpectral(AnalyzeCommon):
         filter_banks = np.where(filter_banks == 0, np.finfo(float).eps, filter_banks)
         return filter_banks
 
-    def _spectral_transform(self, spectral, clip_power=None):
+    def _spectral_transform(self, spectral, clip_power=None, max_norm=True):
         if clip_power is None:
             clip_power = self.min_hearing_power
         if self.spectral_transform_v == 'power':
@@ -525,7 +416,8 @@ class WaveSpectral(AnalyzeCommon):
             spectral = np.log(spectral)
         else:
             raise ValueError(f'spectral transform `Values` [{self.spectral_transform_v}] unrecognized')
-        spectral = self._max_norm(spectral)
+        if max_norm:
+            spectral = self._max_norm(spectral)
         return spectral
 
     def _data_prepare(self, starting_time, ending_time):
@@ -603,8 +495,11 @@ class WaveSpectral(AnalyzeCommon):
         fft_0, phase_0 = self._calc_sp(data_0, self.n_window, self.n_overlap, angle=True)
         fft_1, phase_1 = self._calc_sp(data_1, self.n_window, self.n_overlap, angle=True)
 
-        fft_data = (fft_0 + fft_1) / 2
-        fft_magnitude_tendency = np.abs(self._spectral_transform(fft_0) - self._spectral_transform(fft_1))
+        fft_data = fft_0 + fft_1
+        fft_magnitude_tendency = self._max_norm([
+            self._spectral_transform(fft_0, max_norm=False),
+            self._spectral_transform(fft_1, max_norm=False)])
+        fft_magnitude_tendency = np.abs(fft_magnitude_tendency[1] - fft_magnitude_tendency[0])
         phase_data = phase_1 - phase_0
         phase_data = np.mod(phase_data / 2 / np.pi, 1)
         if self.spectral_transform_y == 'fbank':
@@ -639,21 +534,10 @@ class WaveSpectral(AnalyzeCommon):
 
     def _prepare_graph_audio(self, starting_time, ending_time):
         """ prepare graphics and audio files """
-        if len(self.data) != 2:
-            if self.spectral_phase_mode == 'phase':
-                print('<!> `phase` mode cannot be set since `channel_number!=2`\n'
-                      '<!> revert to `spectral` mode')
-            self.spectral_phase_mode = 'spectral'
-        if self.spectral_phase_mode == 'phase':
-            phase = True
-        elif self.spectral_phase_mode == 'spectral':
-            phase = False
-        else:
-            raise ValueError(f'`spectral/phase` mode [{self.spectral_phase_mode}] unrecognized')
+        phase = self._phase_mode_check()
         # default settings
         grid = plt.GridSpec(self.graphics_ratio * self.channel_num, 1, wspace=0, hspace=0)
         fig = plt.figure(figsize=self.figure_size)
-
         data_, time_, starting_time, ending_time, valid = self._data_prepare(starting_time, ending_time)
         self._initialize_spectral(starting_time, ending_time)
         if not valid:
@@ -679,6 +563,162 @@ class WaveSpectral(AnalyzeCommon):
         self._terminal_plot(self.graphics_path)
 
 
+class AnalyzeCommon(Common):
+    def __init__(self):
+        super().__init__()
+        # key names
+        self.note_name_lib = ['A', 'A#', 'B', 'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#']
+
+    def _analyze_log_min_max_transform(self, array, log=True):
+        if log:
+            array = np.log(np.array(array) + self.min_analyze_power)
+        array = self._max_norm(array, min_transform=True)
+        return array
+
+    def _fft_position_to_frequency(self, position):
+        return position * self.sample_rate / self.analyzer_n_window
+
+    def _frequency_to_pitch(self, frequency):
+        return np.log2(frequency / self.a4_frequency) + 5
+
+    def _key_to_frequency(self, key, remainder=0):
+        return 2 ** (key / 12 + remainder / 1200) * self.a4_frequency
+
+    def _frequency_to_key(self, frequency):
+        return np.log2(frequency / self.a4_frequency) * 12
+
+    def _fft_data_transform_single(self, audio_data_single, phase=False):
+        if not phase:
+            fft_single = self._calc_sp(audio_data_single, self.analyzer_n_window, self.n_overlap)
+            return fft_single
+        else:
+            fft_single, phase_single = self._calc_sp(audio_data_single, self.analyzer_n_window, self.n_overlap,
+                                                     angle=True)
+            return fft_single, phase_single
+
+    def _check_analyze_duration(self, starting_time):
+        """ check if raw audio too short for analyze plot """
+        if self._get_audio_time() < self.analyze_min_duration + starting_time or starting_time < 0:
+            return False
+        else:
+            return True
+
+    def _get_ifft_data_single(self, fft_single):
+        ff1 = np.array(list(fft_single) + list(-fft_single[::-1]))
+        ifft_single = np.real(np.fft.ifft(ff1))
+        ifft_single /= np.max(np.abs(ifft_single))
+        return ifft_single[:self.analyzer_n_window]
+
+    def _ifft_audio_export(self, fft_data):
+        ifft_data = np.transpose(np.array([self._get_ifft_data_single(x) for x in fft_data]))
+        sf.write(self.ifft_audio_path, ifft_data, samplerate=self.sample_rate)
+
+    def _translate_music_note_name_to_frequency(self, string):
+        """ translate music notes """
+        # get note name
+        if string[1] == '#':
+            note_name = string[:2].upper()
+            i = 2
+        else:
+            note_name = string[0].upper()
+            i = 1
+        if note_name not in self.note_name_lib:
+            return None
+        key_position = self.note_name_lib.index(note_name)
+
+        # get note octave
+        j = i
+        while j < len(string):
+            if string[j] not in ['+', '-']:
+                j += 1
+            else:
+                break
+        note_octave = string[i:j]
+        if not self._is_int(note_octave):
+            return None
+        key_octave = int(note_octave) - 4
+        if key_position >= 3:
+            key_octave -= 1
+        # if too large `>20kHz`
+        if key_octave > 6:
+            return None
+
+        # get cents
+        if j != len(string):
+            if string[-1].lower() == 'c':
+                k = len(string) - 1
+            else:
+                k = len(string)
+            note_cent = string[j:k]
+            if not self._is_float(note_cent):
+                return None
+            key_cent = float(note_cent)
+        else:
+            key_cent = 0
+
+        # combine to frequency
+        frequency = self._key_to_frequency(key_position + 12 * key_octave, remainder=key_cent)
+        return frequency
+
+    def _translate_frequency_to_music_note(self, frequency):
+        raw_key = np.log2(frequency / 440) * 12
+        key = round(raw_key)
+        remainder_in_cent = (raw_key - key) * 100
+        key_name = self.note_name_lib[key % 12]
+        key_octave = (key + 9) // 12 + 4
+        return key_name, key_octave, remainder_in_cent
+
+    def _analyze_get_audio_fft_data(self, starting_time, phase=False):
+        # get starting sample index
+        starting_sample = int(starting_time * self.sample_rate)
+        # get data for spectral
+        if len(self.data) != 2:
+            audio_data = np.sum(self.data, axis=0)[starting_sample:starting_sample + self.analyzer_n_window]
+            audio_data = [audio_data, audio_data]
+        else:
+            audio_data = [x[starting_sample:starting_sample + self.analyzer_n_window] for x in self.data]
+        if not phase:
+            fft_data = [self._fft_data_transform_single(x)[0] for x in audio_data]
+            return np.array(fft_data)
+        else:
+            fft_data = []
+            phase_data = []
+            for ad in audio_data:
+                fft_single, phase_single = self._fft_data_transform_single(ad, phase=True)
+                fft_data.append(fft_single[0])
+                phase_data.append(phase_single[0])
+            return np.array(fft_data), np.array(phase_data)
+
+    def _translate_string_to_frequency(self, string):
+        """ translate command to frequency """
+        string = string.strip()
+        if 'hz' in string.lower():
+            freq = string[:-2]
+            if self._is_float(freq):
+                return float(freq)
+            else:
+                return None
+        else:
+            return self._translate_music_note_name_to_frequency(string)
+
+    def _analyze_two_channels_data_preparation(self, starting_time):
+        phase = self._phase_mode_check()
+        if not phase:
+            # prepare fft data
+            fft_data = self._analyze_get_audio_fft_data(starting_time)
+            log_fft_data = self._analyze_log_min_max_transform(fft_data)
+            v_fft_data = self._max_norm(log_fft_data[0] + log_fft_data[1], min_transform=False)
+            return fft_data, log_fft_data, None, None, v_fft_data
+        else:
+            fft_data, phase_data = self._analyze_get_audio_fft_data(starting_time, phase=True)
+            log_fft_data = self._analyze_log_min_max_transform(fft_data)
+            v_fft_data = self._max_norm(log_fft_data[0] + log_fft_data[1], min_transform=False)
+            h_phase_data = phase_data[1] - phase_data[0]
+            h_phase_data = np.mod(h_phase_data / 2 / np.pi, 1)
+            s_fft_magnitude_diff_data = np.abs(log_fft_data[0] - log_fft_data[1])
+            return fft_data, log_fft_data, h_phase_data, s_fft_magnitude_diff_data, v_fft_data
+
+
 class SpiralAnalyzer(AnalyzeCommon):
     def __init__(self):
         super().__init__()
@@ -700,7 +740,7 @@ class SpiralAnalyzer(AnalyzeCommon):
         y_position = -np.sin(pitch * 2 * np.pi + np.pi) * (pitch + offset)
         return x_position, y_position
 
-    def _spiral_polar_transform(self, arrays):
+    def _spiral_polar_transform(self, arrays, h, s, v):
         array_0 = arrays[0]
         array_1 = arrays[1]
         x_array_0 = []
@@ -708,7 +748,11 @@ class SpiralAnalyzer(AnalyzeCommon):
         x_array_1 = []
         y_array_1 = []
         pitches = []
-        transformed_array = []
+        vs = []
+        hs = ss = None
+        if h is not None:
+            hs = []
+            ss = []
         for i in range(len(array_0)):
             t0 = array_0[i]
             t1 = array_1[i]
@@ -716,15 +760,18 @@ class SpiralAnalyzer(AnalyzeCommon):
             if i > 0:
                 pitch = self._frequency_to_pitch(self._fft_position_to_frequency(i))
                 if pitch > 0:
+                    vs.append(v[i])
+                    if h is not None:
+                        hs.append(h[i])
+                        ss.append(s[i])
                     pitches.append(pitch)
-                    transformed_array.append((t0 + t1) / 2)
                     x_position, y_position = self._spiral_pitch_to_plot_position(pitch, -t1 / 2)
                     x_array_0.append(x_position)
                     y_array_0.append(y_position)
                     x_position, y_position = self._spiral_pitch_to_plot_position(pitch, t0 / 2)
                     x_array_1.append(x_position)
                     y_array_1.append(y_position)
-        return (x_array_0, y_array_0), (x_array_1, y_array_1), transformed_array, pitches
+        return (x_array_0, y_array_0), (x_array_1, y_array_1), pitches, hs, ss, vs
 
     def _prepare_graph_spiral(self, starting_time):
         valid = self._check_analyze_duration(starting_time)
@@ -735,11 +782,14 @@ class SpiralAnalyzer(AnalyzeCommon):
             )
             return False
         else:
-            # prepare fft data
-            fft_data = self._analyze_get_audio_fft_data(starting_time)
-            log_fft_data = self._analyze_log_min_max_transform(fft_data)
             # prepare data
-            position_0, position_1, fft_data_transformed, pitches = self._spiral_polar_transform(log_fft_data)
+            (fft_data, log_fft_data, h_phase_data, s_fft_magnitude_diff_data,
+             v_fft_data) = self._analyze_two_channels_data_preparation(starting_time)
+            # prepare position info
+            (position_0, position_1, pitches, hs, ss, vs) = self._spiral_polar_transform(log_fft_data,
+                                                                                         h_phase_data,
+                                                                                         s_fft_magnitude_diff_data,
+                                                                                         v_fft_data)
             min_pitch = pitches[0]
             # pitch ticks for `n` temperament
             pitch_ticks_end = [
@@ -778,11 +828,17 @@ class SpiralAnalyzer(AnalyzeCommon):
                 pos2 = [position_1[0][i + 1], position_1[1][i + 1]]
                 pos3 = [position_0[0][i + 1], position_0[1][i + 1]]
                 poly_position = np.array([pos0, pos1, pos2, pos3])
-                opacity = max(fft_data_transformed[i], fft_data_transformed[i + 1])
-                if opacity > self.figure_minimum_alpha:
-                    ax.fill(poly_position[:, 0], poly_position[:, 1], facecolor=self.spiral_color,
-                            edgecolor=self.spiral_color, linewidth=self.spiral_line_width,
-                            alpha=opacity, zorder=2)
+                v_opacity = max(vs[i], vs[i + 1])
+                if v_opacity > self.figure_minimum_alpha:
+                    if hs is None:
+                        ax.fill(poly_position[:, 0], poly_position[:, 1], facecolor=self.spiral_color,
+                                edgecolor=self.spiral_color, linewidth=self.spiral_line_width,
+                                alpha=v_opacity, zorder=2)
+                    else:
+                        rgb_color = self._hsb_to_rgb(hs[i], 1 - ss[i], 1)
+                        ax.fill(poly_position[:, 0], poly_position[:, 1], facecolor=rgb_color,
+                                edgecolor=rgb_color, linewidth=self.spiral_line_width,
+                                alpha=v_opacity, zorder=2)
             # plot `A4` position
             cir_end = Circle((ax_position, ay_position), radius=0.2, zorder=3, facecolor=self.a_pitch_color,
                              linewidth=self.spiral_line_width, edgecolor=self.a_pitch_color, alpha=0.6)
@@ -878,6 +934,22 @@ class PianoAnalyzer(PianoCommon):
                         facecolor=self.piano_spectral_color,
                         linewidth=self.piano_line_width, zorder=1, alpha=freq_alpha)
 
+    def _piano_data_prepare(self, starting_time):
+        # get starting sample index
+        starting_sample = int(starting_time * self.sample_rate)
+        # get data for spectral
+        audio_data = [x[starting_sample:starting_sample + self.analyzer_n_window] for x in self.data]
+        fft_data = [self._fft_data_transform_single(x)[0] for x in audio_data]
+        spectral_data = [self._piano_key_spectral_data(x) for x in fft_data]
+        key_dicts = []
+        raw_keys = []
+        key_ffts = []
+        for key_dict, raw_key, key_fft, in spectral_data:
+            key_dicts.append(key_dict)
+            raw_keys.append(raw_key)
+            key_ffts.append(key_fft)
+        return fft_data, key_dicts, raw_keys, key_ffts
+
     def _piano_graph_single(self, ax, key_dict, channel):
         # plot cover
         left_most, _ = self._piano_generate_key_position(self.piano_key_range[0], channel)
@@ -942,20 +1014,7 @@ class PianoAnalyzer(PianoCommon):
             )
             return False
         else:
-            # get starting sample index
-            starting_sample = int(starting_time * self.sample_rate)
-            # get data for spectral
-            audio_data = [x[starting_sample:starting_sample + self.analyzer_n_window] for x in self.data]
-            fft_data = [self._fft_data_transform_single(x)[0] for x in audio_data]
-            spectral_data = [self._piano_key_spectral_data(x) for x in fft_data]
-            key_dicts = []
-            raw_keys = []
-            key_ffts = []
-            for key_dict, raw_key, key_fft, in spectral_data:
-                key_dicts.append(key_dict)
-                raw_keys.append(raw_key)
-                key_ffts.append(key_fft)
-
+            fft_data, key_dicts, raw_keys, key_ffts = self._piano_data_prepare(starting_time)
             # plot
             fig = plt.figure(figsize=self.piano_figure_size)
             ax = fig.add_subplot(111)
@@ -992,7 +1051,7 @@ class TuningAnalyzer(AnalyzeCommon):
         # color & theme
         self.tuning_base_color = '#444'
         self.tuning_spectral_color = 'mediumspringgreen'
-        self.tuning_line_color = 'red'
+        self.tuning_line_color = 'gray'
 
     @staticmethod
     def _tuning_get_layer_position(frequency, tuning):
@@ -1001,10 +1060,15 @@ class TuningAnalyzer(AnalyzeCommon):
         position = prepare - layer - 0.5
         return layer, position
 
-    def _tuning_get_positions(self, arrays, tuning):
+    def _tuning_get_positions(self, arrays, tuning, h, s, v):
         array_0 = arrays[0]
         array_1 = arrays[1]
         position_info = []
+        vs = []
+        hs = ss = None
+        if h is not None:
+            hs = []
+            ss = []
         for i in range(len(array_0)):
             if i > 0:
                 frequency = self._fft_position_to_frequency(i)
@@ -1015,9 +1079,13 @@ class TuningAnalyzer(AnalyzeCommon):
                 position_x_1 = layer + array_1[i] / 2
                 position_y = position
                 position_info.append([position_x_0, position_x_1, position_y, layer])
-        return position_info
+                vs.append(v[i])
+                if h is not None:
+                    hs.append(h[i])
+                    ss.append(s[i])
+        return position_info, hs, ss, vs
 
-    def _tuning_plot(self, ax, position_info):
+    def _tuning_plot(self, ax, position_info, hs, ss, vs):
         position_stack = []
         position_sub_stack = []
         for i in range(len(position_info) - 1):
@@ -1026,13 +1094,18 @@ class TuningAnalyzer(AnalyzeCommon):
             if layer == layer_a:
                 x_positions = [position_x_0, position_x_1, position_x_1_a, position_x_0_a]
                 y_positions = [position_y, position_y, position_y_a, position_y_a]
-                alpha = max(position_x_1 - position_x_0, position_x_1_a - position_x_0_a)
+                v_opacity = max(vs[i], vs[i + 1])
                 position_sub_stack.append([position_x_0, position_y])
                 # plot frequencies
-                if alpha > self.figure_minimum_alpha:
-                    ax.fill(x_positions, y_positions, edgecolor=self.tuning_spectral_color,
-                            facecolor=self.tuning_spectral_color,
-                            linewidth=self.tuning_line_width, zorder=2, alpha=alpha)
+                if v_opacity > self.figure_minimum_alpha:
+                    if hs is None:
+                        ax.fill(x_positions, y_positions, edgecolor=self.tuning_spectral_color,
+                                facecolor=self.tuning_spectral_color,
+                                linewidth=self.tuning_line_width, zorder=2, alpha=v_opacity)
+                    else:
+                        rgb_color = self._hsb_to_rgb(hs[i], 1 - ss[i], 1)
+                        ax.fill(x_positions, y_positions, edgecolor=rgb_color, facecolor=rgb_color,
+                                linewidth=self.tuning_line_width, zorder=2, alpha=v_opacity)
             else:
                 position_stack.append(position_sub_stack)
                 position_sub_stack = []
@@ -1063,16 +1136,17 @@ class TuningAnalyzer(AnalyzeCommon):
                 return False
             if tuning < self.min_hearing_frequency:
                 print(f'<!> tuning frequency too low (<{self.min_hearing_frequency})')
-            # prepare fft data
-            fft_data = self._analyze_get_audio_fft_data(starting_time)
-            log_fft_data = self._analyze_log_min_max_transform(fft_data)
+            # prepare data
+            (fft_data, log_fft_data, h_phase_data,
+             s_fft_magnitude_diff_data, v_fft_data) = self._analyze_two_channels_data_preparation(starting_time)
             # get position info
-            position_info = self._tuning_get_positions(log_fft_data, tuning)
+            position_info, hs, ss, vs = self._tuning_get_positions(log_fft_data, tuning, h_phase_data,
+                                                                   s_fft_magnitude_diff_data, v_fft_data)
             # plot
             fig = plt.figure(figsize=self.tuning_figure_size)
             ax = fig.add_subplot(111)
             ax.set_ylim(bottom=-0.5, top=0.5)
-            max_x_position = self._tuning_plot(ax, position_info)
+            max_x_position = self._tuning_plot(ax, position_info, hs, ss, vs)
             ax.set_xlim(left=-0.5, right=max_x_position + 0.5)
 
             plt.axis('off')
@@ -1202,8 +1276,7 @@ class PianoRoll(PianoCommon):
             # to `mono` for piano roll
             data_ = np.mean(self.data, axis=0)
             fft_data = self._analyze_log_min_max_transform(
-                self._calc_sp(data_[starting_sample:ending_sample], self.analyzer_n_window,
-                              self.piano_roll_n_overlap))
+                self._calc_sp(data_[starting_sample:ending_sample], self.analyzer_n_window, self.n_overlap))
             # plot
             fig = plt.figure(figsize=self.piano_roll_figure_size)
             ax = plt.subplot(111)
@@ -1270,7 +1343,8 @@ class PeakAnalyzer(AnalyzeCommon):
             frequency = self._fft_position_to_frequency(fft_position)
             modified_frequency = self._fft_position_to_frequency(modified_position)
             key_name, key_octave, remainder_in_cent = self._translate_frequency_to_music_note(frequency)
-            key_name_1, key_octave_1, remainder_in_cent_1 = self._translate_frequency_to_music_note(modified_frequency)
+            key_name_1, key_octave_1, remainder_in_cent_1 = self._translate_frequency_to_music_note(
+                modified_frequency)
 
             print(
                 f' | {round(frequency, 3)}Hz '
@@ -1452,7 +1526,8 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
                 # 1.3.4 two numbers: piano roll
                 elif ' ' in command:
                     piano_inputs = command.split()
-                    if len(piano_inputs) == 2 and self._is_float(piano_inputs[0]) and self._is_float(piano_inputs[1]):
+                    if len(piano_inputs) == 2 and self._is_float(piano_inputs[0]) and self._is_float(
+                            piano_inputs[1]):
                         piano_inputs = [float(x) for x in piano_inputs]
                         status = self._prepare_graph_piano_roll(piano_inputs[0], piano_inputs[1])
                         if status:
@@ -1535,7 +1610,8 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
                             self._prepare_graph_audio(last_starting, last_ending)
                             print(f'<+> mode `{input_split[1]}` set')
                         else:
-                            print(f'<?> mode `{input_split[1]}` unknown\n<!> modes are within {self.graphics_modes}')
+                            print(
+                                f'<?> mode `{input_split[1]}` unknown\n<!> modes are within {self.graphics_modes}')
                     # 2.2.2 set sample rate
                     elif input_split[0] == 'sr':
                         if self._is_int(input_split[1]):
@@ -1596,6 +1672,11 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
                 self._terminal_plot(self.graphics_path)
             # 3.4 `q` to quit program
             elif input_ == 'q':
+                # remove temp folder at quit
+                shutil.rmtree(self.temp_folder)
+                break
+            # 3.4' `q!` to quit program but do not remove temp folder
+            elif input_ == 'q!':
                 break
             # 3.5 `r` to reset all
             elif input_ == 'r':
@@ -1615,8 +1696,6 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
             else:
                 print('<!> unknown command')
                 continue
-        # remove temp folder at quit
-        shutil.rmtree(self.temp_folder)
 
 
 if __name__ == '__main__':
