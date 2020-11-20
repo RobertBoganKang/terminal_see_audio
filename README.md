@@ -32,7 +32,7 @@ python see.py <input_file>
 ### Script
 
 * `two numbers`: starting time & ending time;
-  * example: `10 20` means to split audio from **10s** to **20s**;
+  * example: `10 20` means to split audio from `10s` to `20s`;
 * empty string `''` (press return without input): plot last generated graphics;
 * `p`: play last analyzed audio;
   * `p*`: play the partition of audio where used `@`, `#` or `^` to analyze spectral;
