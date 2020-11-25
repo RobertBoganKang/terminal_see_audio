@@ -121,7 +121,7 @@ class PianoRoll(PianoCommon):
             # to `mono` for piano roll
             data_ = np.mean(self.data, axis=0)
             fft_data = self._analyze_log_min_max_transform(
-                self._calc_sp(data_[starting_sample:ending_sample], self.analyzer_n_window, self.n_overlap))
+                self._calc_sp(data_[starting_sample:ending_sample], self.analyze_n_window, self.n_analyze_overlap))
             # plot
             fig = plt.figure(figsize=self.piano_roll_figure_size)
             ax = plt.subplot(111)

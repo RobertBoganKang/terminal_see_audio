@@ -13,7 +13,7 @@ class PeakAnalyzer(AnalyzeCommon):
 
     def _peak_fft_to_pk_info(self, fft_data):
         """ extract peak from fft data """
-        minimum_distance = int(self.analyzer_n_window / self.sample_rate * self.peak_analyze_coefficient)
+        minimum_distance = int(self.analyze_n_window / self.sample_rate * self.peak_analyze_coefficient)
         indexes = peakutils.indexes(fft_data, thres=self.peak_analyze_min_threshold, min_dist=minimum_distance)
         raw_peak_info = []
         for i in indexes:
@@ -23,7 +23,7 @@ class PeakAnalyzer(AnalyzeCommon):
 
     def _peak_weighted_sum_fix_tuning_pk(self, log_fft_data, raw_peak_info, fft_data):
         """ use weighted sum to fix peak center frequency """
-        tuning_range = self.analyzer_n_window / self.sample_rate * self.peak_tuning_coefficient
+        tuning_range = self.analyze_n_window / self.sample_rate * self.peak_tuning_coefficient
         half_tuning_range = int(tuning_range / 2)
         modified_peak_info = []
         for fft_position, _ in raw_peak_info:
@@ -71,8 +71,8 @@ class PeakAnalyzer(AnalyzeCommon):
             starting_sample = int(starting_time * self.sample_rate)
             # get data for spectral
             audio_data_combine_channel = np.mean(self.data, axis=0)[
-                                         starting_sample:starting_sample + self.analyzer_n_window]
-            audio_data_separate_channel = [x[starting_sample:starting_sample + self.analyzer_n_window] for x in
+                                         starting_sample:starting_sample + self.analyze_n_window]
+            audio_data_separate_channel = [x[starting_sample:starting_sample + self.analyze_n_window] for x in
                                            self.data]
             fft_data = [self._fft_data_transform_single(x)[0] for x in audio_data_separate_channel]
             fft_data_combine_channel = self._analyze_log_min_max_transform(

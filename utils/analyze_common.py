@@ -18,7 +18,7 @@ class AnalyzeCommon(Common):
         return array
 
     def _fft_position_to_frequency(self, position):
-        return position * self.sample_rate / self.analyzer_n_window
+        return position * self.sample_rate / self.analyze_n_window
 
     def _frequency_to_pitch(self, frequency):
         return np.log2(frequency / self.a4_frequency) + 5
@@ -31,10 +31,10 @@ class AnalyzeCommon(Common):
 
     def _fft_data_transform_single(self, audio_data_single, phase=False):
         if not phase:
-            fft_single = self._calc_sp(audio_data_single, self.analyzer_n_window, self.n_overlap)
+            fft_single = self._calc_sp(audio_data_single, self.analyze_n_window, self.n_analyze_overlap)
             return fft_single
         else:
-            fft_single, phase_single = self._calc_sp(audio_data_single, self.analyzer_n_window, self.n_overlap,
+            fft_single, phase_single = self._calc_sp(audio_data_single, self.analyze_n_window, self.n_analyze_overlap,
                                                      angle=True)
             return fft_single, phase_single
 
@@ -49,7 +49,7 @@ class AnalyzeCommon(Common):
         ff1 = np.array(list(fft_single) + list(-fft_single[::-1]))
         ifft_single = np.real(np.fft.ifft(ff1))
         ifft_single /= np.max(np.abs(ifft_single))
-        return ifft_single[:self.analyzer_n_window]
+        return ifft_single[:self.analyze_n_window]
 
     def _ifft_audio_export(self, fft_data):
         ifft_data = np.transpose(np.array([self._get_ifft_data_single(x) for x in fft_data]))
@@ -119,10 +119,10 @@ class AnalyzeCommon(Common):
         starting_sample = int(starting_time * self.sample_rate)
         # get data for spectral
         if len(self.data) != 2:
-            audio_data = np.sum(self.data, axis=0)[starting_sample:starting_sample + self.analyzer_n_window]
+            audio_data = np.sum(self.data, axis=0)[starting_sample:starting_sample + self.analyze_n_window]
             audio_data = [audio_data, audio_data]
         else:
-            audio_data = [x[starting_sample:starting_sample + self.analyzer_n_window] for x in self.data]
+            audio_data = [x[starting_sample:starting_sample + self.analyze_n_window] for x in self.data]
         if not phase:
             fft_data = [self._fft_data_transform_single(x)[0] for x in audio_data]
             return np.array(fft_data)

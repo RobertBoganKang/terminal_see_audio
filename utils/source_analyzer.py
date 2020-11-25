@@ -4,15 +4,20 @@ from utils.analyze_common import AnalyzeCommon
 class SourceAnalyzer(AnalyzeCommon):
     def __init__(self):
         super().__init__()
+        self.ear_distance = 0.215
 
-    def _source_x_position(self):
-        pass
+    @staticmethod
+    def _source_x_position(d, e, rt):
+        return (d ** 2 + d ** 2 * rt) / (4 * e - 4 * e * rt)
 
-    def _source_y_square_position(self):
-        pass
+    @staticmethod
+    def _source_y_square_position(d, e, rt):
+        return ((d ** 2 - 4 * e ** 2) * (-4 * e ** 2 * (-1 + rt) ** 2 + d ** 2 * (1 + rt) ** 2)) / (
+                16 * e ** 2 * (-1 + rt) ** 2)
 
-    def _source_power(self):
-        pass
+    @staticmethod
+    def _source_power(a_x, d_x):
+        return (1 / 2) * a_x ** 2 * d_x ** 2
 
     def _source_position_single(self):
         """

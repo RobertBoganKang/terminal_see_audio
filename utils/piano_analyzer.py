@@ -38,7 +38,7 @@ class PianoAnalyzer(PianoCommon):
         # get starting sample index
         starting_sample = int(starting_time * self.sample_rate)
         # get data for spectral
-        audio_data = [x[starting_sample:starting_sample + self.analyzer_n_window] for x in self.data]
+        audio_data = [x[starting_sample:starting_sample + self.analyze_n_window] for x in self.data]
         fft_data = [self._fft_data_transform_single(x)[0] for x in audio_data]
         spectral_data = [self._piano_key_spectral_data(x) for x in fft_data]
         key_dicts = []

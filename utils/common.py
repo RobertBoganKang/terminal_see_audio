@@ -77,15 +77,16 @@ class Common(object):
         # demo mode message
         os.makedirs(self.temp_folder, exist_ok=True)
         self._initialize_audio()
-        self.analyzer_n_window = int(self.analyzer_time * self.sample_rate)
+        self.analyze_n_window = int(self.analyzer_time * self.sample_rate)
         self.min_duration = self.n_window / self.sample_rate
-        self.analyze_min_duration = self.analyzer_n_window / self.sample_rate
+        self.analyze_min_duration = self.analyze_n_window / self.sample_rate
         self._check_audio_duration()
 
     def _initialize_spectral(self, starting_time, ending_time):
         n_step = int((ending_time - starting_time) * self.sample_rate / self.n_spectral_max_width)
         n_step = max(self.n_min_step, n_step)
         self.n_overlap = self.n_window - n_step
+        self.n_analyze_overlap = self.analyze_n_window - n_step
 
     def _initialize_temp(self):
         """ temp file path initialization """
