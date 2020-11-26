@@ -190,6 +190,9 @@ class AnalyzeCommon(Common):
         return timestamp, num_digits, frame_padding_num
 
     def _prepare_video_analyzer(self, starting_time, ending_time, save_analyzer_path, analyzer_function):
+        # reset max value
+        self.analyze_log_fft_max_value = 0
+        self.analyze_log_piano_key_max_value = 0
         # fix time first
         starting_time, ending_time = self._fix_input_starting_ending_time(starting_time, ending_time)
         if not self._check_audio_duration_valid(starting_time, ending_time, self.analyze_min_duration):

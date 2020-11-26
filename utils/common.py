@@ -56,6 +56,7 @@ class Common(object):
         # video generation for analyzers
         # get dynamic max log fft values
         self.analyze_log_fft_max_value = 0
+        self.analyze_log_piano_key_max_value = 0
 
         # plot & play command (path will be replaced by `{}`)
         self.plot_command = 'tiv {}'

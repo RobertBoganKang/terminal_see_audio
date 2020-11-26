@@ -48,7 +48,7 @@ class PianoCommon(AnalyzeCommon):
         for k, v in key_dict.items():
             v = np.array(v)
             key_dict[k] = self._piano_tuning_method(k, v)
-        max_value = max(list(key_dict.values()))
+        max_value = max(max(list(key_dict.values())), self.analyze_log_piano_key_max_value)
         for k, v in key_dict.items():
             key_dict[k] = v / max_value
         return key_dict, raw_keys, key_ffts
