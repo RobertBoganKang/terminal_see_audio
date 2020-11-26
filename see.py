@@ -210,6 +210,7 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
                     if self._is_float(input_split[0]) and self._is_float(input_split[1]):
                         last_starting, last_ending, valid = self._prepare_graph_audio(float(input_split[0]),
                                                                                       float(input_split[1]))
+                        print(last_starting, last_ending)
                         if valid:
                             self._terminal_plot(self.graphics_path)
                     # 2.2.1 set modes

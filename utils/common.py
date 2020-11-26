@@ -199,21 +199,26 @@ class Common(object):
     def _check_audio_terminal_play(self, start, end, path):
         if not os.path.exists(path):
             print('<!> temp audio cannot find')
-            return False
+            return start, end, False
+        need_check = True
         if start is None or end is None:
             print('<!> audio duration unknown')
+            start = end = 0
         elif end - start > self.play_max_duration:
             print(f'<!> audio too long for {end - start}s')
-        while True:
-            answer = input('</> do you wish to play [y/n]: ')
-            if answer == 'y':
-                break
-            elif answer == 'n':
-                return False
-            else:
-                print('<!> please type `y` or `n`')
-                continue
-        return True
+        else:
+            need_check = False
+        if need_check:
+            while True:
+                answer = input('</> do you wish to play [y/n]: ')
+                if answer == 'y':
+                    break
+                elif answer == 'n':
+                    return start, end, False
+                else:
+                    print('<!> please type `y` or `n`')
+                    continue
+        return start, end, True
 
     def _terminal_play(self, start, end, path):
         """ play in terminal function """
