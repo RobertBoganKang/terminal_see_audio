@@ -11,10 +11,7 @@ sys.path.append(os.path.abspath(__file__))
 class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, PeakAnalyzer, PlayPitch, TuningAnalyzer,
                        ShellUtils):
     """
-    this class will plot audio similar to `Adobe Audition` with:
-        * plot wave & spectral
-        * play music
-        * analyze spectral
+    this class will show audio information in many aspects.
     """
 
     def __init__(self):
@@ -91,21 +88,11 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
                 else:
                     print('<!> `spiral` inputs unknown')
                 continue
-            # 1.3 get piano (`#`) analyzer
-            elif input_.startswith('#'):
-                # 1.3.1 number as staring time
-                if self._is_float(command):
-                    status = self._prepare_graph_piano(float(command))
-                    if status:
-                        self._terminal_plot(self.piano_graphics_path)
-                # 1.3.2 plot last piano image
-                elif command == '':
-                    self._terminal_plot(self.piano_graphics_path)
-                # 1.3.3 plot last piano image
-                elif command == '#':
-                    self._terminal_plot(self.piano_roll_graphics_path)
-                # 1.3.4 two numbers: piano roll
-                elif ' ' in command:
+            # 1.3 get piano roll (`##`) analyzer
+            elif input_.startswith('##'):
+                command = command[1:].strip()
+                # 1.3.1 two numbers
+                if ' ' in command:
                     piano_inputs = command.split()
                     if len(piano_inputs) == 2 and self._is_float(piano_inputs[0]) and self._is_float(
                             piano_inputs[1]):
@@ -114,9 +101,25 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
                         if status:
                             self._terminal_plot(self.piano_roll_graphics_path)
                     else:
-                        print('<!> piano analyzer inputs unknown')
+                        print('<!> `piano roll` analyzer inputs unknown')
+                # 1.3.2 plot last piano image
+                elif command == '':
+                    self._terminal_plot(self.piano_roll_graphics_path)
                 else:
-                    print('<!> `piano` inputs unknown')
+                    print('<!> `piano roll` analyzer inputs unknown')
+                continue
+            # 1.4 get piano (`#`) analyzer
+            elif input_.startswith('#'):
+                # 1.4.1 number as staring time
+                if self._is_float(command):
+                    status = self._prepare_graph_piano(float(command))
+                    if status:
+                        self._terminal_plot(self.piano_graphics_path)
+                # 1.4.2 plot last piano roll image
+                elif command == '':
+                    self._terminal_plot(self.piano_graphics_path)
+                else:
+                    print('<!> `piano` analyzer inputs unknown')
                 continue
             # 1.4 get tuning analyzer (`^`)
             elif input_.startswith('^'):

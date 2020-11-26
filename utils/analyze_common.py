@@ -11,10 +11,10 @@ class AnalyzeCommon(Common):
         self.note_name_lib = ['A', 'A#', 'B', 'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#']
         self.note_name_lib_flat = ['A', 'Bb', 'B', 'C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab']
 
-    def _analyze_log_min_max_transform(self, array, log=True):
+    def _analyze_log_min_max_transform(self, array, log=True, dynamic_max_value=False):
         if log:
             array = np.log(np.array(array) + self.min_analyze_power)
-        array = self._max_norm(array, min_transform=True)
+        array = self._max_norm(array, min_transform=True, dynamic_max_value=dynamic_max_value)
         return array
 
     def _fft_position_to_frequency(self, position):
@@ -147,17 +147,17 @@ class AnalyzeCommon(Common):
         else:
             return self._translate_music_note_name_to_frequency(string)
 
-    def _analyze_two_channels_data_preparation(self, starting_time):
+    def _analyze_two_channels_data_preparation(self, starting_time, dynamic_max_value=False):
         phase = self._phase_mode_check()
         if not phase:
             # prepare fft data
             fft_data = self._analyze_get_audio_fft_data(starting_time)
-            log_fft_data = self._analyze_log_min_max_transform(fft_data)
+            log_fft_data = self._analyze_log_min_max_transform(fft_data, dynamic_max_value=dynamic_max_value)
             v_fft_data = self._max_norm(log_fft_data[0] + log_fft_data[1], min_transform=False)
             return fft_data, log_fft_data, None, None, v_fft_data
         else:
             fft_data, phase_data = self._analyze_get_audio_fft_data(starting_time, phase=True)
-            log_fft_data = self._analyze_log_min_max_transform(fft_data)
+            log_fft_data = self._analyze_log_min_max_transform(fft_data, dynamic_max_value=dynamic_max_value)
             v_fft_data = self._max_norm(log_fft_data[0] + log_fft_data[1], min_transform=False)
             h_phase_data = phase_data[1] - phase_data[0]
             h_phase_data = np.mod(h_phase_data / 2 / np.pi, 1)

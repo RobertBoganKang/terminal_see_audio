@@ -34,13 +34,14 @@ class PianoAnalyzer(PianoCommon):
                         facecolor=self.piano_spectral_color,
                         linewidth=self.piano_line_width, zorder=1, alpha=freq_alpha)
 
-    def _piano_data_prepare(self, starting_time):
+    def _piano_data_prepare(self, starting_time, dynamic_max_value=False):
         # get starting sample index
         starting_sample = int(starting_time * self.sample_rate)
         # get data for spectral
         audio_data = [x[starting_sample:starting_sample + self.analyze_n_window] for x in self.data]
         fft_data = [self._fft_data_transform_single(x)[0] for x in audio_data]
-        spectral_data = [self._piano_key_spectral_data(x) for x in fft_data]
+        log_fft_data = self._analyze_log_min_max_transform(fft_data, dynamic_max_value=dynamic_max_value)
+        spectral_data = [self._piano_key_spectral_data(x) for x in log_fft_data]
         key_dicts = []
         raw_keys = []
         key_ffts = []
@@ -71,9 +72,10 @@ class PianoAnalyzer(PianoCommon):
                     linewidth=self.piano_line_width, zorder=2 * bw + 1)
             # plot key
             if fft_value > self.figure_minimum_alpha:
+                alpha = fft_value ** self.piano_key_color_transform_power
                 ax.fill(positions[:, 0], positions[:, 1], edgecolor=self.piano_key_color,
                         facecolor=self.piano_key_color,
-                        linewidth=self.piano_line_width, zorder=2 * bw + 2, alpha=fft_value)
+                        linewidth=self.piano_line_width, zorder=2 * bw + 2, alpha=alpha)
             # `a4` position
             if k % 12 == 0:
                 if k == 0:
@@ -105,7 +107,7 @@ class PianoAnalyzer(PianoCommon):
         position_3 = [middle_x - width / 2, -channel * one_piano_length - length]
         return np.array([position_0, position_1, position_2, position_3]), self.piano_key_bw_switch[key_position]
 
-    def _prepare_graph_piano(self, starting_time):
+    def _prepare_graph_piano(self, starting_time, save_path=None, dynamic_max_value=False):
         valid = self._check_analyze_duration(starting_time)
         if not valid:
             print(
@@ -114,7 +116,8 @@ class PianoAnalyzer(PianoCommon):
             )
             return False
         else:
-            fft_data, key_dicts, raw_keys, key_ffts = self._piano_data_prepare(starting_time)
+            fft_data, key_dicts, raw_keys, key_ffts = self._piano_data_prepare(starting_time,
+                                                                               dynamic_max_value=dynamic_max_value)
             # plot
             fig = plt.figure(figsize=self.piano_figure_size)
             ax = fig.add_subplot(111)
@@ -130,7 +133,10 @@ class PianoAnalyzer(PianoCommon):
             # set plot ratio
             self._set_1to1_ratio_figure()
 
-            fig.savefig(self.piano_graphics_path, dpi=self.piano_dpi, bbox_inches='tight')
+            # save figure
+            if save_path is None:
+                save_path = self.piano_graphics_path
+            fig.savefig(save_path, dpi=self.piano_dpi, bbox_inches='tight')
             self._matplotlib_clear_memory(fig)
 
             # prepare ifft play

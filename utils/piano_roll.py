@@ -102,7 +102,7 @@ class PianoRoll(PianoCommon):
             key_0, key_1 = self._piano_roll_key_to_location_range(k)
             x_positions = [step * step_size, (step + 1) * step_size, (step + 1) * step_size, step * step_size]
             y_positions = [key_0, key_0, key_1, key_1]
-            freq_alpha = v
+            freq_alpha = v ** self.piano_key_color_transform_power
             if freq_alpha > self.figure_minimum_alpha:
                 ax.fill(x_positions, y_positions, facecolor=self.piano_roll_color, zorder=3, alpha=freq_alpha)
 
@@ -120,7 +120,7 @@ class PianoRoll(PianoCommon):
             ending_sample = int(self.sample_rate * ending_time)
             # to `mono` for piano roll
             data_ = np.mean(self.data, axis=0)
-            fft_data = self._analyze_log_min_max_transform(
+            log_fft_data = self._analyze_log_min_max_transform(
                 self._calc_sp(data_[starting_sample:ending_sample], self.analyze_n_window, self.n_analyze_overlap))
             # plot
             fig = plt.figure(figsize=self.piano_roll_figure_size)
@@ -131,9 +131,9 @@ class PianoRoll(PianoCommon):
             # plot piano base
             self._piano_roll_indicator(ax)
             # plot piano roll
-            for i, data in enumerate(fft_data):
+            for i, data in enumerate(log_fft_data):
                 key_dict, raw_key, key_fft = self._piano_key_spectral_data(data)
-                self._piano_roll_generate_frequency_graph_single(ax, key_dict, i, len(fft_data))
+                self._piano_roll_generate_frequency_graph_single(ax, key_dict, i, len(log_fft_data))
             # set plot ratio
             plt.gca().set_aspect(1)
             plt.axis('off')

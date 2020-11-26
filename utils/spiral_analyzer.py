@@ -59,7 +59,7 @@ class SpiralAnalyzer(AnalyzeCommon):
                     y_array_1.append(y_position)
         return (x_array_0, y_array_0), (x_array_1, y_array_1), pitches, hs, ss, vs
 
-    def _prepare_graph_spiral(self, starting_time):
+    def _prepare_graph_spiral(self, starting_time, save_path=None, dynamic_max_value=False):
         valid = self._check_analyze_duration(starting_time)
         if not valid:
             print(
@@ -70,7 +70,8 @@ class SpiralAnalyzer(AnalyzeCommon):
         else:
             # prepare data
             (fft_data, log_fft_data, h_phase_data, s_fft_magnitude_diff_data,
-             v_fft_data) = self._analyze_two_channels_data_preparation(starting_time)
+             v_fft_data) = self._analyze_two_channels_data_preparation(starting_time,
+                                                                       dynamic_max_value=dynamic_max_value)
             # prepare position info
             (position_0, position_1, pitches, hs, ss, vs) = self._spiral_polar_transform(log_fft_data,
                                                                                          h_phase_data,
@@ -134,7 +135,9 @@ class SpiralAnalyzer(AnalyzeCommon):
             self._set_1to1_ratio_figure()
 
             # save figure
-            fig.savefig(self.spiral_graphics_path, dpi=self.spiral_dpi, bbox_inches='tight')
+            if save_path is None:
+                save_path = self.spiral_graphics_path
+            fig.savefig(save_path, dpi=self.spiral_dpi, bbox_inches='tight')
             self._matplotlib_clear_memory(fig)
 
             # prepare ifft play

@@ -4,6 +4,7 @@ from utils.analyze_common import AnalyzeCommon
 class SourceAnalyzer(AnalyzeCommon):
     def __init__(self):
         super().__init__()
+        # https://en.wikipedia.org/wiki/Sound_localization
         self.ear_distance = 0.215
 
     @staticmethod
@@ -95,5 +96,24 @@ class SourceAnalyzer(AnalyzeCommon):
                 {4.2} --> pX/pU=(dX/dU)^(-2);
                 {4.3} --> dU=1;
                 {4.4} --> pU=(1/2)*aX^2*dX^2;
+        """
+        pass
+
+    def _source_asymptote_angle(self):
+        """
+        {5} asymptote of hyperbola
+        --------------------------------------------------
+        a & b: default parameters in hyperbola
+        c: eccentricity of hyperbola
+        `alpha`: angle of approximate sound source position in rad
+        function:
+            x^2/a^2 - y^2/b^2=1
+            c^2=a^2 + b^2
+            e=c
+            a=d/2
+        from functions above:
+            {5.1} --> y/x=(+-)*(4e^2/d^2-1)^(1/2)
+        then:
+            {5.2} --> alpha=arc_tan(y/x)
         """
         pass

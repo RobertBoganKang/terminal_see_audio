@@ -23,6 +23,9 @@ class PianoCommon(AnalyzeCommon):
         self.piano_roll_color = 'mediumspringgreen'
         self.piano_spectral_color = 'dimgray'
 
+        # piano key alpha color transform with power function
+        self.piano_key_color_transform_power = 2
+
     def _piano_tuning_method(self, key, value):
         # set `^` or `n` shape tuning
         return np.mean(value[:, 0] * np.power(1 - 2 * np.abs(key - value[:, 1]), self.piano_tuning_shape_power))

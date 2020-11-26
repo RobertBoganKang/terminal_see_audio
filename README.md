@@ -53,8 +53,9 @@ python see.py <input_file>
 * `@` or `#`: spiral/piano analyzer for short period signals by giving a starting time;
   * number: `@10` is to analyze `10~s` spectral;
   * `''`: empty is to plot last analyzed spiral graphics;
-  * if command `#` follows two numbers, it will plot piano roll at starting time & ending time; `#10 20` will calculate the piano roll of `10s` to `20s`;
-  * command `##` will plot last calculated piano roll result;
+* `##`: to plot piano roll;
+  *  `two numbers`: plot piano roll at starting time & ending time; `#10 20` will calculate the piano roll of `10s` to `20s`;
+  * `''`: plot last calculated piano roll result;
 * `^`: calculate the spectral tuning peaks frequencies (peaks) and plot;
   * `number`: `^10` is to extract `10~s` peaks frequencies components, music note names, and its frequency power at combined channel `*` and separate channel `number`;
   * `two numbers`: `starting time` + `tuning frequency (Hz)`, then plot tuning graphics, `^0 99.041Hz` or `^0 G2+18.31c` to plot tuning graphics at `0~s` with tuning frequency `99.041Hz` or `G2+18.31c`;

@@ -51,9 +51,14 @@ class Common(object):
         self.min_hearing_power = 0.0005
         self.min_analyze_power = 0.1
 
+        # video generation for analyzers
+        # get dynamic max log fft values
+        self.analyze_log_fft_max_value = 0
+
         # plot & play command (path will be replaced by `{}`)
         self.plot_command = 'tiv {}'
         self.play_command = 'play {}'
+        self.video_command = 'play {} > /dev/null 2>&1 & timg {}'
 
         # color & themes
         self.a_pitch_color = 'red'
@@ -176,11 +181,10 @@ class Common(object):
             x = x.astype(np.float64)
             return x
 
-    def _terminal_play(self, start, end, path):
-        """ play in terminal function """
+    def _check_audio_terminal_play(self, start, end, path):
         if not os.path.exists(path):
             print('<!> temp audio cannot find')
-            return
+            return False
         if end - start > self.play_max_duration:
             print(f'<!> audio too long for {end - start}s')
             while True:
@@ -188,16 +192,32 @@ class Common(object):
                 if answer == 'y':
                     break
                 elif answer == 'n':
-                    return
+                    return False
                 else:
                     print('<!> please type `y` or `n`')
                     continue
-        command = self.play_command.format(path)
-        # noinspection PyBroadException
-        try:
-            subprocess.call(command, shell=True)
-        except Exception:
-            print(f'<!> please fix problem:\n<?> {command}')
+        return True
+
+    def _terminal_play(self, start, end, path):
+        """ play in terminal function """
+        status = self._check_audio_terminal_play(start, end, path)
+        if status:
+            command = self.play_command.format(path)
+            # noinspection PyBroadException
+            try:
+                subprocess.call(command, shell=True)
+            except Exception:
+                print(f'<!> please fix problem:\n<?> {command}')
+
+    def _terminal_video(self, start, end, audio_path, video_path):
+        status = self._check_audio_terminal_play(start, end, audio_path)
+        if status:
+            command = self.video_command.format(audio_path, video_path)
+            # noinspection PyBroadException
+            try:
+                subprocess.call(command, shell=True)
+            except Exception:
+                print(f'<!> please fix problem:\n<?> {command}')
 
     def _terminal_plot(self, path):
         """ plot in terminal function """
@@ -249,12 +269,15 @@ class Common(object):
         plt.close(fig)
         gc.collect()
 
-    @staticmethod
-    def _max_norm(array, min_transform=False):
+    def _max_norm(self, array, min_transform=False, dynamic_max_value=False):
         if min_transform:
             array -= np.min(array)
         if np.max(array) != 0:
-            array /= np.max(np.abs(array))
+            if not dynamic_max_value:
+                array /= np.max(np.abs(array))
+            else:
+                self.analyze_fft_max_value = max(self.analyze_fft_max_value, np.max(array))
+                array /= self.analyze_fft_max_value
         return array
 
     def _phase_mode_check(self):
@@ -276,3 +299,10 @@ class Common(object):
         rgb = colorsys.hsv_to_rgb(h, s, b)
         rgb_color = '#' + ''.join(['{:02x}'.format(int(x * 255)) for x in rgb])
         return rgb_color
+
+    @staticmethod
+    def _convert_folder_path(file_path):
+        """ convert to folder path and make folder """
+        folder_path = os.path.splitext(file_path)[0]
+        os.makedirs(folder_path, exist_ok=True)
+        return folder_path
