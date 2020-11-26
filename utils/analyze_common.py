@@ -1,5 +1,10 @@
+import os
+import shutil
+import subprocess
+
 import numpy as np
 import soundfile as sf
+from tqdm import tqdm
 
 from utils.common import Common
 
@@ -10,6 +15,9 @@ class AnalyzeCommon(Common):
         # key names
         self.note_name_lib = ['A', 'A#', 'B', 'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#']
         self.note_name_lib_flat = ['A', 'Bb', 'B', 'C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab']
+
+        # video frames definition
+        self.analyze_video_frame_rate = 8
 
     def _analyze_log_min_max_transform(self, array, log=True, dynamic_max_value=False):
         if log:
@@ -163,3 +171,50 @@ class AnalyzeCommon(Common):
             h_phase_data = np.mod(h_phase_data / 2 / np.pi, 1)
             s_fft_magnitude_diff_data = np.abs(log_fft_data[0] - log_fft_data[1])
             return fft_data, log_fft_data, h_phase_data, s_fft_magnitude_diff_data, v_fft_data
+
+    def _analyze_timestamp_generation(self, starting_time, ending_time):
+        """ generate starting time sequences for analyzers to create video """
+        duration = self._get_audio_time()
+        ending_time = min(ending_time, duration - self.analyze_time)
+        step = 1 / self.analyze_video_frame_rate
+        time = starting_time
+        timestamp = []
+        while time <= ending_time:
+            timestamp.append(time)
+            time += step
+        print(f'<*> {len(timestamp)} frames will be generated for video')
+        # padding starting time for audio
+        frame_padding_num = int(round(self.analyze_time * self.analyze_video_frame_rate / 2))
+        frame_padding_num = min(len(timestamp), frame_padding_num)
+        num_digits = self._get_digits_number(len(timestamp) + frame_padding_num)
+        return timestamp, num_digits, frame_padding_num
+
+    def _prepare_video_analyzer(self, starting_time, ending_time, save_analyzer_path, analyzer_function):
+        # fix time first
+        starting_time, ending_time = self._fix_input_starting_ending_time(starting_time, ending_time)
+        if not self._check_audio_duration_valid(starting_time, ending_time, self.analyze_min_duration):
+            return False
+        else:
+            timestamp, num_digits, frame_padding_num = self._analyze_timestamp_generation(starting_time, ending_time)
+            self._convert_folder_path(save_analyzer_path)
+            timestamp_bar = tqdm(timestamp)
+            for i, time in enumerate(timestamp_bar):
+                save_path = os.path.join(save_analyzer_path, str(i + frame_padding_num).zfill(num_digits) + '.png')
+                analyzer_function(time, save_path=save_path, dynamic_max_value=True)
+            # apply padding
+            for i in range(frame_padding_num):
+                in_path = os.path.join(save_analyzer_path, str(frame_padding_num).zfill(num_digits) + '.png')
+                out_path = os.path.join(save_analyzer_path, str(i).zfill(num_digits) + '.png')
+                shutil.copy(in_path, out_path)
+            # # export audio
+            audio_path = save_analyzer_path + '.wav'
+            self._export_audio(starting_time, ending_time, audio_part_path=audio_path)
+            # get video
+            video_path = save_analyzer_path + '.mp4'
+            ffmpeg_command = ['ffmpeg', '-y',
+                              '-i', audio_path,
+                              '-framerate', str(self.analyze_video_frame_rate),
+                              '-i', os.path.join(save_analyzer_path, '%' + str(num_digits) + 'd.png'),
+                              video_path]
+            subprocess.call(ffmpeg_command)
+            return True

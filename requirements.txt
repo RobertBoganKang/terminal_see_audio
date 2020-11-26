@@ -5,3 +5,4 @@ librosa
 soundfile
 pypng
 peakutils
+tqdm

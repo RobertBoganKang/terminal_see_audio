@@ -83,16 +83,9 @@ class WaveSpectral(Common):
     def _data_prepare(self, starting_time, ending_time):
         """ prepare partition of audios """
         starting_time, ending_time = self._fix_input_starting_ending_time(starting_time, ending_time)
-        if not self._check_audio_duration_valid(starting_time, ending_time):
+        if not self._check_audio_duration_valid(starting_time, ending_time, self.min_duration):
             return None, None, starting_time, ending_time, False
-        # extract starting & ending sample
-        starting_sample = max(int(self.sample_rate * starting_time), 0)
-        ending_sample = min(int(self.sample_rate * ending_time), len(self.data[0]))
-        # make clip
-        data_ = np.array([x[starting_sample:ending_sample] for x in self.data])
-        data_transpose = np.transpose(data_)
-        time_ = self.time[starting_sample:ending_sample]
-        sf.write(self.audio_part_path, data_transpose, self.sample_rate)
+        data_, time_ = self._export_audio(starting_time, ending_time, audio_part_path=self.audio_part_path)
         return data_, time_, starting_time, ending_time, True
 
     def _plot_wave(self, data_one, time_, grid, plot_position):

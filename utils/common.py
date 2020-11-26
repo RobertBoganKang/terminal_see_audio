@@ -1,12 +1,14 @@
 import colorsys
 import gc
 import os
+import shutil
 import subprocess
 
 import librosa
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.signal as signal
+import soundfile as sf
 
 
 class Common(object):
@@ -39,7 +41,7 @@ class Common(object):
         # resolution of frequency (y) dimension
         self.n_window = 1024
         # analyzer time
-        self.analyzer_time = 0.512
+        self.analyze_time = 0.512
         # resolution of time (x) dimension
         self.n_min_step = 32
         self.n_spectral_max_width = 2048
@@ -69,10 +71,10 @@ class Common(object):
         # plot mode
         plt.style.use('dark_background')
 
-    def _check_audio_duration_valid(self, starting, ending):
+    def _check_audio_duration_valid(self, starting, ending, duration):
         """ check if greater than minimum duration """
         if ending - starting < self.min_duration:
-            print(f'<!> {ending} - {starting} = {ending - starting} (< {self.min_duration}; minimum duration)\n'
+            print(f'<!> {ending} - {starting} = {ending - starting} (< {duration}; minimum duration)\n'
                   f'<!> time duration too short')
             return False
         else:
@@ -82,7 +84,7 @@ class Common(object):
         # demo mode message
         os.makedirs(self.temp_folder, exist_ok=True)
         self._initialize_audio()
-        self.analyze_n_window = int(self.analyzer_time * self.sample_rate)
+        self.analyze_n_window = int(self.analyze_time * self.sample_rate)
         self.min_duration = self.n_window / self.sample_rate
         self.analyze_min_duration = self.analyze_n_window / self.sample_rate
         self._check_audio_duration()
@@ -96,8 +98,8 @@ class Common(object):
     def _initialize_temp(self):
         """ temp file path initialization """
         self.graphics_path = os.path.join(self.temp_folder, 'wave_spectral.png')
-        self.spiral_graphics_path = os.path.join(self.temp_folder, 'spiral.png')
-        self.piano_graphics_path = os.path.join(self.temp_folder, 'piano.png')
+        self.spiral_analyzer_path = os.path.join(self.temp_folder, 'spiral')
+        self.piano_analyzer_path = os.path.join(self.temp_folder, 'piano')
         self.piano_roll_graphics_path = os.path.join(self.temp_folder, 'piano_roll.png')
         self.tuning_graphics_path = os.path.join(self.temp_folder, 'tuning.png')
         self.audio_part_path = os.path.join(self.temp_folder, 'audio.wav')
@@ -146,6 +148,18 @@ class Common(object):
         except Exception:
             return False
 
+    def _export_audio(self, starting_time, ending_time, audio_part_path):
+        """ export audio part """
+        # extract starting & ending sample
+        starting_sample = max(int(self.sample_rate * starting_time), 0)
+        ending_sample = min(int(self.sample_rate * ending_time), len(self.data[0]))
+        # make clip
+        data_ = np.array([x[starting_sample:ending_sample] for x in self.data])
+        data_transpose = np.transpose(data_)
+        time_ = self.time[starting_sample:ending_sample]
+        sf.write(audio_part_path, data_transpose, self.sample_rate)
+        return data_, time_
+
     @staticmethod
     def _calc_sp(audio, n_window, n_overlap, angle=False):
         """
@@ -185,22 +199,24 @@ class Common(object):
         if not os.path.exists(path):
             print('<!> temp audio cannot find')
             return False
-        if end - start > self.play_max_duration:
+        if start is None or end is None:
+            print('<!> audio duration unknown')
+        elif end - start > self.play_max_duration:
             print(f'<!> audio too long for {end - start}s')
-            while True:
-                answer = input('</> do you wish to play [y/n]: ')
-                if answer == 'y':
-                    break
-                elif answer == 'n':
-                    return False
-                else:
-                    print('<!> please type `y` or `n`')
-                    continue
+        while True:
+            answer = input('</> do you wish to play [y/n]: ')
+            if answer == 'y':
+                break
+            elif answer == 'n':
+                return False
+            else:
+                print('<!> please type `y` or `n`')
+                continue
         return True
 
     def _terminal_play(self, start, end, path):
         """ play in terminal function """
-        status = self._check_audio_terminal_play(start, end, path)
+        start, end, status = self._check_audio_terminal_play(start, end, path)
         if status:
             command = self.play_command.format(path)
             # noinspection PyBroadException
@@ -210,6 +226,9 @@ class Common(object):
                 print(f'<!> please fix problem:\n<?> {command}')
 
     def _terminal_video(self, start, end, audio_path, video_path):
+        if not os.path.exists(video_path):
+            print('<!> temp video cannot find')
+            return
         status = self._check_audio_terminal_play(start, end, audio_path)
         if status:
             command = self.video_command.format(audio_path, video_path)
@@ -276,8 +295,8 @@ class Common(object):
             if not dynamic_max_value:
                 array /= np.max(np.abs(array))
             else:
-                self.analyze_fft_max_value = max(self.analyze_fft_max_value, np.max(array))
-                array /= self.analyze_fft_max_value
+                self.analyze_log_fft_max_value = max(self.analyze_log_fft_max_value, np.max(array))
+                array /= self.analyze_log_fft_max_value
         return array
 
     def _phase_mode_check(self):
@@ -303,6 +322,12 @@ class Common(object):
     @staticmethod
     def _convert_folder_path(file_path):
         """ convert to folder path and make folder """
-        folder_path = os.path.splitext(file_path)[0]
-        os.makedirs(folder_path, exist_ok=True)
-        return folder_path
+        # remove folder
+        if os.path.exists(file_path):
+            shutil.rmtree(file_path)
+        os.makedirs(file_path)
+
+    @staticmethod
+    def _get_digits_number(number):
+        """ return number of digits """
+        return len(str(number))

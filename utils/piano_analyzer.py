@@ -135,10 +135,18 @@ class PianoAnalyzer(PianoCommon):
 
             # save figure
             if save_path is None:
-                save_path = self.piano_graphics_path
+                save_path = self.piano_analyzer_path + '.png'
             fig.savefig(save_path, dpi=self.piano_dpi, bbox_inches='tight')
             self._matplotlib_clear_memory(fig)
 
             # prepare ifft play
-            self._ifft_audio_export(self._analyze_log_min_max_transform(fft_data, log=False))
+            if not dynamic_max_value:
+                self._ifft_audio_export(self._analyze_log_min_max_transform(fft_data, log=False))
             return True
+
+    def _prepare_video_piano(self, starting_time, ending_time):
+        """ save video for piano """
+        status = self._prepare_video_analyzer(starting_time, ending_time,
+                                              save_analyzer_path=self.piano_analyzer_path,
+                                              analyzer_function=self._prepare_graph_piano)
+        return status

@@ -109,8 +109,7 @@ class PianoRoll(PianoCommon):
     def _prepare_graph_piano_roll(self, starting_time, ending_time):
         # fix time first
         starting_time, ending_time = self._fix_input_starting_ending_time(starting_time, ending_time)
-        if ending_time - starting_time < self.analyze_min_duration:
-            print('<!> audio too short to show piano roll')
+        if not self._check_audio_duration_valid(starting_time, ending_time, self.analyze_min_duration):
             return False
         else:
             self._initialize_spectral(starting_time, ending_time)

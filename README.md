@@ -53,6 +53,8 @@ python see.py <input_file>
 * `@` or `#`: spiral/piano analyzer for short period signals by giving a starting time;
   * number: `@10` is to analyze `10~s` spectral;
   * `''`: empty is to plot last analyzed spiral graphics;
+  * `two numbers`: generate video of analyzer at starting time & ending time;
+  * `*`: play last calculated analyzer video result;
 * `##`: to plot piano roll;
   *  `two numbers`: plot piano roll at starting time & ending time; `#10 20` will calculate the piano roll of `10s` to `20s`;
   * `''`: plot last calculated piano roll result;
