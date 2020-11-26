@@ -182,7 +182,6 @@ class AnalyzeCommon(Common):
         while time <= ending_time:
             timestamp.append(time)
             time += step
-        print(f'<*> {len(timestamp)} frames will be generated for video')
         # padding starting time for audio
         frame_padding_num = int(round(self.analyze_time * self.analyze_video_frame_rate / 2))
         frame_padding_num = min(len(timestamp), frame_padding_num)
@@ -213,8 +212,9 @@ class AnalyzeCommon(Common):
             audio_path = save_analyzer_path + '.wav'
             self._export_audio(starting_time, ending_time, audio_part_path=audio_path)
             # get video
+            print('<!> rendering video')
             video_path = save_analyzer_path + '.mp4'
-            ffmpeg_command = ['ffmpeg', '-y',
+            ffmpeg_command = ['ffmpeg', '-loglevel', 'panic', '-y',
                               '-i', audio_path,
                               '-framerate', str(self.analyze_video_frame_rate),
                               '-i', os.path.join(save_analyzer_path, '%' + str(num_digits) + 'd.png'),

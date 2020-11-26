@@ -48,7 +48,14 @@ class PianoCommon(AnalyzeCommon):
         for k, v in key_dict.items():
             v = np.array(v)
             key_dict[k] = self._piano_tuning_method(k, v)
-        self.analyze_log_piano_key_max_value = max(max(list(key_dict.values())), self.analyze_log_piano_key_max_value)
+        # modify max value to get more stable video graphics change
+        max_value = max(list(key_dict.values()))
+        self.analyze_log_piano_key_max_value = (self.analyze_log_piano_key_max_value +
+                                                (max_value - self.analyze_log_piano_key_max_value) / (
+                                                        self.analyze_log_piano_key_max_value_reach_time *
+                                                        self.analyze_video_frame_rate)
+                                                )
+        modified_max_value = max(max_value, self.analyze_log_piano_key_max_value)
         for k, v in key_dict.items():
-            key_dict[k] = v / self.analyze_log_piano_key_max_value
+            key_dict[k] = v / modified_max_value
         return key_dict, raw_keys, key_ffts

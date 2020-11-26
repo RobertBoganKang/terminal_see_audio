@@ -57,6 +57,8 @@ class Common(object):
         # get dynamic max log fft values
         self.analyze_log_fft_max_value = 0
         self.analyze_log_piano_key_max_value = 0
+        # in steady state, how long can we reach that value
+        self.analyze_log_piano_key_max_value_reach_time = 1
 
         # plot & play command (path will be replaced by `{}`)
         self.plot_command = 'tiv {}'
@@ -235,7 +237,7 @@ class Common(object):
         if not os.path.exists(video_path):
             print('<!> temp video cannot find')
             return
-        status = self._check_audio_terminal_play(start, end, audio_path)
+        start, end, status = self._check_audio_terminal_play(start, end, audio_path)
         if status:
             command = self.video_command.format(audio_path, video_path)
             # noinspection PyBroadException
