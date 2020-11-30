@@ -62,10 +62,6 @@ class SpiralAnalyzer(AnalyzeCommon):
     def _prepare_graph_spiral(self, starting_time, save_path=None, dynamic_max_value=False):
         valid = self._check_analyze_duration(starting_time)
         if not valid:
-            print(
-                f'<!> starting time set false\n'
-                f'<!> number should be `0`~ `{self._get_audio_time() - self.analyze_min_duration}`s'
-            )
             return False
         else:
             # prepare data
@@ -122,7 +118,7 @@ class SpiralAnalyzer(AnalyzeCommon):
                                 edgecolor=self.spiral_color, linewidth=self.spiral_line_width,
                                 alpha=v_opacity, zorder=2)
                     else:
-                        rgb_color = self._hsb_to_rgb(hs[i], 1 - ss[i], 1)
+                        rgb_color = self._hsb_to_rgb(hs[i], ss[i], 1)
                         ax.fill(poly_position[:, 0], poly_position[:, 1], facecolor=rgb_color,
                                 edgecolor=rgb_color, linewidth=self.spiral_line_width,
                                 alpha=v_opacity, zorder=2)
@@ -147,6 +143,7 @@ class SpiralAnalyzer(AnalyzeCommon):
 
     def _prepare_video_spiral(self, starting_time, ending_time):
         """ save video for spiral """
-        status = self._prepare_video_analyzer(starting_time, ending_time, save_analyzer_path=self.spiral_analyzer_path,
-                                              analyzer_function=self._prepare_graph_spiral)
-        return status
+        starting_time, ending_time, status = self._prepare_video_analyzer(starting_time, ending_time,
+                                                                          save_analyzer_path=self.spiral_analyzer_path,
+                                                                          analyzer_function=self._prepare_graph_spiral)
+        return starting_time, ending_time, status

@@ -110,10 +110,6 @@ class PianoAnalyzer(PianoCommon):
     def _prepare_graph_piano(self, starting_time, save_path=None, dynamic_max_value=False):
         valid = self._check_analyze_duration(starting_time)
         if not valid:
-            print(
-                f'<!> starting time set false\n'
-                f'<!> number should be `0`~ `{self._get_audio_time() - self.analyze_min_duration}`s'
-            )
             return False
         else:
             fft_data, key_dicts, raw_keys, key_ffts = self._piano_data_prepare(starting_time,
@@ -146,7 +142,7 @@ class PianoAnalyzer(PianoCommon):
 
     def _prepare_video_piano(self, starting_time, ending_time):
         """ save video for piano """
-        status = self._prepare_video_analyzer(starting_time, ending_time,
-                                              save_analyzer_path=self.piano_analyzer_path,
-                                              analyzer_function=self._prepare_graph_piano)
-        return status
+        starting_time, ending_time, status = self._prepare_video_analyzer(starting_time, ending_time,
+                                                                          save_analyzer_path=self.piano_analyzer_path,
+                                                                          analyzer_function=self._prepare_graph_piano)
+        return starting_time, ending_time, status

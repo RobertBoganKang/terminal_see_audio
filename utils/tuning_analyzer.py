@@ -90,10 +90,6 @@ class TuningAnalyzer(AnalyzeCommon):
     def _prepare_graph_tuning(self, starting_time, tuning_string):
         valid = self._check_analyze_duration(starting_time)
         if not valid:
-            print(
-                f'<!> starting time set false\n'
-                f'<!> number should be `0`~ `{self._get_audio_time() - self.analyze_min_duration}`s'
-            )
             return False
         else:
             # translate tuning
@@ -104,10 +100,10 @@ class TuningAnalyzer(AnalyzeCommon):
                 print(f'<!> tuning frequency too low (<{self.min_hearing_frequency})')
             # prepare data
             (fft_data, log_fft_data, h_phase_data,
-             s_fft_magnitude_diff_data, v_fft_data) = self._analyze_two_channels_data_preparation(starting_time)
+             s_fft_magnitude_ratio_data, v_fft_data) = self._analyze_two_channels_data_preparation(starting_time)
             # get position info
             position_info, hs, ss, vs = self._tuning_get_positions(log_fft_data, tuning, h_phase_data,
-                                                                   s_fft_magnitude_diff_data, v_fft_data)
+                                                                   s_fft_magnitude_ratio_data, v_fft_data)
             # plot
             fig = plt.figure(figsize=self.tuning_figure_size)
             ax = fig.add_subplot(111)

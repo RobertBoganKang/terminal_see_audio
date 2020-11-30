@@ -1,3 +1,7 @@
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.patches import Circle
+
 from utils.analyze_common import AnalyzeCommon
 
 
@@ -6,21 +10,99 @@ class SourceAnalyzer(AnalyzeCommon):
         super().__init__()
         # https://en.wikipedia.org/wiki/Sound_localization
         self.ear_distance = 0.215
+        # room temperature
+        self.temperature = 20
+        # figure space limit
+        self.source_figure_space_limit = 5
+
+        self.source_line_width = 1.5
+        self.source_figure_size = (15, 7)
+        self.source_axis_color = 'dimgray'
 
     @staticmethod
     def _source_x_position(d, e, rt):
-        return (d ** 2 + d ** 2 * rt) / (4 * e - 4 * e * rt)
+        return (d ** 2 * (1 + rt)) / (4 * e * (-1 + rt))
 
     @staticmethod
     def _source_y_square_position(d, e, rt):
-        return ((d ** 2 - 4 * e ** 2) * (-4 * e ** 2 * (-1 + rt) ** 2 + d ** 2 * (1 + rt) ** 2)) / (
+        return -((d ** 2 - 4 * e ** 2) * (-4 * e ** 2 * (-1 + rt) ** 2 + d ** 2 * (1 + rt) ** 2)) / (
                 16 * e ** 2 * (-1 + rt) ** 2)
+
+    def _source_distance_difference_from_phase(self, p0, p1, frequency, cycle=0):
+        """ distance difference is negative phase difference """
+        wave_length = self._source_sound_speed() / frequency
+        phase_portion = (p1 - p0) / (2 * np.pi)
+        phase_portion = (phase_portion + 0.5) % 1 - 0.5 + cycle
+        return phase_portion * wave_length
+
+    @staticmethod
+    def _source_angle_norm(angle):
+        return (angle + np.pi) % (2 * np.pi) - np.pi
+
+    def _source_sound_speed(self):
+        """ sound speed will change by temperature """
+        return 331 * (1 + self.temperature / 273) ** (1 / 2)
 
     @staticmethod
     def _source_power(a_x, d_x):
+        """
+        power model:
+        --------------------------------------------------
+        aX: amplitude of sine wave at position X;
+        pX: power of sine wave at position X;
+        pU: power of sine wave at position U where at unit ball;
+        --------------------------------------------------
+        {4} power function:
+            power of sine wave:
+                MATHEMATICA:> 
+                    Integrate[(aX*Sin[x])^2, {x, 0, 2 Pi}]/(2 Pi)
+                {4.1} --> pX=aX^2/2;
+            from {2.3}, {4.1}:
+                {4.2} --> pX/pU=(dX/dU)^(-2);
+                {4.3} --> dU=1;
+                {4.4} --> pU=(1/2)*aX^2*dX^2;
+        """
         return (1 / 2) * a_x ** 2 * d_x ** 2
 
-    def _source_position_single(self):
+    def _source_asymptote_angle(self, e, d, f, v, phase_diff):
+        """
+        {5} asymptote of hyperbola
+        --------------------------------------------------
+        a & b: default parameters in hyperbola
+        c: eccentricity of hyperbola
+        `alpha`: angle of approximate sound source position in rad
+        function:
+            x^2/a^2 - y^2/b^2=1
+            c^2=a^2 + b^2
+            e=c
+            a=d/2
+        from functions above:
+            {5.1} --> y/x=(+-)*(4e^2/d^2-1)^(1/2)
+        then:
+            {5.2} --> alpha=arc_tan(y/x)
+        --------------------------------------------------
+        {6} fake angle
+        --------------------------------------------------
+        margin angle `phi_margin` is when y/x = 0
+            {6.1} --> phi_margin=2*e*f/v
+        set the angle evenly on negative region for excessive phase
+        """
+        if d != 0:
+            y_div_x_pow_2 = 4 * e ** 2 / d ** 2 - 1
+            sign = np.sign(d)
+            if y_div_x_pow_2 >= 0:
+                y_div_x = sign * np.sqrt(y_div_x_pow_2)
+                angle = np.arctan(y_div_x)
+                return True, angle
+            else:
+                phase_diff = abs(self._source_angle_norm(phase_diff))
+                margin_phase = 2 * e * f / v
+                fake_angle = sign * (np.pi / 2 * (phase_diff - margin_phase) / (np.pi - margin_phase) + np.pi / 2)
+                return False, fake_angle
+        else:
+            return True, 0
+
+    def _source_position_transform(self, arrays, log_arrays, phases):
         """
         position model:
         --------------------------------------------------
@@ -63,57 +145,235 @@ class SourceAnalyzer(AnalyzeCommon):
                 `delta`: area of receiver;
                 {2.1} --> pA=`delta`/`area_A`; pB=`delta`/`area_B`;
                 {2.2} --> `area_A`=4*pi*(dA^2); `area_B`=4*pi*(dB^2);
-                {2.3} ~~> rt=pA/pB=(dA/dB)^(-2);
+                {2.3} --> rt=dA/dB
+                {2.4} ~~> pA/pB=(dA/dB)^(-2);
+            * aA, aB: amplitude of receiver received from A and B;
+                then the power of sine wave from {4.1};
+                {2.5} --> pA = aA^2 / 2; pB = aB^2 / 2;
+                {2.6} ~~> rt = dA/dB=aB/aA
         --------------------------------------------------
         calculate source position:
         MATHEMATICA:>
-            dA = ((xt - e)^2 + yt^2)^(1/2);
-            dB = ((xt + e)^2 + yt^2)^(1/2);
+            dA = ((xt + e)^2 + yt^2)^(1/2);
+            dB = ((xt - e)^2 + yt^2)^(1/2);
             result = Solve[{dA - dB == d, dA/dB == rt}, {xt, yt}];
             FullSimplify[{xt, yt^2} /. result[[2]]]
         --------------------------------------------------
         {3} output:
-            {3.1} --> xt=(d^2 + d^2 * rt)/(4*e - 4 * e * rt)
-            {3.2} --> yt^2=((d^2 - 4 * e^2)*(-4 * e^2 * (-1 + rt)^2 + d^2 * (1 + rt)^2))/(16 * e^2 * (-1 + rt)^2)
+            {3.1} --> xt=(d^2 * (1 + rt))/(4 * e * (-1 + rt))
+            {3.2} --> yt^2=-((d^2 - 4 * e^2)*(-4 * e^2 * (-1 + rt)^2 + d^2 * (1 + rt)^2))/(16 * e^2 * (-1 + rt)^2)
             {3.3} --> yt^2 >= 0
         """
-        pass
+        array_0 = arrays[0]
+        array_1 = arrays[1]
+        log_array_0 = log_arrays[0]
+        log_array_1 = log_arrays[1]
+        phase_0 = phases[0]
+        phase_1 = phases[1]
+        x_array = []
+        y_array = []
+        p_array = []
+        e_array = []
+        pitches = []
+        ratio_array = []
+        i_s = []
+        e = self.ear_distance / 2
+        for i in range(len(array_0)):
+            t0 = array_0[i]
+            t1 = array_1[i]
+            lt0 = log_array_0[i]
+            lt1 = log_array_1[i]
+            p0 = phase_0[i]
+            p1 = phase_1[i]
+            # skip low frequency part
+            if i > 0:
+                frequency = self._fft_position_to_frequency(i)
+                pitch = self._frequency_to_pitch(frequency)
+                energy = (lt0 + lt1) / 2
+                if pitch > 0 and energy > self.flower_min_power:
+                    # pitch to `C` as ticks
+                    pitch = (pitch * 12 - 3) / 12
+                    # from eq. {2.6}
+                    rt = t1 / t0
+                    d = self._source_distance_difference_from_phase(p0, p1, frequency)
+                    x_position = self._source_x_position(d, e, rt)
+                    y_square_position = self._source_y_square_position(d, e, rt)
+                    if y_square_position > 0:
+                        y_position = y_square_position ** (1 / 2)
+                        power = self._source_power(t0, (x_position ** 2 + y_square_position) ** (1 / 2))
+                        x_array.append(x_position)
+                        y_array.append(y_position)
+                        p_array.append(power)
+                        e_array.append(energy)
+                        pitches.append(pitch)
+                        ratio_array.append(self._amplitude_ratio(lt0, lt1))
+                        i_s.append(i)
+        return x_array, y_array, p_array, e_array, pitches, ratio_array, i_s
 
-    def _source_power_single(self):
-        """
-        power model:
-        --------------------------------------------------
-        aX: amplitude of sine wave at position X;
-        pX: power of sine wave at position X;
-        pU: power of sine wave at position U where at unit ball;
-        --------------------------------------------------
-        {4} power function:
-            power of sine wave:
-                MATHEMATICA:> 
-                    Integrate[(aX*Sin[x])^2, {x, 0, 2 Pi}]/(2 Pi)
-                {4.1} --> pX=aX^2/2;
-            from {2.3}, {4.1}:
-                {4.2} --> pX/pU=(dX/dU)^(-2);
-                {4.3} --> dU=1;
-                {4.4} --> pU=(1/2)*aX^2*dX^2;
-        """
-        pass
+    def _prepare_graph_source(self, starting_time, save_path=None, dynamic_max_value=False):
+        valid = self._check_analyze_duration(starting_time)
+        if not valid:
+            return False
+        else:
+            fft_data, phase_data = self._analyze_get_audio_fft_data(starting_time, phase=True)
+            log_fft_data = self._analyze_log_min_max_transform(fft_data, dynamic_max_value=dynamic_max_value)
+            (x_positions, y_positions,
+             powers, energies,
+             pitches, ratio_array, i_s) = self._source_position_transform(fft_data, log_fft_data, phase_data)
+            # making plots
+            fig = plt.figure(figsize=self.source_figure_size)
+            ax = fig.add_subplot(111)
+            # plot grass
+            for i in range(len(x_positions) - 1):
+                pitch = pitches[i]
+                energy = energies[i]
+                # power = powers[i]
+                root_energy = energy ** (1 / 2)
+                mean_energy = ((energies[i] + energies[i + 1]) / 2) ** 0.8
+                color = self._hsb_to_rgb(pitch % 1,
+                                         ratio_array[i],
+                                         1)
+                if i_s[i + 1] - i_s[i] == 1:
+                    ax.plot([x_positions[i], x_positions[i + 1]],
+                            [y_positions[i], y_positions[i + 1]], c=color, alpha=mean_energy, zorder=1,
+                            linewidth=self.source_line_width)
+                cir_end = Circle((x_positions[i], y_positions[i]), radius=root_energy / 15, edgecolor=color,
+                                 facecolor=color, linewidth=self.source_line_width,
+                                 zorder=2, alpha=root_energy)
+                ax.add_patch(cir_end)
 
-    def _source_asymptote_angle(self):
-        """
-        {5} asymptote of hyperbola
-        --------------------------------------------------
-        a & b: default parameters in hyperbola
-        c: eccentricity of hyperbola
-        `alpha`: angle of approximate sound source position in rad
-        function:
-            x^2/a^2 - y^2/b^2=1
-            c^2=a^2 + b^2
-            e=c
-            a=d/2
-        from functions above:
-            {5.1} --> y/x=(+-)*(4e^2/d^2-1)^(1/2)
-        then:
-            {5.2} --> alpha=arc_tan(y/x)
-        """
-        pass
+            # set figure ratio
+            self._set_1to1_ratio_figure(axis=True)
+            ax.spines['left'].set_color(self.source_axis_color)
+            ax.spines['right'].set_color(self.source_axis_color)
+            ax.spines['top'].set_color(self.source_axis_color)
+            ax.spines['bottom'].set_color(self.source_axis_color)
+            ax.tick_params(axis='x', colors=self.source_axis_color)
+            ax.tick_params(axis='y', colors=self.source_axis_color)
+            ax.set_ylim(bottom=-0.5, top=self.source_figure_space_limit)
+            ax.set_xlim(left=-self.source_figure_space_limit, right=self.source_figure_space_limit)
+
+            # save figure
+            if save_path is None:
+                save_path = self.source_analyzer_path + '.png'
+            fig.savefig(save_path, dpi=self.flower_dpi, bbox_inches='tight')
+            self._matplotlib_clear_memory(fig)
+            return True
+
+    def _source_angle_position_transform(self, arrays, phases):
+        sound_speed = self._source_sound_speed()
+        array_0 = arrays[0]
+        array_1 = arrays[1]
+        phase_0 = phases[0]
+        phase_1 = phases[1]
+        x_array = []
+        y_array = []
+        x_peak = []
+        y_peak = []
+        e_array = []
+        pitches = []
+        ratio_array = []
+        rf_angles = []
+        e = self.ear_distance / 2
+        for i in range(len(array_0)):
+            t0 = array_0[i]
+            t1 = array_1[i]
+            p0 = phase_0[i]
+            p1 = phase_1[i]
+            # skip low frequency part
+            if i > 0:
+                frequency = self._fft_position_to_frequency(i)
+                pitch = self._frequency_to_pitch(frequency)
+                energy = (t0 + t1) / 2
+                if pitch > 0 and energy > self.flower_min_analyze_power:
+                    # pitch to `C` as ticks
+                    pitch = (pitch * 12 - 3) / 12
+                    d = self._source_distance_difference_from_phase(p0, p1, frequency)
+                    real_fake_angle, angle = self._source_asymptote_angle(e, d, frequency, sound_speed, p1 - p0)
+                    # rotate angle by `pi/2`
+                    angle = self._source_angle_norm(angle) + np.pi / 2
+                    x_position = pitch * np.cos(angle)
+                    y_position = pitch * np.sin(angle)
+                    x_peak_position = (pitch + np.power(energy,
+                                                        self.flower_stem_power_coefficient)) * np.cos(angle)
+                    y_peak_position = (pitch + np.power(energy,
+                                                        self.flower_stem_power_coefficient)) * np.sin(angle)
+                    x_array.append(x_position)
+                    y_array.append(y_position)
+                    x_peak.append(x_peak_position)
+                    y_peak.append(y_peak_position)
+                    e_array.append(energy)
+                    pitches.append(pitch)
+                    ratio_array.append(self._amplitude_ratio(t0, t1))
+                    rf_angles.append(real_fake_angle)
+
+        return x_array, y_array, x_peak, y_peak, e_array, pitches, ratio_array, rf_angles
+
+    def _prepare_graph_source_angle(self, starting_time, save_path=None, dynamic_max_value=False):
+        valid = self._check_analyze_duration(starting_time)
+        if not valid:
+            return False
+        else:
+            fft_data, phase_data = self._analyze_get_audio_fft_data(starting_time, phase=True)
+            log_fft_data = self._analyze_log_min_max_transform(fft_data, dynamic_max_value=dynamic_max_value)
+            (x_positions, y_positions,
+             x_peaks, y_peaks,
+             energies, pitches,
+             ratio_array, rf_angles) = self._source_angle_position_transform(log_fft_data, phase_data)
+            # making plots
+            fig = plt.figure(figsize=self.flower_figure_size)
+            ax = fig.add_subplot(111)
+            # plot baseline
+            max_baseline_circle = int(self._frequency_to_pitch(self.sample_rate / 2)) - 1
+            for i in range(1, max_baseline_circle + 1)[::-1]:
+                alpha = self.flower_baseline_transform_alpha ** (-i)
+                cir_end = Circle((0, 0), radius=i, zorder=1, facecolor='black',
+                                 linewidth=self.flower_baseline_width, edgecolor=self.flower_baseline_color,
+                                 alpha=alpha)
+                ax.add_patch(cir_end)
+            # plot grass
+            for i in range(len(x_positions)):
+                pitch = pitches[i]
+                energy = energies[i]
+                color = self._hsb_to_rgb(pitch % 1,
+                                         ratio_array[i],
+                                         1)
+                if rf_angles[i]:
+                    face_color = color
+                else:
+                    face_color = 'black'
+                ax.plot([x_positions[i], x_peaks[i]],
+                        [y_positions[i], y_peaks[i]], c=color, alpha=energy, zorder=2)
+                cir_end = Circle((x_peaks[i], y_peaks[i]), radius=energy / 5, zorder=3, facecolor=face_color,
+                                 linewidth=self.flower_line_width, edgecolor=color, alpha=energy)
+                ax.add_patch(cir_end)
+
+            # set figure ratio
+            ax.set_ylim(bottom=-max_baseline_circle - 1, top=max_baseline_circle + 1)
+            ax.set_xlim(left=-max_baseline_circle - 1, right=max_baseline_circle + 1)
+            self._set_1to1_ratio_figure()
+
+            # save figure
+            if save_path is None:
+                save_path = self.source_angle_analyzer_path + '.png'
+            fig.savefig(save_path, dpi=self.flower_dpi, bbox_inches='tight')
+            self._matplotlib_clear_memory(fig)
+            return True
+
+    def _prepare_video_source_angle(self, starting_time, ending_time):
+        """ save video for spiral """
+        (starting_time,
+         ending_time,
+         status) = self._prepare_video_analyzer(starting_time, ending_time,
+                                                save_analyzer_path=self.source_angle_analyzer_path,
+                                                analyzer_function=self._prepare_graph_source_angle)
+        return starting_time, ending_time, status
+
+    def _prepare_video_source(self, starting_time, ending_time):
+        """ save video for spiral """
+        (starting_time,
+         ending_time,
+         status) = self._prepare_video_analyzer(starting_time, ending_time,
+                                                save_analyzer_path=self.source_analyzer_path,
+                                                analyzer_function=self._prepare_graph_source)
+        return starting_time, ending_time, status

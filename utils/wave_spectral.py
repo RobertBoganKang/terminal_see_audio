@@ -2,7 +2,6 @@ import colorsys
 
 import matplotlib.pyplot as plt
 import numpy as np
-import soundfile as sf
 
 from utils.common import Common
 

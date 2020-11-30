@@ -63,9 +63,7 @@ class PeakAnalyzer(AnalyzeCommon):
     def _prepare_audio_peak_info(self, starting_time):
         valid = self._check_analyze_duration(starting_time)
         if not valid:
-            print(
-                f'<!> starting time set false\n'
-                f'<!> number should be `0`~ `{self._get_audio_time() - self.analyze_min_duration}`s')
+            return False
         else:
             # get starting sample index
             starting_sample = int(starting_time * self.sample_rate)
@@ -104,3 +102,4 @@ class PeakAnalyzer(AnalyzeCommon):
 
             # prepare ifft play
             self._ifft_audio_export(self._analyze_log_min_max_transform(fft_data, log=False))
+            return True

@@ -9,7 +9,7 @@ sys.path.append(os.path.abspath(__file__))
 
 
 class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, PeakAnalyzer, PlayPitch, TuningAnalyzer,
-                       ShellUtils):
+                       ShellUtils, SourceAnalyzer, PhaseAnalyzer):
     """
     this class will show audio information in many aspects.
     """
@@ -23,6 +23,8 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
         PlayPitch.__init__(self)
         TuningAnalyzer.__init__(self)
         ShellUtils.__init__(self)
+        SourceAnalyzer.__init__(self)
+        PhaseAnalyzer.__init__(self)
 
     def main(self, in_path):
         """ main function """
@@ -71,7 +73,6 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
                         continue
                     except Exception as e:
                         command_result.append(e)
-                # 1.1.* advanced script error
                 if not command_success:
                     print(f'<!> evaluate error message: `{command_result[0]}`')
                     print(f'<!> execute error message: `{command_result[1]}`')
@@ -92,10 +93,11 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
                     if len(inputs) == 2 and self._is_float(inputs[0]) and self._is_float(
                             inputs[1]):
                         inputs = [float(x) for x in inputs]
-                        status = self._prepare_video_spiral(inputs[0], inputs[1])
+                        last_analyze_starting, last_analyze_ending, status = self._prepare_video_spiral(inputs[0],
+                                                                                                        inputs[1])
                         if status:
-                            last_analyze_starting, last_analyze_ending = [float(x) for x in inputs]
-                            self._terminal_video(inputs[0], inputs[1], self.spiral_analyzer_path + '.wav',
+                            self._terminal_video(last_analyze_starting, last_analyze_ending,
+                                                 self.spiral_analyzer_path + '.wav',
                                                  self.spiral_analyzer_path + '.mp4')
                     else:
                         print('<!> `spiral` analyzer inputs unknown')
@@ -142,10 +144,11 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
                     if len(inputs) == 2 and self._is_float(inputs[0]) and self._is_float(
                             inputs[1]):
                         inputs = [float(x) for x in inputs]
-                        status = self._prepare_video_piano(inputs[0], inputs[1])
+                        last_analyze_starting, last_analyze_ending, status = self._prepare_video_piano(inputs[0],
+                                                                                                       inputs[1])
                         if status:
-                            last_analyze_starting, last_analyze_ending = inputs
-                            self._terminal_video(inputs[0], inputs[1], self.piano_analyzer_path + '.wav',
+                            self._terminal_video(last_analyze_starting, last_analyze_ending,
+                                                 self.piano_analyzer_path + '.wav',
                                                  self.piano_analyzer_path + '.mp4')
                     else:
                         print('<!> `piano` analyzer inputs unknown')
@@ -156,12 +159,12 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
                 else:
                     print('<!> `piano` analyzer inputs unknown')
                 continue
-            # 1.4 get tuning analyzer (`^`)
+            # 1.5 get tuning analyzer (`^`)
             elif input_.startswith('^'):
-                # 1.4.1 number as staring time
+                # 1.5.1 number as staring time
                 if self._is_float(command):
                     self._prepare_audio_peak_info(float(command))
-                # 1.4.2 two numbers: starting time + frequency
+                # 1.5.2 two numbers: starting time + frequency
                 elif ' ' in command:
                     command_split = command.split()
                     if len(command_split) == 2:
@@ -181,7 +184,7 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
                 else:
                     print('<!> tuning inputs unknown')
                 continue
-            # 1.5 play frequency or music notes
+            # 1.6 play frequency or music notes
             elif input_.startswith('>'):
                 status = self._pitch_export_wave_frequency(command)
                 if status:
@@ -211,7 +214,6 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
                     if self._is_float(input_split[0]) and self._is_float(input_split[1]):
                         last_starting, last_ending, valid = self._prepare_graph_audio(float(input_split[0]),
                                                                                       float(input_split[1]))
-                        print(last_starting, last_ending)
                         if valid:
                             self._terminal_plot(self.graphics_path)
                     # 2.2.1 set modes
@@ -271,11 +273,9 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
                             self._initialize_temp()
                         else:
                             print(f'<!> file path `{try_input}` already exist')
-                    # 2.2.* two inputs case error
                     else:
                         print('<!> two inputs case unknown')
                     continue
-                # 2.* too many inputs error
                 else:
                     print('<!> please check number of input')
                     continue
@@ -311,8 +311,12 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
             # 3.7 `testing` to test experimental functions
             # TODO: test functions here
             elif input_ == 'test':
-                print('<!> no experimental function now')
-            # 3.* single input case error
+                # print('<!> no experimental function now')
+                time = 0
+                # self._prepare_graph_source_angle(time)
+                # self._prepare_graph_phase(time)
+                self._prepare_video_source_angle(0, 10)
+                self._prepare_video_phase(0, 10)
             else:
                 print('<!> unknown command')
                 continue

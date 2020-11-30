@@ -2,7 +2,7 @@
 
 ## Introduction
 
-Similar to `Adobe Audition`. This project will check the audio information quickly inside of terminal. 
+Similar to `Adobe Audition`, this project will check the audio information quickly inside of terminal. 
 
 ## Requirement
 
@@ -31,6 +31,8 @@ python see.py <input_file>
 
 ### Script
 
+#### Basic
+
 * `two numbers`: starting time & ending time;
   * example: `10 20` means to split audio from `10s` to `20s`;
 * empty string `''` (press return without input): plot last generated graphics;
@@ -50,6 +52,9 @@ python see.py <input_file>
   * example: `o demo/june.ogg` or `o "demo/june.ogg"` means change input audio file to `demo/june.ogg`;
 * `tmp`: to change the temp folder for temp files;
 * `h`: to print `README.md` file (this file) as `help`;
+
+#### Analyzer
+
 * `@` or `#`: spiral/piano analyzer for short period signals by giving a starting time;
   * number: `@10` is to analyze `10~s` spectral;
   * `''`: empty is to plot last analyzed spiral graphics;
@@ -65,7 +70,7 @@ python see.py <input_file>
   * `number+Hz`: to play sound directly from number of frequency; `>440Hz` is to play sound at `440Hz`;
   * `music notes name`: to play sound translate from music notes; `>a4` is to play `a4` notes; `>a4-50c` is to play sound at `a4` but with `50` cents lower;
 
-### Advanced Script
+#### Advanced
 
 * `=` (WARNING: may cause fatal crash): to `eval` in python (simple calculation) or to `exec` in python (set system parameters);
   * example: `=1+1` to get answer `2`;

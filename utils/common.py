@@ -103,6 +103,9 @@ class Common(object):
         self.graphics_path = os.path.join(self.temp_folder, 'wave_spectral.png')
         self.spiral_analyzer_path = os.path.join(self.temp_folder, 'spiral')
         self.piano_analyzer_path = os.path.join(self.temp_folder, 'piano')
+        self.source_analyzer_path = os.path.join(self.temp_folder, 'source')
+        self.source_angle_analyzer_path = os.path.join(self.temp_folder, 'source_angle')
+        self.phase_analyzer_path = os.path.join(self.temp_folder, 'phase')
         self.piano_roll_graphics_path = os.path.join(self.temp_folder, 'piano_roll.png')
         self.tuning_graphics_path = os.path.join(self.temp_folder, 'tuning.png')
         self.audio_part_path = os.path.join(self.temp_folder, 'audio.wav')
@@ -285,9 +288,10 @@ class Common(object):
             print('<!> readme file missing')
 
     @staticmethod
-    def _set_1to1_ratio_figure():
+    def _set_1to1_ratio_figure(axis=False):
         plt.gca().set_aspect(1)
-        plt.axis('off')
+        if not axis:
+            plt.axis('off')
 
     @staticmethod
     def _matplotlib_clear_memory(fig):
@@ -339,3 +343,12 @@ class Common(object):
     def _get_digits_number(number):
         """ return number of digits """
         return len(str(number))
+
+    @staticmethod
+    def _amplitude_ratio(t0, t1):
+        t = [t0, t1]
+        t.sort()
+        if t[0] != 0:
+            return t[0] / t[1]
+        else:
+            return 1

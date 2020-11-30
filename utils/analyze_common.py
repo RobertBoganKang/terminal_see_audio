@@ -19,6 +19,22 @@ class AnalyzeCommon(Common):
         # video frames definition
         self.analyze_video_frame_rate = 8
 
+        # source & phase analyzer (flowers)
+        # figure config
+        self.flower_figure_size = (12, 12)
+        self.flower_dpi = 200
+        self.flower_line_width = 2
+        self.flower_baseline_width = 1.2
+        self.flower_baseline_transform_alpha = 1.3
+        self.flower_stem_power_coefficient = 1.5
+
+        # color & theme
+        self.flower_baseline_color = 'dimgray'
+
+        # minimum source power
+        self.flower_min_power = 0.001
+        self.flower_min_analyze_power = 0.05
+
     def _analyze_log_min_max_transform(self, array, log=True, dynamic_max_value=False):
         if log:
             array = np.log(np.array(array) + self.min_analyze_power)
@@ -49,6 +65,10 @@ class AnalyzeCommon(Common):
     def _check_analyze_duration(self, starting_time):
         """ check if raw audio too short for analyze plot """
         if self._get_audio_time() < self.analyze_min_duration + starting_time or starting_time < 0:
+            print(
+                f'<!> starting time set false\n'
+                f'<!> number should be `0`~ `{self._get_audio_time() - self.analyze_min_duration}`s'
+            )
             return False
         else:
             return True
@@ -169,8 +189,8 @@ class AnalyzeCommon(Common):
             v_fft_data = self._max_norm(log_fft_data[0] + log_fft_data[1], min_transform=False)
             h_phase_data = phase_data[1] - phase_data[0]
             h_phase_data = np.mod(h_phase_data / 2 / np.pi, 1)
-            s_fft_magnitude_diff_data = np.abs(log_fft_data[0] - log_fft_data[1])
-            return fft_data, log_fft_data, h_phase_data, s_fft_magnitude_diff_data, v_fft_data
+            s_fft_magnitude_ratio_data = self._amplitude_ratio(log_fft_data[0], log_fft_data[1])
+            return fft_data, log_fft_data, h_phase_data, s_fft_magnitude_ratio_data, v_fft_data
 
     def _analyze_timestamp_generation(self, starting_time, ending_time):
         """ generate starting time sequences for analyzers to create video """
@@ -195,7 +215,7 @@ class AnalyzeCommon(Common):
         # fix time first
         starting_time, ending_time = self._fix_input_starting_ending_time(starting_time, ending_time)
         if not self._check_audio_duration_valid(starting_time, ending_time, self.analyze_min_duration):
-            return False
+            return starting_time, ending_time, False
         else:
             timestamp, num_digits, frame_padding_num = self._analyze_timestamp_generation(starting_time, ending_time)
             self._convert_folder_path(save_analyzer_path)
@@ -208,7 +228,7 @@ class AnalyzeCommon(Common):
                 in_path = os.path.join(save_analyzer_path, str(frame_padding_num).zfill(num_digits) + '.png')
                 out_path = os.path.join(save_analyzer_path, str(i).zfill(num_digits) + '.png')
                 shutil.copy(in_path, out_path)
-            # # export audio
+            # export audio
             audio_path = save_analyzer_path + '.wav'
             self._export_audio(starting_time, ending_time, audio_part_path=audio_path)
             # get video
@@ -220,4 +240,6 @@ class AnalyzeCommon(Common):
                               '-i', os.path.join(save_analyzer_path, '%' + str(num_digits) + 'd.png'),
                               video_path]
             subprocess.call(ffmpeg_command)
-            return True
+            # delete folder after use (file too big)
+            shutil.rmtree(save_analyzer_path)
+            return starting_time, ending_time, True
