@@ -37,7 +37,7 @@ python see.py <input_file>
   * example: `10 20` means to split audio from `10s` to `20s`;
 * empty string `''` (press return without input): plot last generated graphics;
 * `p`: play last analyzed audio;
-  * `p*`: play the partition of audio where used `@`, `#` or `^` to analyze spectral;
+  * `pp`: play the partition of audio where used for analyzers;
 * `q`: quit program;
 * `r`: reset starting and ending time;
 * `m`: change the `mode` of showing graphics; there are several modes can be changed;
