@@ -7,8 +7,8 @@ import subprocess
 import librosa
 import matplotlib.pyplot as plt
 import numpy as np
-import scipy.signal as signal
 import soundfile as sf
+from scipy import signal
 
 
 class Common(object):
@@ -52,6 +52,8 @@ class Common(object):
         # minimum hearing power for `log` mode
         self.min_hearing_power = 0.0005
         self.min_analyze_power = 0.1
+        # spectral generation window method
+        self.spectral_window_algorithm = 'hamming'
 
         # video generation for analyzers
         # get dynamic max log fft values
@@ -166,18 +168,20 @@ class Common(object):
         sf.write(audio_part_path, data_transpose, self.sample_rate)
         return data_, time_
 
-    @staticmethod
-    def _calc_sp(audio, n_window, n_overlap, angle=False):
+    def _calc_sp(self, audio, n_window, n_overlap, angle=False):
         """
         Calculate spectrogram or angle.
         :param audio: list(float): audio data
         :return: list(list(float)): the spectral data or angles
         """
-        ham_win = np.hamming(n_window)
+        try:
+            win_algorithm = eval('signal.windows.' + self.spectral_window_algorithm)(n_window)
+        except Exception:
+            raise ValueError('`spectral_window_algorithm` error')
         if angle:
             [_, _, sp] = signal.spectral.spectrogram(
                 audio,
-                window=ham_win,
+                window=win_algorithm,
                 nperseg=n_window,
                 noverlap=n_overlap,
                 detrend=False,
@@ -191,7 +195,7 @@ class Common(object):
         else:
             [_, _, x] = signal.spectral.spectrogram(
                 audio,
-                window=ham_win,
+                window=win_algorithm,
                 nperseg=n_window,
                 noverlap=n_overlap,
                 detrend=False,
