@@ -1,3 +1,4 @@
+import multiprocessing as mp
 import os
 import shutil
 import subprocess
@@ -219,10 +220,16 @@ class AnalyzeCommon(Common):
         else:
             timestamp, num_digits, frame_padding_num = self._analyze_timestamp_generation(starting_time, ending_time)
             self._convert_folder_path(save_analyzer_path)
-            timestamp_bar = tqdm(timestamp)
-            for i, time in enumerate(timestamp_bar):
-                save_path = os.path.join(save_analyzer_path, str(i + frame_padding_num).zfill(num_digits) + '.png')
-                analyzer_function(time, save_path=save_path, dynamic_max_value=True)
+            # do in parallel
+            pool = mp.Pool(mp.cpu_count())
+            with tqdm(total=len(timestamp)) as p_bar:
+                def _p_bar_update(a):
+                    p_bar.update()
+                for i, time in enumerate(timestamp):
+                    save_path = os.path.join(save_analyzer_path, str(i + frame_padding_num).zfill(num_digits) + '.png')
+                    pool.apply_async(analyzer_function, args=(time, save_path, True), callback=_p_bar_update)
+                pool.close()
+                pool.join()
             # apply padding
             for i in range(frame_padding_num):
                 in_path = os.path.join(save_analyzer_path, str(frame_padding_num).zfill(num_digits) + '.png')
