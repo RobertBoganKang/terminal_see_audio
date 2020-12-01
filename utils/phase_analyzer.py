@@ -95,6 +95,10 @@ class PhaseAnalyzer(AnalyzeCommon):
                 save_path = self.phase_analyzer_path + '.png'
             fig.savefig(save_path, dpi=self.flower_dpi, bbox_inches='tight')
             self._matplotlib_clear_memory(fig)
+
+            # prepare ifft play
+            if not dynamic_max_value:
+                self._ifft_audio_export(self._analyze_log_min_max_transform(fft_data, log=False))
             return True
 
     def _prepare_video_phase(self, starting_time, ending_time):

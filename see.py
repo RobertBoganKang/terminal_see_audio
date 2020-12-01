@@ -26,6 +26,60 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
         SourceAnalyzer.__init__(self)
         PhaseAnalyzer.__init__(self)
 
+        # prepare
+        self.last_starting = self.last_ending = None
+        self.last_analyze_starting = self.last_analyze_ending = None
+
+    def _main_analyzer_1_or_2_input(self, command, prepare_graph_function, prepare_video_function, temp_analyzer_path,
+                                    analyzer_name):
+        # x.x.1 number as staring time
+        if self._is_float(command):
+            status = prepare_graph_function(float(command))
+            if status:
+                self._terminal_plot(temp_analyzer_path + '.png')
+        # x.x.2 plot last image
+        elif command == '':
+            self._terminal_plot(temp_analyzer_path + '.png')
+        # x.x.3 two numbers
+        elif ' ' in command:
+            inputs = command.split()
+            if len(inputs) == 2 and self._is_float(inputs[0]) and self._is_float(inputs[1]):
+                inputs = [float(x) for x in inputs]
+                self.last_analyze_starting, self.last_analyze_ending, status = prepare_video_function(
+                    inputs[0],
+                    inputs[1])
+                if status:
+                    self._terminal_video(self.last_analyze_starting, self.last_analyze_ending,
+                                         temp_analyzer_path + '.wav',
+                                         temp_analyzer_path + '.mp4')
+            else:
+                print(f'<!> `{analyzer_name}` analyzer inputs unknown')
+        # x.x.4 plot last piano video
+        elif command == '*':
+            self._terminal_video(self.last_analyze_starting, self.last_analyze_ending,
+                                 temp_analyzer_path + '.wav',
+                                 temp_analyzer_path + '.mp4')
+        else:
+            print(f'<!> `{analyzer_name}` analyzer inputs unknown')
+
+    def _main_analyzer_2_input(self, command, _prepare_graph_function, temp_analyzer_path, analyzer_name):
+        # x.x.1 two numbers
+        if ' ' in command:
+            inputs = command.split()
+            if len(inputs) == 2 and self._is_float(inputs[0]) and self._is_float(
+                    inputs[1]):
+                inputs = [float(x) for x in inputs]
+                status = _prepare_graph_function(inputs[0], inputs[1])
+                if status:
+                    self._terminal_plot(temp_analyzer_path)
+            else:
+                print(f'<!> `{analyzer_name}` analyzer inputs unknown')
+        # x.x.2 plot last image
+        elif command == '':
+            self._terminal_plot(temp_analyzer_path)
+        else:
+            print(f'<!> `{analyzer_name}` analyzer inputs unknown')
+
     def main(self, in_path):
         """ main function """
         self._get_and_fix_input_path(in_path)
@@ -33,9 +87,8 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
         self._initialization()
         self._initialize_temp()
         # prepare
-        last_starting = 0
-        last_ending = self._get_audio_time()
-        last_analyze_starting = last_analyze_ending = None
+        self.last_starting = 0
+        self.last_ending = self._get_audio_time()
         # 0. first run
         self._initial_or_restore_running()
         # loop to get inputs
@@ -67,7 +120,7 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
                     try:
                         exec(command)
                         self._initialization()
-                        self._prepare_graph_audio(last_starting, last_ending)
+                        self._prepare_graph_audio(self.last_starting, self.last_ending)
                         print(f'<*> executed `{command}`')
                         command_success = True
                         continue
@@ -79,85 +132,19 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
                     continue
             # 1.2 get spiral (`@`) analyzer
             elif input_.startswith('@'):
-                # 1.2.1 number as starting time
-                if self._is_float(command):
-                    status = self._prepare_graph_spiral(float(command))
-                    if status:
-                        self._terminal_plot(self.spiral_analyzer_path + '.png')
-                # 1.2.2 plot last image
-                elif command == '':
-                    self._terminal_plot(self.spiral_analyzer_path + '.png')
-                # 1.2.3 two numbers
-                elif ' ' in command:
-                    inputs = command.split()
-                    if len(inputs) == 2 and self._is_float(inputs[0]) and self._is_float(
-                            inputs[1]):
-                        inputs = [float(x) for x in inputs]
-                        last_analyze_starting, last_analyze_ending, status = self._prepare_video_spiral(inputs[0],
-                                                                                                        inputs[1])
-                        if status:
-                            self._terminal_video(last_analyze_starting, last_analyze_ending,
-                                                 self.spiral_analyzer_path + '.wav',
-                                                 self.spiral_analyzer_path + '.mp4')
-                    else:
-                        print('<!> `spiral` analyzer inputs unknown')
-                # 1.2.4 plot last spiral video
-                elif command == '*':
-                    self._terminal_video(last_analyze_starting, last_analyze_ending, self.spiral_analyzer_path + '.wav',
-                                         self.spiral_analyzer_path + '.mp4')
-                else:
-                    print('<!> `spiral` analyzer inputs unknown')
+                self._main_analyzer_1_or_2_input(command, self._prepare_graph_spiral, self._prepare_video_spiral,
+                                                 self.spiral_analyzer_path, 'spiral')
                 continue
             # 1.3 get piano roll (`##`) analyzer
             elif input_.startswith('##'):
                 command = command[1:].strip()
-                # 1.3.1 two numbers
-                if ' ' in command:
-                    inputs = command.split()
-                    if len(inputs) == 2 and self._is_float(inputs[0]) and self._is_float(
-                            inputs[1]):
-                        inputs = [float(x) for x in inputs]
-                        status = self._prepare_graph_piano_roll(inputs[0], inputs[1])
-                        if status:
-                            self._terminal_plot(self.piano_roll_graphics_path)
-                    else:
-                        print('<!> `piano roll` analyzer inputs unknown')
-                # 1.3.2 plot last piano image
-                elif command == '':
-                    self._terminal_plot(self.piano_roll_graphics_path)
-                else:
-                    print('<!> `piano roll` analyzer inputs unknown')
+                self._main_analyzer_2_input(command, self._prepare_graph_piano_roll, self.piano_roll_graphics_path,
+                                            'piano roll')
                 continue
             # 1.4 get piano (`#`) analyzer
             elif input_.startswith('#'):
-                # 1.4.1 number as staring time
-                if self._is_float(command):
-                    status = self._prepare_graph_piano(float(command))
-                    if status:
-                        self._terminal_plot(self.piano_analyzer_path + '.png')
-                # 1.4.2 plot last piano roll image
-                elif command == '':
-                    self._terminal_plot(self.piano_analyzer_path + '.png')
-                # 1.4.3 two numbers
-                elif ' ' in command:
-                    inputs = command.split()
-                    if len(inputs) == 2 and self._is_float(inputs[0]) and self._is_float(
-                            inputs[1]):
-                        inputs = [float(x) for x in inputs]
-                        last_analyze_starting, last_analyze_ending, status = self._prepare_video_piano(inputs[0],
-                                                                                                       inputs[1])
-                        if status:
-                            self._terminal_video(last_analyze_starting, last_analyze_ending,
-                                                 self.piano_analyzer_path + '.wav',
-                                                 self.piano_analyzer_path + '.mp4')
-                    else:
-                        print('<!> `piano` analyzer inputs unknown')
-                # 1.4.4 plot last piano video
-                elif command == '*':
-                    self._terminal_video(last_analyze_starting, last_analyze_ending, self.piano_analyzer_path + '.wav',
-                                         self.piano_analyzer_path + '.mp4')
-                else:
-                    print('<!> `piano` analyzer inputs unknown')
+                self._main_analyzer_1_or_2_input(command, self._prepare_graph_piano, self._prepare_video_piano,
+                                                 self.piano_analyzer_path, 'piano')
                 continue
             # 1.5 get tuning analyzer (`^`)
             elif input_.startswith('^'):
@@ -190,6 +177,25 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
                 if status:
                     self._terminal_play(0, 1, self.pitch_audio_path)
                 continue
+            # 1.7 get source analyzer
+            elif input_.startswith('*-*'):
+                command = command[2:].strip()
+                self._main_analyzer_1_or_2_input(command, self._prepare_graph_source, self._prepare_video_source,
+                                                 self.source_analyzer_path, 'source stellar map')
+                continue
+            # 1.8 get source angle analyzer
+            elif input_.startswith('*<'):
+                command = command[1:].strip()
+                self._main_analyzer_1_or_2_input(command, self._prepare_graph_source_angle,
+                                                 self._prepare_video_source_angle,
+                                                 self.source_angle_analyzer_path, 'source angle')
+                continue
+            # 1.9 get phase analyzer
+            elif input_.startswith('*%'):
+                command = command[1:].strip()
+                self._main_analyzer_1_or_2_input(command, self._prepare_graph_phase, self._prepare_video_phase,
+                                                 self.source_analyzer_path, 'phase')
+                continue
 
             # 2. contain space case
             if ' ' in input_:
@@ -212,10 +218,10 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
                     try_input = self._get_try_path(input_split).replace('\\s', ' ')
                     # 2.2.0 set time parameters for wave spectral plot
                     if self._is_float(input_split[0]) and self._is_float(input_split[1]):
-                        last_starting, last_ending, valid = self._prepare_graph_audio(float(input_split[0]),
-                                                                                      float(input_split[1]))
+                        self.last_starting, self.last_ending, valid = self._prepare_graph_audio(float(input_split[0]),
+                                                                                                float(input_split[1]))
                         if valid:
-                            self._terminal_plot(self.graphics_path)
+                            self._terminal_plot(self.wave_spectral_graphics_path)
                     # 2.2.1 set modes
                     elif input_split[0] == 'm':
                         if input_split[1] in self.graphics_modes:
@@ -229,7 +235,7 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
                             elif input_split[1] in ['spectral', 'phase']:
                                 self.spectral_phase_mode = input_split[1]
                             # recalculating
-                            self._prepare_graph_audio(last_starting, last_ending)
+                            self._prepare_graph_audio(self.last_starting, self.last_ending)
                             print(f'<+> mode `{input_split[1]}` set')
                         else:
                             print(
@@ -241,7 +247,7 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
                                 self.sample_rate = int(input_split[1])
                                 self._initialization()
                                 # recalculating
-                                self._prepare_graph_audio(last_starting, last_ending)
+                                self._prepare_graph_audio(self.last_starting, self.last_ending)
                                 print(f'<+> sample rate `{input_split[1]}` set')
                             else:
                                 print(f'<!> sample rate `{input_split[1]}` (< {self.min_sample_rate}) too low')
@@ -258,8 +264,8 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
                                 print('<+> file path changed')
                                 self._initial_or_restore_running()
                                 # reset time
-                                last_starting = 0
-                                last_ending = self._get_audio_time()
+                                self.last_starting = 0
+                                self.last_ending = self._get_audio_time()
                         else:
                             print(f'<!> file path `{try_input}` does not exist')
                     # 2.2.4 change the temp folder path
@@ -283,13 +289,13 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
             # 3. single input
             # 3.1 `p` to play last audio
             elif input_ == 'p':
-                self._terminal_play(last_starting, last_ending, self.audio_part_path)
+                self._terminal_play(self.last_starting, self.last_ending, self.audio_part_path)
             # 3.2 `p*` to play last short period audio analyzed by spectral analyzer
-            elif input_ == 'p*':
+            elif input_ == 'pp':
                 self._terminal_play(0, 0.1, self.ifft_audio_path)
             # 3.3 `` to show last image
             elif input_ == '':
-                self._terminal_plot(self.graphics_path)
+                self._terminal_plot(self.wave_spectral_graphics_path)
             # 3.4 `q` to quit program
             elif input_ == 'q':
                 # remove temp folder at quit
@@ -303,20 +309,15 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
                 print('<!> reset all')
                 self._initial_or_restore_running()
                 # reset time
-                last_starting = 0
-                last_ending = self._get_audio_time()
+                self.last_starting = 0
+                self.last_ending = self._get_audio_time()
             # 3.6 `h` to print help file
             elif input_ == 'h':
                 self.print_help()
             # 3.7 `testing` to test experimental functions
             # TODO: test functions here
             elif input_ == 'test':
-                # print('<!> no experimental function now')
-                time = 0
-                # self._prepare_graph_source_angle(time)
-                # self._prepare_graph_phase(time)
-                self._prepare_video_source_angle(0, 10)
-                self._prepare_video_phase(0, 10)
+                print('<!> no experimental function now')
             else:
                 print('<!> unknown command')
                 continue

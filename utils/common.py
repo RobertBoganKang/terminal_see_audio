@@ -100,7 +100,7 @@ class Common(object):
 
     def _initialize_temp(self):
         """ temp file path initialization """
-        self.graphics_path = os.path.join(self.temp_folder, 'wave_spectral.png')
+        self.wave_spectral_graphics_path = os.path.join(self.temp_folder, 'wave_spectral.png')
         self.spiral_analyzer_path = os.path.join(self.temp_folder, 'spiral')
         self.piano_analyzer_path = os.path.join(self.temp_folder, 'piano')
         self.source_analyzer_path = os.path.join(self.temp_folder, 'source')

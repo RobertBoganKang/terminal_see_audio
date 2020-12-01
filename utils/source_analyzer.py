@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.patches import Circle
+from matplotlib.patches import Circle, Arc
 
 from utils.analyze_common import AnalyzeCommon
 
@@ -258,6 +258,10 @@ class SourceAnalyzer(AnalyzeCommon):
                 save_path = self.source_analyzer_path + '.png'
             fig.savefig(save_path, dpi=self.flower_dpi, bbox_inches='tight')
             self._matplotlib_clear_memory(fig)
+
+            # prepare ifft play
+            if not dynamic_max_value:
+                self._ifft_audio_export(self._analyze_log_min_max_transform(fft_data, log=False))
             return True
 
     def _source_angle_position_transform(self, arrays, phases):
@@ -327,10 +331,16 @@ class SourceAnalyzer(AnalyzeCommon):
             max_baseline_circle = int(self._frequency_to_pitch(self.sample_rate / 2)) - 1
             for i in range(1, max_baseline_circle + 1)[::-1]:
                 alpha = self.flower_baseline_transform_alpha ** (-i)
-                cir_end = Circle((0, 0), radius=i, zorder=1, facecolor='black',
-                                 linewidth=self.flower_baseline_width, edgecolor=self.flower_baseline_color,
-                                 alpha=alpha)
-                ax.add_patch(cir_end)
+                above_arc = Arc((0, 0), i, i, theta1=0, theta2=180, zorder=1, linewidth=self.flower_baseline_width,
+                                edgecolor=self.flower_baseline_color, alpha=alpha)
+                bottom_arc = Arc((0, 0), i, i, theta1=180, theta2=360, zorder=1, linewidth=self.flower_baseline_width,
+                                 edgecolor=self.flower_baseline_color, alpha=alpha, linestyle='dashed')
+                ax.add_patch(above_arc)
+                ax.add_patch(bottom_arc)
+                ax.plot([-i, -i + 1], [0, 0], c=self.flower_baseline_color, linewidth=self.flower_baseline_width,
+                        alpha=alpha, ls='dashed')
+                ax.plot([i - 1, i], [0, 0], c=self.flower_baseline_color, linewidth=self.flower_baseline_width,
+                        alpha=alpha, ls='dashed')
             # plot grass
             for i in range(len(x_positions)):
                 pitch = pitches[i]
@@ -344,9 +354,9 @@ class SourceAnalyzer(AnalyzeCommon):
                     face_color = 'black'
                 ax.plot([x_positions[i], x_peaks[i]],
                         [y_positions[i], y_peaks[i]], c=color, alpha=energy, zorder=2)
-                cir_end = Circle((x_peaks[i], y_peaks[i]), radius=energy / 5, zorder=3, facecolor=face_color,
-                                 linewidth=self.flower_line_width, edgecolor=color, alpha=energy)
-                ax.add_patch(cir_end)
+                above_arc = Circle((x_peaks[i], y_peaks[i]), radius=energy / 5, zorder=3, facecolor=face_color,
+                                   linewidth=self.flower_line_width, edgecolor=color, alpha=energy)
+                ax.add_patch(above_arc)
 
             # set figure ratio
             ax.set_ylim(bottom=-max_baseline_circle - 1, top=max_baseline_circle + 1)
@@ -358,6 +368,10 @@ class SourceAnalyzer(AnalyzeCommon):
                 save_path = self.source_angle_analyzer_path + '.png'
             fig.savefig(save_path, dpi=self.flower_dpi, bbox_inches='tight')
             self._matplotlib_clear_memory(fig)
+
+            # prepare ifft play
+            if not dynamic_max_value:
+                self._ifft_audio_export(self._analyze_log_min_max_transform(fft_data, log=False))
             return True
 
     def _prepare_video_source_angle(self, starting_time, ending_time):

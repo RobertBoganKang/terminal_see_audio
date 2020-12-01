@@ -203,7 +203,7 @@ class WaveSpectral(Common):
             self._plot_wave(data_[i], time_, grid, i)
 
         # save figure
-        fig.savefig(self.graphics_path, dpi=self.figure_dpi, bbox_inches='tight')
+        fig.savefig(self.wave_spectral_graphics_path, dpi=self.figure_dpi, bbox_inches='tight')
         self._matplotlib_clear_memory(fig)
         return starting_time, ending_time, True
 
@@ -212,4 +212,4 @@ class WaveSpectral(Common):
         self._initialization()
         self._initialize_spectral(0, self._get_audio_time())
         self._prepare_graph_audio(0, self._get_audio_time())
-        self._terminal_plot(self.graphics_path)
+        self._terminal_plot(self.wave_spectral_graphics_path)
