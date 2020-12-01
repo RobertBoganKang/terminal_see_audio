@@ -194,7 +194,7 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
             elif input_.startswith('*%'):
                 command = command[1:].strip()
                 self._main_analyzer_1_or_2_input(command, self._prepare_graph_phase, self._prepare_video_phase,
-                                                 self.source_analyzer_path, 'phase')
+                                                 self.phase_analyzer_path, 'phase')
                 continue
 
             # 2. contain space case

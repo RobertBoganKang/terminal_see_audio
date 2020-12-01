@@ -331,10 +331,11 @@ class SourceAnalyzer(AnalyzeCommon):
             max_baseline_circle = int(self._frequency_to_pitch(self.sample_rate / 2)) - 1
             for i in range(1, max_baseline_circle + 1)[::-1]:
                 alpha = self.flower_baseline_transform_alpha ** (-i)
-                above_arc = Arc((0, 0), i, i, theta1=0, theta2=180, zorder=1, linewidth=self.flower_baseline_width,
-                                edgecolor=self.flower_baseline_color, alpha=alpha)
-                bottom_arc = Arc((0, 0), i, i, theta1=180, theta2=360, zorder=1, linewidth=self.flower_baseline_width,
-                                 edgecolor=self.flower_baseline_color, alpha=alpha, linestyle='dashed')
+                above_arc = Arc((0, 0), 2 * i, 2 * i, theta1=0, theta2=180, zorder=1,
+                                linewidth=self.flower_baseline_width, edgecolor=self.flower_baseline_color, alpha=alpha)
+                bottom_arc = Arc((0, 0), 2 * i, 2 * i, theta1=180, theta2=360, zorder=1,
+                                 linewidth=self.flower_baseline_width, edgecolor=self.flower_baseline_color,
+                                 alpha=alpha, linestyle='dashed')
                 ax.add_patch(above_arc)
                 ax.add_patch(bottom_arc)
                 ax.plot([-i, -i + 1], [0, 0], c=self.flower_baseline_color, linewidth=self.flower_baseline_width,
