@@ -223,8 +223,10 @@ class AnalyzeCommon(Common):
             # do in parallel
             pool = mp.Pool(mp.cpu_count())
             with tqdm(total=len(timestamp)) as p_bar:
+                # noinspection PyUnusedLocal
                 def _p_bar_update(a):
                     p_bar.update()
+
                 for i, time in enumerate(timestamp):
                     save_path = os.path.join(save_analyzer_path, str(i + frame_padding_num).zfill(num_digits) + '.png')
                     pool.apply_async(analyzer_function, args=(time, save_path, True), callback=_p_bar_update)
@@ -239,7 +241,7 @@ class AnalyzeCommon(Common):
             audio_path = save_analyzer_path + '.wav'
             self._export_audio(starting_time, ending_time, audio_part_path=audio_path)
             # get video
-            print('<!> rendering video')
+            print('<*> rendering video')
             video_path = save_analyzer_path + '.mp4'
             ffmpeg_command = ['ffmpeg', '-loglevel', 'panic', '-y',
                               '-i', audio_path,

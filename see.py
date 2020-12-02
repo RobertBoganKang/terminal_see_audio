@@ -80,6 +80,134 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
         else:
             print(f'<!> `{analyzer_name}` analyzer inputs unknown')
 
+    def _main_python_script(self, command):
+        command_success = False
+        command_result = []
+        # x.x.1 to evaluate
+        if not command_success:
+            try:
+                return_string = eval(command)
+                print(f'<*> {return_string}')
+                command_success = True
+                return
+            except Exception as e:
+                command_result.append(e)
+        # x.x.2 to execute
+        if not command_success:
+            try:
+                exec(command)
+                self._initialization()
+                self._prepare_graph_audio(self.last_starting, self.last_ending)
+                print(f'<*> executed `{command}`')
+                command_success = True
+                return
+            except Exception as e:
+                command_result.append(e)
+        if not command_success:
+            print(f'<!> evaluate error message: `{command_result[0]}`')
+            print(f'<!> execute error message: `{command_result[1]}`')
+            return
+
+    def _main_tuning_analyzer_script(self, command):
+        # x.x.1 number as staring time
+        if self._is_float(command):
+            self._prepare_audio_peak_info(float(command))
+        # x.x.2 two numbers: starting time + frequency
+        elif ' ' in command:
+            command_split = command.split()
+            if len(command_split) == 2:
+                if self._is_float(command_split[0]):
+                    start_timing = float(command_split[0])
+                else:
+                    print('<!> tuning starting time error')
+                    return
+                status = self._prepare_graph_tuning(start_timing, command_split[1])
+                if status:
+                    self._terminal_plot(self.tuning_graphics_path)
+                else:
+                    print('<!> tuning frequency error')
+                    return
+            else:
+                print('<!> please check number of tuning input')
+        else:
+            print('<!> tuning inputs unknown')
+
+    def _main_shell_script(self, input_split):
+        # noinspection PyBroadException
+        try:
+            sh_output = subprocess.check_output(input_split[1].replace('\\s', '\\ '), shell=True,
+                                                stderr=subprocess.STDOUT, timeout=self.sh_timeout)
+            print(f'<*> {str(sh_output.decode("utf-8").strip())}')
+        except Exception as e:
+            print(f'<!> error message: `{e}`')
+
+    def _main_spectral_wave_script(self, input_split, try_input):
+        # 2.2.0 set time parameters for wave spectral plot
+        if self._is_float(input_split[0]) and self._is_float(input_split[1]):
+            self.last_starting, self.last_ending, valid = self._prepare_graph_audio(float(input_split[0]),
+                                                                                    float(input_split[1]))
+            if valid:
+                self._terminal_plot(self.wave_spectral_graphics_path)
+        # 2.2.1 set modes
+        elif input_split[0] == 'm':
+            if input_split[1] in self.graphics_modes:
+                if input_split[1] in ['fft', 'fbank']:
+                    self.spectral_transform_y = input_split[1]
+                elif input_split[1] in ['power', 'log']:
+                    self.spectral_transform_v = input_split[1]
+                elif input_split[1] in ['mono', 'stereo']:
+                    self.channel_type = input_split[1]
+                    self._initialize_audio()
+                elif input_split[1] in ['spectral', 'phase']:
+                    self.spectral_phase_mode = input_split[1]
+                # recalculating
+                self._prepare_graph_audio(self.last_starting, self.last_ending)
+                print(f'<+> mode `{input_split[1]}` set')
+            else:
+                print(
+                    f'<?> mode `{input_split[1]}` unknown\n<!> modes are within {self.graphics_modes}')
+        # 2.2.2 set sample rate
+        elif input_split[0] == 'sr':
+            if self._is_int(input_split[1]):
+                if int(input_split[1]) >= self.min_sample_rate:
+                    self.sample_rate = int(input_split[1])
+                    self._initialization()
+                    # recalculating
+                    self._prepare_graph_audio(self.last_starting, self.last_ending)
+                    print(f'<+> sample rate `{input_split[1]}` set')
+                else:
+                    print(f'<!> sample rate `{input_split[1]}` (< {self.min_sample_rate}) too low')
+            else:
+                print(f'<!> sample rate `{input_split[1]}` unknown')
+        # 2.2.3 switch file to open
+        elif input_split[0] == 'o':
+            if os.path.exists(try_input):
+                if self.input == try_input:
+                    print('<!> same file path')
+                else:
+                    self.input = os.path.abspath(try_input)
+                    self._initialize_audio()
+                    print('<+> file path changed')
+                    self._initial_or_restore_running()
+                    # reset time
+                    self.last_starting = 0
+                    self.last_ending = self._get_audio_time()
+            else:
+                print(f'<!> file path `{try_input}` does not exist')
+        # 2.2.4 change the temp folder path
+        elif input_split[0] == 'tmp':
+            if not os.path.exists(try_input):
+                # remove old temp folder
+                shutil.move(self.temp_folder, try_input)
+                print(f'<+> temp folder path changed: `{self.temp_folder}` --> `{try_input}`')
+                # set new temp folder
+                self.temp_folder = try_input
+                self._initialize_temp()
+            else:
+                print(f'<!> file path `{try_input}` already exist')
+        else:
+            print('<!> two inputs case unknown')
+
     def main(self, in_path):
         """ main function """
         self._get_and_fix_input_path(in_path)
@@ -104,32 +232,8 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
             else:
                 command = ''
             if input_.startswith('='):
-                command_success = False
-                command_result = []
-                # 1.1.1 to evaluate
-                if not command_success:
-                    try:
-                        return_string = eval(command)
-                        print(f'<*> {return_string}')
-                        command_success = True
-                        continue
-                    except Exception as e:
-                        command_result.append(e)
-                # 1.1.2 to execute
-                if not command_success:
-                    try:
-                        exec(command)
-                        self._initialization()
-                        self._prepare_graph_audio(self.last_starting, self.last_ending)
-                        print(f'<*> executed `{command}`')
-                        command_success = True
-                        continue
-                    except Exception as e:
-                        command_result.append(e)
-                if not command_success:
-                    print(f'<!> evaluate error message: `{command_result[0]}`')
-                    print(f'<!> execute error message: `{command_result[1]}`')
-                    continue
+                self._main_python_script(command)
+                continue
             # 1.2 get spiral (`@`) analyzer
             elif input_.startswith('@'):
                 self._main_analyzer_1_or_2_input(command, self._prepare_graph_spiral, self._prepare_video_spiral,
@@ -148,28 +252,7 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
                 continue
             # 1.5 get tuning analyzer (`^`)
             elif input_.startswith('^'):
-                # 1.5.1 number as staring time
-                if self._is_float(command):
-                    self._prepare_audio_peak_info(float(command))
-                # 1.5.2 two numbers: starting time + frequency
-                elif ' ' in command:
-                    command_split = command.split()
-                    if len(command_split) == 2:
-                        if self._is_float(command_split[0]):
-                            start_timing = float(command_split[0])
-                        else:
-                            print('<!> tuning starting time error')
-                            continue
-                        status = self._prepare_graph_tuning(start_timing, command_split[1])
-                        if status:
-                            self._terminal_plot(self.tuning_graphics_path)
-                        else:
-                            print('<!> tuning frequency error')
-                            continue
-                    else:
-                        print('<!> please check number of tuning input')
-                else:
-                    print('<!> tuning inputs unknown')
+                self._main_tuning_analyzer_script(command)
                 continue
             # 1.6 play frequency or music notes
             elif input_.startswith('>'):
@@ -204,83 +287,13 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
                 input_split = [input_[:space_idx], input_[space_idx + 1:]]
                 # 2.1 shell command
                 if input_split[0] == 'sh':
-                    # noinspection PyBroadException
-                    try:
-                        sh_output = subprocess.check_output(input_split[1].replace('\\s', '\\ '), shell=True,
-                                                            stderr=subprocess.STDOUT, timeout=self.sh_timeout)
-                        print(f'<*> {str(sh_output.decode("utf-8").strip())}')
-                    except Exception as e:
-                        print(f'<!> error message: `{e}`')
+                    self._main_shell_script(input_split)
                     continue
 
                 # 2.2 two input functions
                 if ' ' not in input_split[1] or self._path_input_check(input_split):
                     try_input = self._get_try_path(input_split).replace('\\s', ' ')
-                    # 2.2.0 set time parameters for wave spectral plot
-                    if self._is_float(input_split[0]) and self._is_float(input_split[1]):
-                        self.last_starting, self.last_ending, valid = self._prepare_graph_audio(float(input_split[0]),
-                                                                                                float(input_split[1]))
-                        if valid:
-                            self._terminal_plot(self.wave_spectral_graphics_path)
-                    # 2.2.1 set modes
-                    elif input_split[0] == 'm':
-                        if input_split[1] in self.graphics_modes:
-                            if input_split[1] in ['fft', 'fbank']:
-                                self.spectral_transform_y = input_split[1]
-                            elif input_split[1] in ['power', 'log']:
-                                self.spectral_transform_v = input_split[1]
-                            elif input_split[1] in ['mono', 'stereo']:
-                                self.channel_type = input_split[1]
-                                self._initialize_audio()
-                            elif input_split[1] in ['spectral', 'phase']:
-                                self.spectral_phase_mode = input_split[1]
-                            # recalculating
-                            self._prepare_graph_audio(self.last_starting, self.last_ending)
-                            print(f'<+> mode `{input_split[1]}` set')
-                        else:
-                            print(
-                                f'<?> mode `{input_split[1]}` unknown\n<!> modes are within {self.graphics_modes}')
-                    # 2.2.2 set sample rate
-                    elif input_split[0] == 'sr':
-                        if self._is_int(input_split[1]):
-                            if int(input_split[1]) >= self.min_sample_rate:
-                                self.sample_rate = int(input_split[1])
-                                self._initialization()
-                                # recalculating
-                                self._prepare_graph_audio(self.last_starting, self.last_ending)
-                                print(f'<+> sample rate `{input_split[1]}` set')
-                            else:
-                                print(f'<!> sample rate `{input_split[1]}` (< {self.min_sample_rate}) too low')
-                        else:
-                            print(f'<!> sample rate `{input_split[1]}` unknown')
-                    # 2.2.3 switch file to open
-                    elif input_split[0] == 'o':
-                        if os.path.exists(try_input):
-                            if self.input == try_input:
-                                print('<!> same file path')
-                            else:
-                                self.input = os.path.abspath(try_input)
-                                self._initialize_audio()
-                                print('<+> file path changed')
-                                self._initial_or_restore_running()
-                                # reset time
-                                self.last_starting = 0
-                                self.last_ending = self._get_audio_time()
-                        else:
-                            print(f'<!> file path `{try_input}` does not exist')
-                    # 2.2.4 change the temp folder path
-                    elif input_split[0] == 'tmp':
-                        if not os.path.exists(try_input):
-                            # remove old temp folder
-                            shutil.move(self.temp_folder, try_input)
-                            print(f'<+> temp folder path changed: `{self.temp_folder}` --> `{try_input}`')
-                            # set new temp folder
-                            self.temp_folder = try_input
-                            self._initialize_temp()
-                        else:
-                            print(f'<!> file path `{try_input}` already exist')
-                    else:
-                        print('<!> two inputs case unknown')
+                    self._main_spectral_wave_script(input_split, try_input)
                     continue
                 else:
                     print('<!> please check number of input')
