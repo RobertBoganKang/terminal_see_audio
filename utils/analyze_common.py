@@ -79,7 +79,9 @@ class AnalyzeCommon(Common):
     def _get_ifft_data_single(self, fft_single):
         ff1 = np.array(list(fft_single) + list(-fft_single[::-1]))
         ifft_single = np.real(np.fft.ifft(ff1))
-        ifft_single /= np.max(np.abs(ifft_single))
+        max_mag = np.max(np.abs(ifft_single))
+        if max_mag != 0:
+            ifft_single /= max_mag
         return ifft_single[:self.analyze_n_window]
 
     def _ifft_audio_export(self, fft_data):
@@ -184,15 +186,16 @@ class AnalyzeCommon(Common):
             # prepare fft data
             fft_data = self._analyze_get_audio_fft_data(starting_time)
             log_fft_data = self._analyze_log_min_max_transform(fft_data, dynamic_max_value=dynamic_max_value)
+            s_fft_magnitude_ratio_data = self._amplitude_ratio_array(log_fft_data[0], log_fft_data[1])
             v_fft_data = self._max_norm(log_fft_data[0] + log_fft_data[1], min_transform=False)
-            return fft_data, log_fft_data, None, None, v_fft_data
+            return fft_data, log_fft_data, None, s_fft_magnitude_ratio_data, v_fft_data
         else:
             fft_data, phase_data = self._analyze_get_audio_fft_data(starting_time, phase=True)
             log_fft_data = self._analyze_log_min_max_transform(fft_data, dynamic_max_value=dynamic_max_value)
             v_fft_data = self._max_norm(log_fft_data[0] + log_fft_data[1], min_transform=False)
             h_phase_data = phase_data[1] - phase_data[0]
             h_phase_data = np.mod(h_phase_data / 2 / np.pi, 1)
-            s_fft_magnitude_ratio_data = self._amplitude_ratio(log_fft_data[0], log_fft_data[1])
+            s_fft_magnitude_ratio_data = self._amplitude_ratio_array(log_fft_data[0], log_fft_data[1])
             return fft_data, log_fft_data, h_phase_data, s_fft_magnitude_ratio_data, v_fft_data
 
     def _analyze_timestamp_generation(self, starting_time, ending_time):

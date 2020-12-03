@@ -108,6 +108,7 @@ class Common(object):
         self.source_analyzer_path = os.path.join(self.temp_folder, 'source')
         self.source_angle_analyzer_path = os.path.join(self.temp_folder, 'source_angle')
         self.phase_analyzer_path = os.path.join(self.temp_folder, 'phase')
+        self.strings_analyzer_path = os.path.join(self.temp_folder, 'strings')
         self.piano_roll_graphics_path = os.path.join(self.temp_folder, 'piano_roll.png')
         self.tuning_graphics_path = os.path.join(self.temp_folder, 'tuning.png')
         self.audio_part_path = os.path.join(self.temp_folder, 'audio.wav')
@@ -307,12 +308,13 @@ class Common(object):
     def _max_norm(self, array, min_transform=False, dynamic_max_value=False):
         if min_transform:
             array -= np.min(array)
-        if np.max(array) != 0:
+        if np.max(np.abs(array)) != 0:
             if not dynamic_max_value:
                 array /= np.max(np.abs(array))
             else:
                 self.analyze_log_fft_max_value = max(self.analyze_log_fft_max_value, np.max(array))
-                array /= self.analyze_log_fft_max_value
+                if self.analyze_log_fft_max_value != 0:
+                    array /= self.analyze_log_fft_max_value
         return array
 
     def _phase_mode_check(self):
@@ -356,3 +358,10 @@ class Common(object):
             return t[0] / t[1]
         else:
             return 1
+
+    def _amplitude_ratio_array(self, a0, a1):
+        ratios = []
+        for i in range(len(a0)):
+            radio = self._amplitude_ratio(a0[i], a1[i])
+            ratios.append(radio)
+        return ratios

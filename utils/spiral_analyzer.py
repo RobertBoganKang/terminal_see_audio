@@ -38,6 +38,7 @@ class SpiralAnalyzer(AnalyzeCommon):
         hs = ss = None
         if h is not None:
             hs = []
+        if s is not None:
             ss = []
         for i in range(len(array_0)):
             t0 = array_0[i]
@@ -49,6 +50,7 @@ class SpiralAnalyzer(AnalyzeCommon):
                     vs.append(v[i])
                     if h is not None:
                         hs.append(h[i])
+                    if s is not None:
                         ss.append(s[i])
                     pitches.append(pitch)
                     x_position, y_position = self._spiral_pitch_to_plot_position(pitch, -t1 / 2)
@@ -65,13 +67,13 @@ class SpiralAnalyzer(AnalyzeCommon):
             return False
         else:
             # prepare data
-            (fft_data, log_fft_data, h_phase_data, s_fft_magnitude_diff_data,
+            (fft_data, log_fft_data, h_phase_data, s_fft_magnitude_ratio_data,
              v_fft_data) = self._analyze_two_channels_data_preparation(starting_time,
                                                                        dynamic_max_value=dynamic_max_value)
             # prepare position info
             (position_0, position_1, pitches, hs, ss, vs) = self._spiral_polar_transform(log_fft_data,
                                                                                          h_phase_data,
-                                                                                         s_fft_magnitude_diff_data,
+                                                                                         s_fft_magnitude_ratio_data,
                                                                                          v_fft_data)
             min_pitch = pitches[0]
             # pitch ticks for `n` temperament

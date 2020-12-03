@@ -56,7 +56,7 @@ python see.py <input_file>
 #### Analyzer
 
 * analyzers for short period signals, or to generate videos;
-  * `#`: piano, `@`: spiral, `*%`: phase, `*<`: source angle, `*-*`: source location;
+  * `#`: piano, `@`: spiral, `*%`: phase, `*<`: source angle, `*-*`: source location, `|`: strings;
     * `number`: `@10` is to analyze `10~s` spectral;
     * `''`: empty is to plot last analyzed spiral graphics;
     * `two numbers`: generate video of analyzer at starting time & ending time;

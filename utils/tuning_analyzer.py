@@ -34,6 +34,7 @@ class TuningAnalyzer(AnalyzeCommon):
         hs = ss = None
         if h is not None:
             hs = []
+        if s is not None:
             ss = []
         for i in range(len(array_0)):
             if i > 0:
@@ -48,6 +49,7 @@ class TuningAnalyzer(AnalyzeCommon):
                 vs.append(v[i])
                 if h is not None:
                     hs.append(h[i])
+                if s is not None:
                     ss.append(s[i])
         return position_info, hs, ss, vs
 

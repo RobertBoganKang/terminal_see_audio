@@ -9,7 +9,7 @@ sys.path.append(os.path.abspath(__file__))
 
 
 class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, PeakAnalyzer, PlayPitch, TuningAnalyzer,
-                       ShellUtils, SourceAnalyzer, PhaseAnalyzer):
+                       ShellUtils, SourceAnalyzer, PhaseAnalyzer, StringsAnalyzer):
     """
     this class will show audio information in many aspects.
     """
@@ -25,6 +25,7 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
         ShellUtils.__init__(self)
         SourceAnalyzer.__init__(self)
         PhaseAnalyzer.__init__(self)
+        StringsAnalyzer.__init__(self)
 
         # prepare
         self.last_starting = self.last_ending = None
@@ -278,6 +279,11 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
                 command = command[1:].strip()
                 self._main_analyzer_1_or_2_input(command, self._prepare_graph_phase, self._prepare_video_phase,
                                                  self.phase_analyzer_path, 'phase')
+                continue
+            # 1.10 get strings analyzer
+            elif input_.startswith('|'):
+                self._main_analyzer_1_or_2_input(command, self._prepare_graph_strings, self._prepare_video_string,
+                                                 self.strings_analyzer_path, 'strings')
                 continue
 
             # 2. contain space case

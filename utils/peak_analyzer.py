@@ -31,7 +31,8 @@ class PeakAnalyzer(AnalyzeCommon):
                 position_range = [fft_position - half_tuning_range, fft_position + half_tuning_range]
                 around_peak_data = log_fft_data[position_range[0]:position_range[1] + 1]
                 around_peak_data = np.array(around_peak_data)
-                around_peak_data /= np.sum(around_peak_data)
+                if np.sum(around_peak_data) != 0:
+                    around_peak_data /= np.sum(around_peak_data)
                 around_peak_position = np.array(range(position_range[0], position_range[1] + 1))
                 position_weighted_sum = np.sum(around_peak_data * around_peak_position)
                 raw_peak_power = fft_data[fft_position]
