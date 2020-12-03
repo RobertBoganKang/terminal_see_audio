@@ -17,6 +17,7 @@ class StringsAnalyzer(AnalyzeCommon):
         self.strings_ticks_line_width = 0.8
         self.strings_line_width_power_base = 0.7
         self.strings_spectral_ratio_power_transform = 0.4
+        self.strings_cut_diff_ratio_ratio_power_transform = 0.5
         # default for 12 equal temperament
         self.strings_n_temperament = 12
 
@@ -58,15 +59,24 @@ class StringsAnalyzer(AnalyzeCommon):
                     # pitch to `C` as ticks
                     pitch = (pitch * 12 - 3) / 12
                     ratio = frequency / reference_frequency
+                    # cut the edge of edge
+                    if frequency < reference_frequency:
+                        cut_diff_ratio = 1 - (reference_frequency / frequency) / (
+                                1 / 2 ** (-1 / self.strings_n_temperament))
+                        cut_diff_ratio = cut_diff_ratio ** self.strings_cut_diff_ratio_ratio_power_transform
+                    else:
+                        cut_diff_ratio = 1
                     transform_ratio = 1 / ratio ** self.strings_spectral_ratio_power_transform
                     vs.append(v[i])
                     pitches.append(pitch)
                     x_position, y_position = self._strings_frequency_to_plot_position(ratio, string_i,
-                                                                                      t0 / 2 * transform_ratio)
+                                                                                      t0 / 2 * transform_ratio
+                                                                                      * cut_diff_ratio)
                     x_array_0.append(x_position)
                     y_array_0.append(y_position)
                     x_position, y_position = self._strings_frequency_to_plot_position(ratio, string_i,
-                                                                                      -t1 / 2 * transform_ratio)
+                                                                                      -t1 / 2 * transform_ratio
+                                                                                      * cut_diff_ratio)
                     x_array_1.append(x_position)
                     y_array_1.append(y_position)
         return (x_array_0, y_array_0), (x_array_1, y_array_1), pitches, vs
