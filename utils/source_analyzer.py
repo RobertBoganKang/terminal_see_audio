@@ -343,7 +343,6 @@ class SourceAnalyzer(AnalyzeCommon):
                     # pitch to `C` as ticks
                     pitch = (pitch * 12 - 3) / 12
                     d = self._source_distance_difference_from_phase(p0, p1, frequency)
-                    print(d)
                     real_fake_angle, angle = self._source_asymptote_angle(e, d, frequency, sound_speed, p1 - p0)
                     angle = angle % (2 * np.pi)
                     x_position = pitch * np.cos(angle)
