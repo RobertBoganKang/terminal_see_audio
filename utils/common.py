@@ -37,6 +37,8 @@ class Common(object):
         self.max_hearing_frequency = 20000
         # `mono` or `stereo` (>1 channel)
         self.channel_type = 'stereo'
+        # ear nonlinear model (cochlear will transform signal in non-linear form)
+        self.ear_nonlinear = 0
 
         # resolution of frequency (y) dimension
         self.n_window = 1024
@@ -75,6 +77,11 @@ class Common(object):
 
         # plot mode
         plt.style.use('dark_background')
+
+    def _audio_nonlinear_transform(self, arrays, nonlinear):
+        nonlinear_array = (nonlinear + 1) ** ((np.array(arrays) - 1) / 2)
+        nonlinear_array = self._max_norm(nonlinear_array)
+        return nonlinear_array
 
     def _check_audio_duration_valid(self, starting, ending, duration):
         """ check if greater than minimum duration """
@@ -125,6 +132,8 @@ class Common(object):
             raise ValueError(f'audio channel type `{self.channel_type}` unrecognized')
         # fix mono mode
         self.data = np.array(self.data)
+        if self.ear_nonlinear > 1e-3:
+            self.data = self._audio_nonlinear_transform(self.data, self.ear_nonlinear)
         if len(self.data.shape) == 1:
             self.data = np.array([self.data])
         self.channel_num = len(self.data)

@@ -207,9 +207,14 @@ class WaveSpectral(Common):
         self._matplotlib_clear_memory(fig)
         return starting_time, ending_time, True
 
-    def _initial_or_restore_running(self):
+    def _initial_or_restore_running(self, starting_time=None, ending_time=None, plot=True):
         """ first run & restore run """
         self._initialization()
-        self._initialize_spectral(0, self._get_audio_time())
-        self._prepare_graph_audio(0, self._get_audio_time())
-        self._terminal_plot(self.wave_spectral_graphics_path)
+        if starting_time is None:
+            starting_time = 0
+        if ending_time is None:
+            ending_time = self._get_audio_time()
+        self._initialize_spectral(starting_time, ending_time)
+        self._prepare_graph_audio(starting_time, ending_time)
+        if plot:
+            self._terminal_plot(self.wave_spectral_graphics_path)

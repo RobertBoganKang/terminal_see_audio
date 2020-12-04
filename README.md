@@ -46,6 +46,9 @@ python see.py <input_file>
   * `mono` and `stereo` change the channel number to be `1` or `not 1` if have;
   * `spectral` and `phase`: the `phase` mode will consider phase into the program if channel number is 2;
   * example: `m fft` means switch to `fft` mode;
+* `nonlinear`: simulate the nonlinear effect due to the physical structure of ear/cochlea when hearing a very loud sound;
+  * `number`: nonlinear coefficient (sound louder, number will be larger);
+  * example: `nonlinear 5` will transform audio into nonlinear form at the parameter of `5`;
 * `sr`: change the sample rate of showing audio;
   * example: `sr 16000` means switch to `16000Hz` sample rate;
 * `o`: change the input audio file path;

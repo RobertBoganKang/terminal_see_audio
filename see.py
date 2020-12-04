@@ -31,6 +31,10 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
         self.last_starting = self.last_ending = None
         self.last_analyze_starting = self.last_analyze_ending = None
 
+    def _main_reset_time(self):
+        self.last_starting = 0
+        self.last_ending = self._get_audio_time()
+
     def _main_analyzer_1_or_2_input(self, command, prepare_graph_function, prepare_video_function, temp_analyzer_path,
                                     analyzer_name):
         # x.x.1 number as staring time
@@ -189,10 +193,8 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
                     self.input = os.path.abspath(try_input)
                     self._initialize_audio()
                     print('<+> file path changed')
-                    self._initial_or_restore_running()
                     # reset time
-                    self.last_starting = 0
-                    self.last_ending = self._get_audio_time()
+                    self._main_reset_time()
             else:
                 print(f'<!> file path `{try_input}` does not exist')
         # 2.2.4 change the temp folder path
@@ -206,6 +208,15 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
                 self._initialize_temp()
             else:
                 print(f'<!> file path `{try_input}` already exist')
+        # 2.2.5 ear nonlinear model transform
+        elif input_split[0] == 'nonlinear':
+            if self._is_float(input_split[1]) and float(input_split[1]) >= 0:
+                self.ear_nonlinear = float(input_split[1])
+                self._initial_or_restore_running(starting_time=self.last_starting, ending_time=self.last_ending,
+                                                 plot=False)
+                print(f'<+> `ear/cochlear nonlinear parameter` is set to `{self.ear_nonlinear}`')
+            else:
+                print('<!> `ear/cochlear nonlinear parameter` should be float and `>0`')
         else:
             print('<!> two inputs case unknown')
 
@@ -328,8 +339,7 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
                 print('<!> reset all')
                 self._initial_or_restore_running()
                 # reset time
-                self.last_starting = 0
-                self.last_ending = self._get_audio_time()
+                self._main_reset_time()
             # 3.6 `h` to print help file
             elif input_ == 'h':
                 self.print_help()
