@@ -13,7 +13,7 @@ class SourceAnalyzer(AnalyzeCommon):
         # room temperature
         self.temperature = 20
         # figure space limit
-        self.source_figure_space_limit = 3
+        self.source_figure_space_limit = 5
 
         self.source_line_width = 1.5
         self.source_figure_size = (15, 15)

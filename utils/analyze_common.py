@@ -34,7 +34,7 @@ class AnalyzeCommon(Common):
         self.flower_baseline_color = 'dimgray'
 
         # minimum source power
-        self.flower_min_power = 0.001
+        self.flower_min_power = 0.005
         self.flower_min_analyze_power = 0.05
         self.flower_min_angle_connection = 30
 
