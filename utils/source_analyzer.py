@@ -13,7 +13,7 @@ class SourceAnalyzer(AnalyzeCommon):
         # room temperature
         self.temperature = 20
         # figure space limit
-        self.source_figure_space_limit = 5
+        self.source_figure_space_limit = 3
 
         self.source_line_width = 1.5
         self.source_figure_size = (15, 15)
@@ -277,9 +277,7 @@ class SourceAnalyzer(AnalyzeCommon):
                 # power = powers[i]
                 root_energy = energy ** (1 / 2)
                 mean_energy = ((energies[i] + energies[i + 1]) / 2) ** 0.8
-                color = self._hsb_to_rgb(pitch % 1,
-                                         ratio_array[i],
-                                         1)
+                color = self._hsb_to_rgb(pitch % 1, 1, 1)
                 if i_s[i + 1] - i_s[i] == 1:
                     ax.plot([x_positions[i], x_positions[i + 1]],
                             [y_positions[i], y_positions[i + 1]], c=color, alpha=mean_energy, zorder=1,
