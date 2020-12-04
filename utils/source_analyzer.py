@@ -2,16 +2,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.patches import Circle, Arc
 
-from utils.analyze_common import AnalyzeCommon
+from utils.flower_common import FlowerCommon
 
 
-class SourceAnalyzer(AnalyzeCommon):
+class SourceAnalyzer(FlowerCommon):
     def __init__(self):
         super().__init__()
-        # https://en.wikipedia.org/wiki/Sound_localization
-        self.ear_distance = 0.215
-        # room temperature
-        self.temperature = 20
         # figure space limit
         self.source_figure_space_limit = 3
 
@@ -40,7 +36,7 @@ class SourceAnalyzer(AnalyzeCommon):
 
     def _source_distance_difference_from_phase(self, p0, p1, frequency, cycle=0):
         """ distance difference is negative phase difference """
-        wave_length = self._source_sound_speed() / frequency
+        wave_length = self._analyze_sound_speed() / frequency
         phase_portion = (p0 - p1) / (2 * np.pi)
         phase_portion = (phase_portion + 0.5) % 1 - 0.5 + cycle
         return phase_portion * wave_length
@@ -48,10 +44,6 @@ class SourceAnalyzer(AnalyzeCommon):
     @staticmethod
     def _source_angle_norm(angle):
         return (angle + np.pi) % (2 * np.pi) - np.pi
-
-    def _source_sound_speed(self):
-        """ sound speed will change by temperature """
-        return 331 * (1 + self.temperature / 273) ** (1 / 2)
 
     @staticmethod
     def _source_power(a_x, d_x):
@@ -204,7 +196,7 @@ class SourceAnalyzer(AnalyzeCommon):
         i_s = []
         real_fake_array = []
         e = self.ear_distance / 2
-        sound_speed = self._source_sound_speed()
+        sound_speed = self._analyze_sound_speed()
         for i in range(len(array_0)):
             t0 = array_0[i]
             t1 = array_1[i]
@@ -217,7 +209,7 @@ class SourceAnalyzer(AnalyzeCommon):
                 frequency = self._fft_position_to_frequency(i)
                 pitch = self._frequency_to_pitch(frequency)
                 energy = (lt0 + lt1) / 2
-                if pitch > 0 and energy > self.flower_min_power:
+                if pitch > 0 and energy > self.flower_min_source_power:
                     # pitch to `C` as ticks
                     pitch = (pitch * 12 - 3) / 12
                     # from eq. {2.6}
@@ -313,7 +305,7 @@ class SourceAnalyzer(AnalyzeCommon):
             return True
 
     def _source_angle_position_transform(self, arrays, phases):
-        sound_speed = self._source_sound_speed()
+        sound_speed = self._analyze_sound_speed()
         array_0 = arrays[0]
         array_1 = arrays[1]
         phase_0 = phases[0]
@@ -402,10 +394,10 @@ class SourceAnalyzer(AnalyzeCommon):
                     face_color = 'black'
                 ax.plot([x_positions[i], x_peaks[i]],
                         [y_positions[i], y_peaks[i]], c=color, linewidth=self.flower_line_width, alpha=energy, zorder=2)
-                if i != 0 and self._analyze_get_angle(x_positions[i],
-                                                      x_positions[i - 1],
-                                                      y_positions[i],
-                                                      y_positions[i - 1]) \
+                if i != 0 and self._flower_get_angle(x_positions[i],
+                                                     x_positions[i - 1],
+                                                     y_positions[i],
+                                                     y_positions[i - 1]) \
                         < self.flower_min_angle_connection / 180 * np.pi:
                     ax.plot([x_positions[i], x_positions[i - 1]],
                             [y_positions[i], y_positions[i - 1]], c=color,

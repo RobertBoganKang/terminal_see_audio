@@ -70,6 +70,8 @@ python see.py <input_file>
 * `>`: to play sine wave the given frequency;
   * `number+Hz`: to play sound directly from number of frequency; `>440Hz` is to play sound at `440Hz`;
   * `music notes name`: to play sound translate from music notes; `>a4` is to play `a4` notes; `>a4-50c` is to play sound at `a4` but with `50` cents lower;
+  * `number+m`: define sound source distance;
+  * `number+rad` or `number+deg`: define sound source angle;
 
 #### Advanced
 

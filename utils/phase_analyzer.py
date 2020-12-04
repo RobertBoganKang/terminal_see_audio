@@ -2,10 +2,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.patches import Circle
 
-from utils.analyze_common import AnalyzeCommon
+from utils.flower_common import FlowerCommon
 
 
-class PhaseAnalyzer(AnalyzeCommon):
+class PhaseAnalyzer(FlowerCommon):
     def __init__(self):
         super().__init__()
 
@@ -80,11 +80,11 @@ class PhaseAnalyzer(AnalyzeCommon):
                                          ratio_array[i],
                                          1)
                 ax.plot([x_positions[i], x_peaks[i]],
-                        [y_positions[i], y_peaks[i]], c=color,linewidth=self.flower_line_width, alpha=energy, zorder=2)
-                if i != 0 and self._analyze_get_angle(x_positions[i],
-                                                      x_positions[i - 1],
-                                                      y_positions[i],
-                                                      y_positions[i - 1]) \
+                        [y_positions[i], y_peaks[i]], c=color, linewidth=self.flower_line_width, alpha=energy, zorder=2)
+                if i != 0 and self._flower_get_angle(x_positions[i],
+                                                     x_positions[i - 1],
+                                                     y_positions[i],
+                                                     y_positions[i - 1]) \
                         < self.flower_min_angle_connection / 180 * np.pi:
                     ax.plot([x_positions[i], x_positions[i - 1]],
                             [y_positions[i], y_positions[i - 1]], c=color,
