@@ -59,7 +59,7 @@ class StringsAnalyzer(AnalyzeCommon):
                     # pitch to `C` as ticks
                     pitch = (pitch * 12 - 3) / 12
                     ratio = frequency / reference_frequency
-                    # cut the edge of edge
+                    # cut the left edge
                     if frequency < reference_frequency:
                         cut_diff_ratio = 1 - (reference_frequency / frequency) / (
                                 1 / 2 ** (-1 / self.strings_n_temperament))

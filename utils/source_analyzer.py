@@ -13,11 +13,11 @@ class SourceAnalyzer(AnalyzeCommon):
         # room temperature
         self.temperature = 20
         # figure space limit
-        self.source_figure_space_limit = 5
+        self.source_figure_space_limit = 3
 
         self.source_line_width = 1.5
-        self.source_figure_size = (15, 7)
-        self.source_axis_color = 'dimgray'
+        self.source_figure_size = (15, 15)
+        self.source_axis_color = 'snow'
 
     @staticmethod
     def _source_x_position(d, e, rt):
@@ -28,10 +28,20 @@ class SourceAnalyzer(AnalyzeCommon):
         return -((d ** 2 - 4 * e ** 2) * (-4 * e ** 2 * (-1 + rt) ** 2 + d ** 2 * (1 + rt) ** 2)) / (
                 16 * e ** 2 * (-1 + rt) ** 2)
 
+    @staticmethod
+    def _source_xy_fake_position(e, rt, tana):
+        sqrt_term = e ** 2 * (4 * rt ** 2 - tana ** 2 * (-1 + rt ** 2) ** 2)
+        if sqrt_term > 0:
+            x_position = (e + e * rt ** 2 + np.sqrt(sqrt_term)) / ((1 + tana ** 2) * (-1 + rt ** 2))
+            y_position = ((tana * (e + e * rt ** 2 + np.sqrt(sqrt_term))) / ((1 + tana ** 2) * (-1 + rt ** 2)))
+            return x_position, y_position
+        else:
+            return None, None
+
     def _source_distance_difference_from_phase(self, p0, p1, frequency, cycle=0):
         """ distance difference is negative phase difference """
         wave_length = self._source_sound_speed() / frequency
-        phase_portion = (p1 - p0) / (2 * np.pi)
+        phase_portion = (p0 - p1) / (2 * np.pi)
         phase_portion = (phase_portion + 0.5) % 1 - 0.5 + cycle
         return phase_portion * wave_length
 
@@ -93,6 +103,7 @@ class SourceAnalyzer(AnalyzeCommon):
             if y_div_x_pow_2 >= 0:
                 y_div_x = sign * np.sqrt(y_div_x_pow_2)
                 angle = np.arctan(y_div_x)
+                angle %= np.pi
                 return True, angle
             else:
                 phase_diff = abs(self._source_angle_norm(phase_diff))
@@ -145,12 +156,12 @@ class SourceAnalyzer(AnalyzeCommon):
                 `delta`: area of receiver;
                 {2.1} --> pA=`delta`/`area_A`; pB=`delta`/`area_B`;
                 {2.2} --> `area_A`=4*pi*(dA^2); `area_B`=4*pi*(dB^2);
-                {2.3} --> rt=dA/dB
+                {2.3} --> rt=dA/dB;
                 {2.4} ~~> pA/pB=(dA/dB)^(-2);
             * aA, aB: amplitude of receiver received from A and B;
                 then the power of sine wave from {4.1};
                 {2.5} --> pA = aA^2 / 2; pB = aB^2 / 2;
-                {2.6} ~~> rt = dA/dB=aB/aA
+                {2.6} ~~> rt = dA/dB=aB/aA;
         --------------------------------------------------
         calculate source position:
         MATHEMATICA:>
@@ -159,10 +170,24 @@ class SourceAnalyzer(AnalyzeCommon):
             result = Solve[{dA - dB == d, dA/dB == rt}, {xt, yt}];
             FullSimplify[{xt, yt^2} /. result[[2]]]
         --------------------------------------------------
-        {3} output:
-            {3.1} --> xt=(d^2 * (1 + rt))/(4 * e * (-1 + rt))
-            {3.2} --> yt^2=-((d^2 - 4 * e^2)*(-4 * e^2 * (-1 + rt)^2 + d^2 * (1 + rt)^2))/(16 * e^2 * (-1 + rt)^2)
-            {3.3} --> yt^2 >= 0
+        {3} output real:
+            {3.1} --> xt=(d^2 * (1 + rt))/(4 * e * (-1 + rt));
+            {3.2} --> yt^2=-((d^2 - 4 * e^2)*(-4 * e^2 * (-1 + rt)^2 + d^2 * (1 + rt)^2))/(16 * e^2 * (-1 + rt)^2);
+            {3.3} --> yt^2 >= 0;
+        --------------------------------------------------
+        fake position:
+            alpha calculated from asymptote angle;
+        MATHEMATICA:>
+            dA = ((xt + e)^2 + yt^2)^(1/2);
+            dB = ((xt - e)^2 + yt^2)^(1/2);
+            result = Solve[{yt/xt == tana, dA/dB == rt}, {xt, yt}];
+            FullSimplify[{xt, yt} /. result[[2]]]
+        --------------------------------------------------
+        {7} output fake:
+            tana: tan(alpha);
+            alpha: fake angle;
+            {7.1} --> xt=(e + e*rt^2 + sqrt(e^2*(4*rt^2 - (-1 + rt^2)^2*tana^2)))/((-1 + rt^2)*(1 + tana^2))
+            {7.2} --> yt=(tana*(e + e*rt^2 + sqrt(e^2*(4*rt^2 - (-1 + rt^2)^2*tana^2))))/((-1 + rt^2)*(1 + tana^2))
         """
         array_0 = arrays[0]
         array_1 = arrays[1]
@@ -177,7 +202,9 @@ class SourceAnalyzer(AnalyzeCommon):
         pitches = []
         ratio_array = []
         i_s = []
+        real_fake_array = []
         e = self.ear_distance / 2
+        sound_speed = self._source_sound_speed()
         for i in range(len(array_0)):
             t0 = array_0[i]
             t1 = array_1[i]
@@ -196,11 +223,30 @@ class SourceAnalyzer(AnalyzeCommon):
                     # from eq. {2.6}
                     rt = t1 / t0
                     d = self._source_distance_difference_from_phase(p0, p1, frequency)
-                    x_position = self._source_x_position(d, e, rt)
                     y_square_position = self._source_y_square_position(d, e, rt)
+                    append_status = False
                     if y_square_position > 0:
+                        # real angle position
+                        x_position = self._source_x_position(d, e, rt)
                         y_position = y_square_position ** (1 / 2)
-                        power = self._source_power(t0, (x_position ** 2 + y_square_position) ** (1 / 2))
+                        append_status = True
+                        real_fake_array.append(True)
+                    else:
+                        # get fake angle positions
+                        status, fake_angle = self._source_asymptote_angle(e, d, frequency, sound_speed, p1 - p0)
+                        if not status:
+                            tana = np.tan(fake_angle)
+                            x_position, y_position = self._source_xy_fake_position(e, rt, tana)
+                            if x_position is not None:
+                                if y_position > 0:
+                                    x_position = -x_position
+                                    y_position = -y_position
+                                append_status = True
+                                real_fake_array.append(False)
+                    if append_status:
+                        # append positions
+                        # noinspection PyUnboundLocalVariable
+                        power = self._source_power(t0, (x_position ** 2 + y_position ** 2) ** (1 / 2))
                         x_array.append(x_position)
                         y_array.append(y_position)
                         p_array.append(power)
@@ -208,7 +254,7 @@ class SourceAnalyzer(AnalyzeCommon):
                         pitches.append(pitch)
                         ratio_array.append(self._amplitude_ratio(lt0, lt1))
                         i_s.append(i)
-        return x_array, y_array, p_array, e_array, pitches, ratio_array, i_s
+        return x_array, y_array, p_array, e_array, pitches, ratio_array, real_fake_array, i_s
 
     def _prepare_graph_source(self, starting_time, save_path=None, dynamic_max_value=False):
         valid = self._check_analyze_duration(starting_time)
@@ -219,7 +265,8 @@ class SourceAnalyzer(AnalyzeCommon):
             log_fft_data = self._analyze_log_min_max_transform(fft_data, dynamic_max_value=dynamic_max_value)
             (x_positions, y_positions,
              powers, energies,
-             pitches, ratio_array, i_s) = self._source_position_transform(fft_data, log_fft_data, phase_data)
+             pitches, ratio_array,
+             rf_array, i_s) = self._source_position_transform(fft_data, log_fft_data, phase_data)
             # making plots
             fig = plt.figure(figsize=self.source_figure_size)
             ax = fig.add_subplot(111)
@@ -237,9 +284,12 @@ class SourceAnalyzer(AnalyzeCommon):
                     ax.plot([x_positions[i], x_positions[i + 1]],
                             [y_positions[i], y_positions[i + 1]], c=color, alpha=mean_energy, zorder=1,
                             linewidth=self.source_line_width)
-                cir_end = Circle((x_positions[i], y_positions[i]), radius=root_energy / 15, edgecolor=color,
-                                 facecolor=color, linewidth=self.source_line_width,
-                                 zorder=2, alpha=root_energy)
+                if rf_array[i]:
+                    face_color = color
+                else:
+                    face_color = 'black'
+                cir_end = Circle((x_positions[i], y_positions[i]), radius=root_energy / 20, edgecolor=color,
+                                 facecolor=face_color, linewidth=self.source_line_width, zorder=2, alpha=root_energy)
                 ax.add_patch(cir_end)
 
             # set figure ratio
@@ -250,7 +300,7 @@ class SourceAnalyzer(AnalyzeCommon):
             ax.spines['bottom'].set_color(self.source_axis_color)
             ax.tick_params(axis='x', colors=self.source_axis_color)
             ax.tick_params(axis='y', colors=self.source_axis_color)
-            ax.set_ylim(bottom=-0.5, top=self.source_figure_space_limit)
+            ax.set_ylim(bottom=-self.source_figure_space_limit, top=self.source_figure_space_limit)
             ax.set_xlim(left=-self.source_figure_space_limit, right=self.source_figure_space_limit)
 
             # save figure
@@ -293,9 +343,9 @@ class SourceAnalyzer(AnalyzeCommon):
                     # pitch to `C` as ticks
                     pitch = (pitch * 12 - 3) / 12
                     d = self._source_distance_difference_from_phase(p0, p1, frequency)
+                    print(d)
                     real_fake_angle, angle = self._source_asymptote_angle(e, d, frequency, sound_speed, p1 - p0)
-                    # rotate angle by `pi/2`
-                    angle = self._source_angle_norm(angle) + np.pi / 2
+                    angle = angle % (2 * np.pi)
                     x_position = pitch * np.cos(angle)
                     y_position = pitch * np.sin(angle)
                     x_peak_position = (pitch + np.power(energy,
