@@ -23,7 +23,7 @@ class FlowerCommon(AnalyzeCommon):
         # minimum source power
         self.flower_min_source_power = 0.005
         self.flower_min_analyze_power = 0.05
-        self.flower_min_angle_connection = 30
+        self.flower_min_angle_connection = 45
 
     @staticmethod
     def _flower_get_angle(x0, x1, y0, y1):
