@@ -106,7 +106,7 @@ class SourceAnalyzer(FlowerCommon):
                 return True, angle
             else:
                 phase_diff = self._source_angle_norm(phase_diff)
-                sign = np.sign(phase_diff)
+                sign = -np.sign(phase_diff)
                 margin_phase = 2 * e * f / v
                 # rotate quarter circle
                 fake_angle = sign * (
