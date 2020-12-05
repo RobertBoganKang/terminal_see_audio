@@ -9,20 +9,27 @@ class SourceAnalyzer(FlowerCommon):
     def __init__(self):
         super().__init__()
         # figure space limit
-        self.source_figure_space_limit = 3
+        self.source_figure_space_limit = 2
 
         self.source_line_width = 1.5
-        self.source_figure_size = (15, 15)
+        self.source_figure_size = (12, 12)
         self.source_axis_color = 'snow'
+        self.source_human_color = '#222'
 
     @staticmethod
     def _source_x_position(d, e, rt):
-        return (d ** 2 * (1 + rt)) / (4 * e * (-1 + rt))
+        if rt != 1:
+            return (d ** 2 * (1 + rt)) / (4 * e * (-1 + rt))
+        else:
+            return 0
 
     @staticmethod
     def _source_y_square_position(d, e, rt):
-        return -((d ** 2 - 4 * e ** 2) * (-4 * e ** 2 * (-1 + rt) ** 2 + d ** 2 * (1 + rt) ** 2)) / (
-                16 * e ** 2 * (-1 + rt) ** 2)
+        if rt != 1:
+            return -((d ** 2 - 4 * e ** 2) * (-4 * e ** 2 * (-1 + rt) ** 2 + d ** 2 * (1 + rt) ** 2)) / (
+                    16 * e ** 2 * (-1 + rt) ** 2)
+        else:
+            return 0
 
     @staticmethod
     def _source_xy_fake_position(e, rt, tana):
@@ -100,10 +107,12 @@ class SourceAnalyzer(FlowerCommon):
             else:
                 phase_diff = abs(self._source_angle_norm(phase_diff))
                 margin_phase = 2 * e * f / v
-                fake_angle = sign * (np.pi / 2 * (phase_diff - margin_phase) / (np.pi - margin_phase) + np.pi / 2)
+                # rotate quarter circle
+                fake_angle = -sign * (
+                        np.pi / 2 * (phase_diff - margin_phase) / (np.pi - margin_phase) + np.pi / 2) + np.pi / 2
                 return False, fake_angle
         else:
-            return True, 0
+            return True, np.pi / 2
 
     def _source_position_transform(self, arrays, log_arrays, phases):
         """
@@ -225,8 +234,9 @@ class SourceAnalyzer(FlowerCommon):
                         real_fake_array.append(True)
                     else:
                         # get fake angle positions
-                        status, fake_angle = self._source_asymptote_angle(e, d, frequency, sound_speed, p1 - p0)
-                        if not status:
+                        real_fake_status, fake_angle = self._source_asymptote_angle(e, d, frequency, sound_speed,
+                                                                                    p0 - p1)
+                        if not real_fake_status:
                             tana = np.tan(fake_angle)
                             x_position, y_position = self._source_xy_fake_position(e, rt, tana)
                             if x_position is not None:
@@ -262,7 +272,19 @@ class SourceAnalyzer(FlowerCommon):
             # making plots
             fig = plt.figure(figsize=self.source_figure_size)
             ax = fig.add_subplot(111)
-            # plot grass
+            # plot human ear
+            cir_head = Circle((0, 0), radius=self.ear_distance / 2,
+                              edgecolor=self.source_human_color,
+                              facecolor=self.source_human_color, linewidth=self.source_line_width, zorder=2, alpha=0.9)
+            ax.add_patch(cir_head)
+            for x_position in [-self.ear_distance / 2, self.ear_distance / 2]:
+                cir_ear = Circle((x_position, 0), radius=self.ear_distance / 6,
+                                 edgecolor=self.source_human_color,
+                                 facecolor=self.source_human_color, linewidth=self.source_line_width, zorder=1,
+                                 alpha=0.9)
+                ax.add_patch(cir_ear)
+
+            # plot stars
             for i in range(len(x_positions) - 1):
                 pitch = pitches[i]
                 energy = energies[i]
@@ -272,15 +294,15 @@ class SourceAnalyzer(FlowerCommon):
                 color = self._hsb_to_rgb(pitch % 1, 1, 1)
                 if i_s[i + 1] - i_s[i] == 1:
                     ax.plot([x_positions[i], x_positions[i + 1]],
-                            [y_positions[i], y_positions[i + 1]], c=color, alpha=mean_energy, zorder=1,
+                            [y_positions[i], y_positions[i + 1]], c=color, alpha=mean_energy, zorder=3,
                             linewidth=self.source_line_width)
                 if rf_array[i]:
                     face_color = color
                 else:
                     face_color = 'black'
-                cir_end = Circle((x_positions[i], y_positions[i]), radius=root_energy / 20, edgecolor=color,
-                                 facecolor=face_color, linewidth=self.source_line_width, zorder=2, alpha=root_energy)
-                ax.add_patch(cir_end)
+                cir_head = Circle((x_positions[i], y_positions[i]), radius=energy / 15, edgecolor=color,
+                                  facecolor=face_color, linewidth=self.source_line_width, zorder=4, alpha=root_energy)
+                ax.add_patch(cir_head)
 
             # set figure ratio
             self._set_1to1_ratio_figure(axis=True)
@@ -333,8 +355,7 @@ class SourceAnalyzer(FlowerCommon):
                     # pitch to `C` as ticks
                     pitch = (pitch * 12 - 3) / 12
                     d = self._source_distance_difference_from_phase(p0, p1, frequency)
-                    real_fake_angle, angle = self._source_asymptote_angle(e, d, frequency, sound_speed, p1 - p0)
-                    angle = angle % (2 * np.pi)
+                    real_fake_status, angle = self._source_asymptote_angle(e, d, frequency, sound_speed, p1 - p0)
                     x_position = pitch * np.cos(angle)
                     y_position = pitch * np.sin(angle)
                     x_peak_position = (pitch + np.power(energy,
@@ -348,7 +369,7 @@ class SourceAnalyzer(FlowerCommon):
                     e_array.append(energy)
                     pitches.append(pitch)
                     ratio_array.append(self._amplitude_ratio(t0, t1))
-                    rf_angles.append(real_fake_angle)
+                    rf_angles.append(real_fake_status)
 
         return x_array, y_array, x_peak, y_peak, e_array, pitches, ratio_array, rf_angles
 
