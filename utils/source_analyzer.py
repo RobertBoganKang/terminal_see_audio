@@ -98,18 +98,19 @@ class SourceAnalyzer(FlowerCommon):
         """
         if d != 0:
             y_div_x_pow_2 = 4 * e ** 2 / d ** 2 - 1
-            sign = np.sign(d)
             if y_div_x_pow_2 >= 0:
+                sign = np.sign(d)
                 y_div_x = sign * np.sqrt(y_div_x_pow_2)
                 angle = np.arctan(y_div_x)
                 angle %= np.pi
                 return True, angle
             else:
-                phase_diff = abs(self._source_angle_norm(phase_diff))
+                phase_diff = self._source_angle_norm(phase_diff)
+                sign = np.sign(phase_diff)
                 margin_phase = 2 * e * f / v
                 # rotate quarter circle
-                fake_angle = -sign * (
-                        np.pi / 2 * (phase_diff - margin_phase) / (np.pi - margin_phase) + np.pi / 2) + np.pi / 2
+                fake_angle = sign * (
+                        np.pi / 2 * (abs(phase_diff) - margin_phase) / (np.pi - margin_phase) + np.pi / 2) + np.pi / 2
                 return False, fake_angle
         else:
             return True, np.pi / 2
@@ -235,7 +236,7 @@ class SourceAnalyzer(FlowerCommon):
                     else:
                         # get fake angle positions
                         real_fake_status, fake_angle = self._source_asymptote_angle(e, d, frequency, sound_speed,
-                                                                                    p0 - p1)
+                                                                                    p1 - p0)
                         if not real_fake_status:
                             tana = np.tan(fake_angle)
                             x_position, y_position = self._source_xy_fake_position(e, rt, tana)
@@ -355,7 +356,7 @@ class SourceAnalyzer(FlowerCommon):
                     # pitch to `C` as ticks
                     pitch = (pitch * 12 - 3) / 12
                     d = self._source_distance_difference_from_phase(p0, p1, frequency)
-                    real_fake_status, angle = self._source_asymptote_angle(e, d, frequency, sound_speed, p1 - p0)
+                    real_fake_status, angle = self._source_asymptote_angle(e, d, frequency, sound_speed, p0 - p1)
                     x_position = pitch * np.cos(angle)
                     y_position = pitch * np.sin(angle)
                     x_peak_position = (pitch + np.power(energy,
