@@ -7,7 +7,6 @@ from utils.analyze_common import AnalyzeCommon
 class PlayPitch(AnalyzeCommon):
     def __init__(self):
         super().__init__()
-        self.pitch_play_time = 0.8
 
     def _pitch_extract_space_info(self, frequency, angle, distance):
         e = self.ear_distance / 2
@@ -25,11 +24,11 @@ class PlayPitch(AnalyzeCommon):
             amp = [rt, 1]
         return amp, phi
 
-    def _pitch_generate_wave(self, frequency, angle, distance):
+    def _pitch_generate_wave(self, frequency, angle, distance, duration):
         """ get wave data for specific frequency """
         wave_data = []
         amp, phi = self._pitch_extract_space_info(frequency, angle, distance)
-        for i in range(int(self.pitch_play_time * self.sample_rate)):
+        for i in range(int(duration * self.sample_rate)):
             t = (i / self.sample_rate)
             wave_data.append([amp[0] * np.sin(frequency * 2 * np.pi * t + 2 * np.pi * phi),
                               amp[1] * np.sin(frequency * 2 * np.pi * t)])
@@ -41,6 +40,7 @@ class PlayPitch(AnalyzeCommon):
         # default settings
         distance = 1
         angle = 0
+        duration = 0.8
         # get inputs
         for input_ in inputs:
             frequency_candidate = self._translate_string_to_frequency(input_)
@@ -55,6 +55,9 @@ class PlayPitch(AnalyzeCommon):
             if input_.lower().endswith('rad'):
                 if self._is_float(input_[:-3]):
                     angle = float(input_[:-3]) / np.pi * 180
+            if input_.lower().endswith('s'):
+                if self._is_float(input_[:-1]):
+                    duration = float(input_[:-1])
         if frequency is None:
             print(f'<!> pitch input `{string}` unknown or frequency too high')
             return False
@@ -63,7 +66,7 @@ class PlayPitch(AnalyzeCommon):
             if frequency > self.max_hearing_frequency:
                 print(f'<!> higher than hearing frequency `{show_frequency}Hz` (>`{self.max_hearing_frequency}Hz`)')
                 return False
-            print(f'<*> `{show_frequency}Hz` ~~> `{distance}m` ~~> `{round(angle, 3)}deg`')
-            wave_data = self._pitch_generate_wave(frequency, angle, distance)
+            print(f'<*> `{show_frequency}Hz` ~~> `{distance}m` ~~> `{round(angle, 3)}deg` ~~> `{round(duration)}s`')
+            wave_data = self._pitch_generate_wave(frequency, angle, distance, duration)
             sf.write(self.pitch_audio_path, wave_data, samplerate=self.sample_rate)
             return True

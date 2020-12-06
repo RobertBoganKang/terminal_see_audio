@@ -75,8 +75,9 @@ python see.py <input_file>
   * `music notes name`: to play sound translate from music notes; `>a4` is to play `a4` notes; `>a4-50c` is to play sound at `a4` but with `50` cents lower;
   * `number+m`: define sound source distance;
   * `number+rad` or `number+deg`: define sound source angle;
+  * `number+s`: define duration to play;
 
-#### Advanced
+#### Programming
 
 * `=` (WARNING: may cause fatal crash): to `eval` in python (simple calculation) or to `exec` in python (set system parameters);
   * example: `=1+1` to get answer `2`;
