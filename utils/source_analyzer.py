@@ -423,7 +423,7 @@ class SourceAnalyzer(FlowerCommon):
                                                      y_positions[i],
                                                      y_positions[i - 1]) \
                         < self.flower_min_angle_connection / 180 * np.pi:
-                    if i_s[i] - i_s[i] == 1:
+                    if i_s[i] - i_s[i - 1] == 1:
                         ax.plot([x_positions[i], x_positions[i - 1]],
                                 [y_positions[i], y_positions[i - 1]], c=color,
                                 linewidth=self.flower_ground_line_width,
