@@ -102,7 +102,7 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
             try:
                 exec(command)
                 self._initialization()
-                self._prepare_graph_audio(self.last_starting, self.last_ending)
+                self._prepare_graph_wave_spectral(self.last_starting, self.last_ending)
                 print(f'<*> executed `{command}`')
                 command_success = True
                 return
@@ -149,24 +149,24 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
     def _main_spectral_wave_script(self, input_split, try_input):
         # 2.2.0 set time parameters for wave spectral plot
         if self._is_float(input_split[0]) and self._is_float(input_split[1]):
-            self.last_starting, self.last_ending, valid = self._prepare_graph_audio(float(input_split[0]),
-                                                                                    float(input_split[1]))
+            self.last_starting, self.last_ending, valid = self._prepare_graph_wave_spectral(float(input_split[0]),
+                                                                                            float(input_split[1]))
             if valid:
                 self._terminal_plot(self.wave_spectral_graphics_path)
         # 2.2.1 set modes
         elif input_split[0] == 'm':
             if input_split[1] in self.graphics_modes:
                 if input_split[1] in ['fft', 'fbank']:
-                    self.spectral_transform_y = input_split[1]
+                    self.ws_spectral_transform_y = input_split[1]
                 elif input_split[1] in ['power', 'log']:
-                    self.spectral_transform_v = input_split[1]
+                    self.ws_spectral_transform_v = input_split[1]
                 elif input_split[1] in ['mono', 'stereo']:
                     self.channel_type = input_split[1]
                     self._initialize_audio()
-                elif input_split[1] in ['spectral', 'phase']:
-                    self.spectral_phase_mode = input_split[1]
+                elif input_split[1] in ['spectral', 'phase', 'entropy']:
+                    self.ws_spectral_mode = input_split[1]
                 # recalculating
-                self._prepare_graph_audio(self.last_starting, self.last_ending)
+                self._prepare_graph_wave_spectral(self.last_starting, self.last_ending)
                 print(f'<+> mode `{input_split[1]}` set')
             else:
                 print(
@@ -178,7 +178,7 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
                     self.sample_rate = int(input_split[1])
                     self._initialization()
                     # recalculating
-                    self._prepare_graph_audio(self.last_starting, self.last_ending)
+                    self._prepare_graph_wave_spectral(self.last_starting, self.last_ending)
                     print(f'<+> sample rate `{input_split[1]}` set')
                 else:
                     print(f'<!> sample rate `{input_split[1]}` (< {self.min_sample_rate}) too low')
@@ -212,8 +212,8 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
         elif input_split[0] == 'nonlinear':
             if self._is_float(input_split[1]) and float(input_split[1]) >= 0:
                 self.ear_nonlinear = float(input_split[1])
-                self._initial_or_restore_running(starting_time=self.last_starting, ending_time=self.last_ending,
-                                                 plot=False)
+                self._ws_initial_or_restore_running(starting_time=self.last_starting, ending_time=self.last_ending,
+                                                    plot=False)
                 print(f'<+> `ear/cochlear nonlinear parameter` is set to `{self.ear_nonlinear}`')
             else:
                 print('<!> `ear/cochlear nonlinear parameter` should be float and `>0`')
@@ -230,7 +230,7 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
         self.last_starting = 0
         self.last_ending = self._get_audio_time()
         # 0. first run
-        self._initial_or_restore_running()
+        self._ws_initial_or_restore_running()
         # loop to get inputs
         while True:
             print('-' * 50)
@@ -337,7 +337,7 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
             # 3.5 `r` to reset all
             elif input_ == 'r':
                 print('<!> reset all')
-                self._initial_or_restore_running()
+                self._ws_initial_or_restore_running()
                 # reset time
                 self._main_reset_time()
             # 3.6 `h` to print help file

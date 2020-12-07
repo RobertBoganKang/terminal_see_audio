@@ -10,23 +10,34 @@ class WaveSpectral(Common):
     def __init__(self):
         super().__init__()
         # spectral mode
-        self.spectral_transform_y = 'fbank'
-        self.spectral_transform_v = 'log'
-        self.spectral_phase_mode = 'spectral'
+        self.ws_spectral_transform_y = 'fbank'
+        self.ws_spectral_transform_v = 'log'
+        self.ws_spectral_mode = 'spectral'
 
         # colors & themes
-        self.plot_axis_color = 'white'
-        self.plot_spectral_color = 'inferno'
-        self.plot_wave_color = 'mediumspringgreen'
+        self.ws_plot_axis_color = 'white'
+        self.ws_plot_spectral_color = 'inferno'
+        self.ws_plot_wave_color = 'mediumspringgreen'
+        self.ws_plot_entropy_color = 'red'
 
         # wave/spectral
         # line width parameters with `thin`, `thick`, `mode_switch_time`
-        self.line_width_params = [.2, 1.2, 3]
-        self.graphics_ratio = 5
-        self.figure_size = (12, 4)
-        self.figure_dpi = 300
+        self.ws_wave_line_width_params = [.2, 1.2, 3]
+        self.ws_entropy_line_width = 0.8
+        self.ws_graphics_ratio = 5
+        self.ws_figure_size = (12, 4)
+        self.ws_figure_dpi = 300
 
-    def _mel_filter(self, spectral_raw):
+    def _ws_get_line_width(self, duration):
+        if duration > self.ws_wave_line_width_params[2]:
+            line_width = self.ws_wave_line_width_params[0]
+        else:
+            line_width = (self.ws_wave_line_width_params[1] - (
+                    self.ws_wave_line_width_params[1] - self.ws_wave_line_width_params[0]) /
+                          self.ws_wave_line_width_params[-1] * duration)
+        return line_width
+
+    def _ws_mel_filter(self, spectral_raw):
         """
         convert spectral to mel-spectral
             mel = 2595 * log10(1 + f/700)
@@ -65,21 +76,21 @@ class WaveSpectral(Common):
         filter_banks = np.where(filter_banks == 0, np.finfo(float).eps, filter_banks)
         return filter_banks
 
-    def _spectral_transform(self, spectral, clip_power=None, max_norm=True):
+    def _ws_spectral_transform(self, spectral, clip_power=None, max_norm=True):
         if clip_power is None:
             clip_power = self.min_hearing_power
-        if self.spectral_transform_v == 'power':
+        if self.ws_spectral_transform_v == 'power':
             spectral = np.power(spectral, self.spectral_power_transform_coefficient)
-        elif self.spectral_transform_v == 'log':
+        elif self.ws_spectral_transform_v == 'log':
             spectral = np.clip(spectral, clip_power, None)
             spectral = np.log(spectral)
         else:
-            raise ValueError(f'spectral transform `Values` [{self.spectral_transform_v}] unrecognized')
+            raise ValueError(f'spectral transform `Values` [{self.ws_spectral_transform_v}] unrecognized')
         if max_norm:
             spectral = self._max_norm(spectral)
         return spectral
 
-    def _data_prepare(self, starting_time, ending_time):
+    def _ws_data_prepare(self, starting_time, ending_time):
         """ prepare partition of audios """
         starting_time, ending_time = self._fix_input_starting_ending_time(starting_time, ending_time)
         if not self._check_audio_duration_valid(starting_time, ending_time, self.min_duration):
@@ -87,23 +98,20 @@ class WaveSpectral(Common):
         data_, time_ = self._export_audio(starting_time, ending_time, audio_part_path=self.audio_part_path)
         return data_, time_, starting_time, ending_time, True
 
-    def _plot_wave(self, data_one, time_, grid, plot_position):
+    def _ws_plot_wave(self, data_one, time_, grid, plot_position):
         """ plot wave """
         # plot audio wave
         fig_wave = plt.subplot(grid[plot_position, 0])
         # create a function to define line width
         duration = time_[-1] - time_[0]
-        if duration > self.line_width_params[2]:
-            line_width = self.line_width_params[0]
-        else:
-            line_width = (self.line_width_params[1] - (self.line_width_params[1] - self.line_width_params[0]) /
-                          self.line_width_params[-1] * duration)
+        line_width = self._ws_get_line_width(duration)
         # plot norm
         if np.max(np.abs(data_one)):
             data_one_norm = data_one / np.max(np.abs(data_one))
-            fig_wave.plot(time_, data_one_norm, linewidth=line_width, color=self.plot_wave_color, alpha=0.3, zorder=1)
+            fig_wave.plot(time_, data_one_norm, linewidth=line_width, color=self.ws_plot_wave_color, alpha=0.3,
+                          zorder=1)
         # plot wave
-        fig_wave.plot(time_, data_one, linewidth=line_width, color=self.plot_wave_color, zorder=2)
+        fig_wave.plot(time_, data_one, linewidth=line_width, color=self.ws_plot_wave_color, zorder=2)
         fig_wave.set_xlim(left=time_[0], right=time_[-1])
         fig_wave.axes.get_yaxis().set_ticks([])
         fig_wave.axes.set_ylim([-1, 1])
@@ -111,35 +119,56 @@ class WaveSpectral(Common):
         fig_wave.spines['right'].set_visible(False)
         fig_wave.spines['top'].set_visible(False)
         if plot_position == self.channel_num - 1:
-            fig_wave.spines['bottom'].set_color(self.plot_axis_color)
-            fig_wave.tick_params(axis='x', colors=self.plot_axis_color)
+            fig_wave.spines['bottom'].set_color(self.ws_plot_axis_color)
+            fig_wave.tick_params(axis='x', colors=self.ws_plot_axis_color)
         else:
             fig_wave.axes.get_xaxis().set_ticks([])
             fig_wave.spines['bottom'].set_visible(False)
 
-    def _plot_spectral(self, data_one, grid, plot_position):
+    def _ws_plot_spectral(self, spectral, grid, plot_position):
         """ plot spectral """
         # plot spectral
-        spectral = self._calc_sp(data_one, self.n_window, self.n_overlap)
-        if self.spectral_transform_y == 'fbank':
-            spectral = self._mel_filter(spectral)
-        elif self.spectral_transform_y == 'fft':
+        if self.ws_spectral_transform_y == 'fbank':
+            spectral = self._ws_mel_filter(spectral)
+        elif self.ws_spectral_transform_y == 'fft':
             pass
         else:
-            raise ValueError(f'spectral transform `Y` [{self.spectral_transform_y}] unrecognized')
+            raise ValueError(f'spectral transform `Y` [{self.ws_spectral_transform_y}] unrecognized')
         # transform to show
-        spectral = self._spectral_transform(spectral)
+        spectral = self._ws_spectral_transform(spectral)
         spectral = np.flip(spectral, axis=1)
         spectral = np.transpose(spectral)
 
         # plot
         fig_spectral = plt.subplot(
-            grid[self.channel_num + (self.graphics_ratio - 1) * plot_position:
-                 self.channel_num + (self.graphics_ratio - 1) * (plot_position + 1), 0])
-        fig_spectral.imshow(spectral, aspect='auto', cmap=self.plot_spectral_color)
+            grid[self.channel_num + (self.ws_graphics_ratio - 1) * plot_position:
+                 self.channel_num + (self.ws_graphics_ratio - 1) * (plot_position + 1), 0])
+        fig_spectral.imshow(spectral, aspect='auto', cmap=self.ws_plot_spectral_color)
         fig_spectral.axis('off')
 
-    def _plot_phase(self, data, grid):
+    def _ws_plot_entropy(self, spectral, time_, grid, plot_position):
+        """ plot entropy """
+        entropy = [self._get_shannon_entropy(x) for x in spectral]
+        # create a function to define line width
+        duration = time_[-1] - time_[0]
+        time_rebuild = [time_[0] + i / len(spectral) * duration for i in range(len(spectral))]
+        # plot
+        fig_entropy = plt.subplot(
+            grid[self.channel_num + (self.ws_graphics_ratio - 1) * plot_position:
+                 self.channel_num + (self.ws_graphics_ratio - 1) * (plot_position + 1), 0])
+        fig_entropy.set_xlim(left=time_[0], right=time_[-1])
+        fig_entropy.fill_between(time_rebuild, y1=entropy, y2=0, facecolor=self.ws_plot_entropy_color, alpha=0.6,
+                                 edgecolor=self.ws_plot_entropy_color, linewidth=self.ws_entropy_line_width)
+        fig_entropy.spines['left'].set_visible(True)
+        fig_entropy.spines['right'].set_visible(True)
+        fig_entropy.spines['top'].set_visible(False)
+        if plot_position == self.channel_num - 1:
+            fig_entropy.spines['bottom'].set_visible(True)
+        else:
+            fig_entropy.spines['bottom'].set_visible(False)
+        fig_entropy.axes.get_xaxis().set_ticks([])
+
+    def _ws_plot_phase(self, data, grid):
         """ plot phase """
         # plot phase
         data_0 = data[0]
@@ -149,20 +178,20 @@ class WaveSpectral(Common):
 
         fft_data = fft_0 + fft_1
         fft_magnitude_tendency = self._max_norm([
-            self._spectral_transform(fft_0, max_norm=False),
-            self._spectral_transform(fft_1, max_norm=False)])
+            self._ws_spectral_transform(fft_0, max_norm=False),
+            self._ws_spectral_transform(fft_1, max_norm=False)])
         fft_magnitude_tendency = np.abs(fft_magnitude_tendency[1] - fft_magnitude_tendency[0])
         phase_data = phase_1 - phase_0
         phase_data = np.mod(phase_data / 2 / np.pi, 1)
-        if self.spectral_transform_y == 'fbank':
-            phase_data = self._mel_filter(phase_data)
-            fft_data = self._mel_filter(fft_data)
-            fft_magnitude_tendency = self._mel_filter(fft_magnitude_tendency)
-        elif self.spectral_transform_y == 'fft':
+        if self.ws_spectral_transform_y == 'fbank':
+            phase_data = self._ws_mel_filter(phase_data)
+            fft_data = self._ws_mel_filter(fft_data)
+            fft_magnitude_tendency = self._ws_mel_filter(fft_magnitude_tendency)
+        elif self.ws_spectral_transform_y == 'fft':
             pass
         else:
-            raise ValueError(f'phase transform `Y` [{self.spectral_transform_y}] unrecognized')
-        fft_data = self._max_norm(self._spectral_transform(fft_data, clip_power=self.min_hearing_power),
+            raise ValueError(f'phase transform `Y` [{self.ws_spectral_transform_y}] unrecognized')
+        fft_data = self._max_norm(self._ws_spectral_transform(fft_data, clip_power=self.min_hearing_power),
                                   min_transform=True)
         fft_magnitude_tendency = self._max_norm(fft_magnitude_tendency)
         image_reconstruction = []
@@ -180,34 +209,41 @@ class WaveSpectral(Common):
         image_reconstruction = np.transpose(image_reconstruction, axes=(1, 0, 2))
         # plot
         fig_phase = plt.subplot(
-            grid[self.channel_num:self.graphics_ratio * self.channel_num, 0])
+            grid[self.channel_num:self.ws_graphics_ratio * self.channel_num, 0])
         fig_phase.imshow(image_reconstruction, aspect='auto')
         fig_phase.axis('off')
 
-    def _prepare_graph_audio(self, starting_time, ending_time):
+    def _prepare_graph_wave_spectral(self, starting_time, ending_time):
         """ prepare graphics and audio files """
         phase = self._phase_mode_check()
-        # default settings
-        grid = plt.GridSpec(self.graphics_ratio * self.channel_num, 1, wspace=0, hspace=0)
-        fig = plt.figure(figsize=self.figure_size)
-        data_, time_, starting_time, ending_time, valid = self._data_prepare(starting_time, ending_time)
+        data_, time_, starting_time, ending_time, valid = self._ws_data_prepare(starting_time, ending_time)
         self._initialize_spectral(starting_time, ending_time)
         if not valid:
             return starting_time, ending_time, False
+
         # plot image
+        grid = plt.GridSpec(self.ws_graphics_ratio * self.channel_num, 1, wspace=0, hspace=0)
+        fig = plt.figure(figsize=self.ws_figure_size)
+
+        # plot spectral
         if phase:
-            self._plot_phase(data_, grid)
+            self._ws_plot_phase(data_, grid)
         for i in range(len(data_)):
+            spectral = self._calc_sp(data_[i], self.n_window, self.n_overlap)
             if not phase:
-                self._plot_spectral(data_[i], grid, i)
-            self._plot_wave(data_[i], time_, grid, i)
+                if self.ws_spectral_mode == 'spectral':
+                    self._ws_plot_spectral(spectral, grid, i)
+                elif self.ws_spectral_mode == 'entropy':
+                    self._ws_plot_entropy(spectral, time_, grid, i)
+            # plot wave
+            self._ws_plot_wave(data_[i], time_, grid, i)
 
         # save figure
-        fig.savefig(self.wave_spectral_graphics_path, dpi=self.figure_dpi, bbox_inches='tight')
+        fig.savefig(self.wave_spectral_graphics_path, dpi=self.ws_figure_dpi, bbox_inches='tight')
         self._matplotlib_clear_memory(fig)
         return starting_time, ending_time, True
 
-    def _initial_or_restore_running(self, starting_time=None, ending_time=None, plot=True):
+    def _ws_initial_or_restore_running(self, starting_time=None, ending_time=None, plot=True):
         """ first run & restore run """
         self._initialization()
         if starting_time is None:
@@ -215,6 +251,6 @@ class WaveSpectral(Common):
         if ending_time is None:
             ending_time = self._get_audio_time()
         self._initialize_spectral(starting_time, ending_time)
-        self._prepare_graph_audio(starting_time, ending_time)
+        self._prepare_graph_wave_spectral(starting_time, ending_time)
         if plot:
             self._terminal_plot(self.wave_spectral_graphics_path)

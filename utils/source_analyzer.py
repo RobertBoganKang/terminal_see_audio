@@ -341,6 +341,7 @@ class SourceAnalyzer(FlowerCommon):
         pitches = []
         ratio_array = []
         rf_angles = []
+        i_s = []
         e = self.ear_distance / 2
         for i in range(len(array_0)):
             t0 = array_0[i]
@@ -371,8 +372,9 @@ class SourceAnalyzer(FlowerCommon):
                     pitches.append(pitch)
                     ratio_array.append(self._amplitude_ratio(t0, t1))
                     rf_angles.append(real_fake_status)
+                    i_s.append(i)
 
-        return x_array, y_array, x_peak, y_peak, e_array, pitches, ratio_array, rf_angles
+        return x_array, y_array, x_peak, y_peak, e_array, pitches, ratio_array, rf_angles, i_s
 
     def _prepare_graph_source_angle(self, starting_time, save_path=None, dynamic_max_value=False):
         valid = self._check_analyze_duration(starting_time)
@@ -384,7 +386,7 @@ class SourceAnalyzer(FlowerCommon):
             (x_positions, y_positions,
              x_peaks, y_peaks,
              energies, pitches,
-             ratio_array, rf_angles) = self._source_angle_position_transform(log_fft_data, phase_data)
+             ratio_array, rf_angles, i_s) = self._source_angle_position_transform(log_fft_data, phase_data)
             # making plots
             fig = plt.figure(figsize=self.flower_figure_size)
             ax = fig.add_subplot(111)
@@ -421,11 +423,12 @@ class SourceAnalyzer(FlowerCommon):
                                                      y_positions[i],
                                                      y_positions[i - 1]) \
                         < self.flower_min_angle_connection / 180 * np.pi:
-                    ax.plot([x_positions[i], x_positions[i - 1]],
-                            [y_positions[i], y_positions[i - 1]], c=color,
-                            linewidth=self.flower_ground_line_width,
-                            alpha=(energies[i] + energies[i - 1]) / 2,
-                            zorder=2)
+                    if i_s[i] - i_s[i] == 1:
+                        ax.plot([x_positions[i], x_positions[i - 1]],
+                                [y_positions[i], y_positions[i - 1]], c=color,
+                                linewidth=self.flower_ground_line_width,
+                                alpha=(energies[i] + energies[i - 1]) / 2,
+                                zorder=2)
                 above_arc = Circle((x_peaks[i], y_peaks[i]), radius=energy / 5, zorder=3, facecolor=face_color,
                                    linewidth=self.flower_line_width, edgecolor=color, alpha=energy)
                 ax.add_patch(above_arc)

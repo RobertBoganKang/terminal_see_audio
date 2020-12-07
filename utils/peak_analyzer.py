@@ -53,7 +53,6 @@ class PeakAnalyzer(AnalyzeCommon):
             key_name, key_octave, remainder_in_cent = self._translate_frequency_to_music_note(frequency)
             key_name_1, key_octave_1, remainder_in_cent_1 = self._translate_frequency_to_music_note(
                 modified_frequency)
-
             print(
                 f' | {round(frequency, 3)}Hz '
                 f'({key_name}{key_octave}{self._add_sign(remainder_in_cent)}{round(remainder_in_cent, 2)}c)'
@@ -93,7 +92,9 @@ class PeakAnalyzer(AnalyzeCommon):
                     channel_name = '*'
                 else:
                     channel_name = str(i)
-                print(f'<*> channel ({channel_name}):')
+                # calculate entropy
+                entropy = self._get_shannon_entropy(fft_data_multiple[i])
+                print(f'<*> channel ({channel_name}) with entropy `{round(entropy, 5)}`:')
                 modified_peak_info = self._peak_weighted_sum_fix_tuning_pk(log_fft_data_multiple[i],
                                                                            raw_peak_info_multiple[i],
                                                                            fft_data_multiple[i])
