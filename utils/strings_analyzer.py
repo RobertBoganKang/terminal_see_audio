@@ -16,10 +16,14 @@ class StringsAnalyzer(AnalyzeCommon):
         self.strings_line_width = 2
         self.strings_ticks_line_width = 0.8
         self.strings_line_width_power_base = 0.7
+        self.strings_line_width_harmonics = 1.2
         self.strings_spectral_ratio_power_transform = 0.4
         self.strings_cut_diff_ratio_ratio_power_transform = 0.5
         # default for 12 equal temperament
         self.strings_n_temperament = 12
+
+        # max fractal of natural harmonics
+        self.strings_max_fractal_natural_harmonics = 6
 
         # number of ticks showing
         self.strings_ticks_octave = 5
@@ -31,12 +35,51 @@ class StringsAnalyzer(AnalyzeCommon):
         self.strings_axis_color = '#444'
 
         # strings name or frequency
-        self.strings_pitch_name = np.array([4 / 9, 2 / 3, 1, 3 / 2]) * self.a4_frequency
+        self.strings_pitch_name_or_frequency = np.array([4 / 9, 2 / 3, 1, 3 / 2]) * self.a4_frequency
 
     def _strings_frequency_to_plot_position(self, ratio, string_i, offset):
         x_position = -1 / ratio * self.strings_length
         y_position = string_i + offset
         return x_position, y_position
+
+    @staticmethod
+    def _strings_fractals_generation(max_fractal):
+        # error handling
+        if not isinstance(max_fractal, int) or max_fractal <= 0:
+            return []
+
+        # simplify fractal function
+        def simplify_fractal(num, den):
+            for i in range(2, num):
+                while num % i == 0 and den % i == 0:
+                    num = num // i
+                    den = den // i
+            return num, den
+
+        # get fractal result
+        result = []
+        for denominator in range(1, max_fractal + 1):
+            for numerator in range(1, denominator):
+                n, d = simplify_fractal(numerator, denominator)
+                if n == numerator:
+                    result.append([numerator, denominator])
+        return result
+
+    def _strings_natural_harmonics_info(self, reference_frequency, string_i, log_fft_data, max_fractal=6):
+        log_fft_data_mean = np.mean(log_fft_data, axis=0)
+        fractals = self._strings_fractals_generation(max_fractal)
+        result = []
+        for num, den in fractals:
+            harmonic_frequency = reference_frequency * den
+            harmonic_fft_position = self._frequency_to_fft_position(harmonic_frequency)
+            harmonic_log_fft_power = log_fft_data_mean[harmonic_fft_position]
+            if harmonic_log_fft_power > self.min_analyze_power:
+                pitch = self._frequency_to_pitch_color(harmonic_frequency)
+                ratio = den / num
+                x_position, y_position = self._strings_frequency_to_plot_position(ratio, string_i, 0)
+                result.append([harmonic_log_fft_power, pitch, harmonic_fft_position,
+                               x_position, y_position])
+        return result
 
     def _strings_position_transform(self, arrays, v, reference_frequency, string_i):
         array_0 = arrays[0]
@@ -47,6 +90,7 @@ class StringsAnalyzer(AnalyzeCommon):
         y_array_1 = []
         pitches = []
         vs = []
+        i_s = []
         low_frequency_to_show = reference_frequency * (2 ** (-1 / self.strings_n_temperament))
         for i in range(len(array_0)):
             t0 = array_0[i]
@@ -55,9 +99,7 @@ class StringsAnalyzer(AnalyzeCommon):
             if i > 0:
                 frequency = self._fft_position_to_frequency(i)
                 if frequency >= low_frequency_to_show:
-                    pitch = self._frequency_to_pitch(frequency)
-                    # pitch to `C` as ticks
-                    pitch = (pitch * 12 - 3) / 12
+                    pitch = self._frequency_to_pitch_color(frequency)
                     ratio = frequency / reference_frequency
                     # cut the left edge
                     if frequency < reference_frequency:
@@ -68,6 +110,7 @@ class StringsAnalyzer(AnalyzeCommon):
                         cut_diff_ratio = 1
                     transform_ratio = 1 / ratio ** self.strings_spectral_ratio_power_transform
                     vs.append(v[i])
+                    i_s.append(i)
                     pitches.append(pitch)
                     x_position, y_position = self._strings_frequency_to_plot_position(ratio, string_i,
                                                                                       t0 / 2 * transform_ratio
@@ -79,7 +122,7 @@ class StringsAnalyzer(AnalyzeCommon):
                                                                                       * cut_diff_ratio)
                     x_array_1.append(x_position)
                     y_array_1.append(y_position)
-        return (x_array_0, y_array_0), (x_array_1, y_array_1), pitches, vs
+        return (x_array_0, y_array_0), (x_array_1, y_array_1), pitches, vs, i_s
 
     def _prepare_graph_strings(self, starting_time, save_path=None, dynamic_max_value=False):
         valid = self._check_analyze_duration(starting_time)
@@ -93,7 +136,7 @@ class StringsAnalyzer(AnalyzeCommon):
 
             # prepare position info
             strings_frequencies = []
-            for s in self.strings_pitch_name:
+            for s in self.strings_pitch_name_or_frequency:
                 if self._is_float(s):
                     strings_frequencies.append(float(s))
                 else:
@@ -127,16 +170,27 @@ class StringsAnalyzer(AnalyzeCommon):
                              zorder=2, facecolor=face_color, edgecolor=color_cir, alpha=0.5 * ratio)
                 ax.add_patch(cir)
 
+            # loop strings
             for string_i, reference_frequency in enumerate(strings_frequencies):
-                (position_0, position_1, pitches, vs) = self._strings_position_transform(log_fft_data, v_fft_data,
-                                                                                         reference_frequency, string_i)
-
                 # plot string
                 ax.plot([-self.strings_length, 0], [string_i, string_i],
                         linewidth=self.strings_line_width_power_base ** string_i * self.strings_line_width,
                         c=self.strings_axis_color, zorder=1, alpha=0.5)
 
+                # plot string natural harmonics
+                harmonics_info = self._strings_natural_harmonics_info(reference_frequency, string_i, log_fft_data,
+                                                                      self.strings_max_fractal_natural_harmonics)
+                for log_fft_power, pitch, fft_pos, x_position, y_position in harmonics_info:
+                    rgb_color = self._hsb_to_rgb(pitch % 1, ss[fft_pos], 1)
+                    cir = Circle((x_position, y_position), radius=log_fft_power / 2,
+                                 linewidth=self.strings_line_width_harmonics,
+                                 zorder=2, facecolor='black', edgecolor=rgb_color, alpha=log_fft_power)
+                    ax.add_patch(cir)
+
                 # plot strings frequency
+                (position_0, position_1,
+                 pitches, vs, i_s) = self._strings_position_transform(log_fft_data, v_fft_data,
+                                                                      reference_frequency, string_i)
                 for i in range(len(position_0[0])):
                     if i != 0:
                         pos0 = [position_0[0][i], position_0[1][i]]
@@ -146,10 +200,10 @@ class StringsAnalyzer(AnalyzeCommon):
                         poly_position = np.array([pos0, pos1, pos2, pos3])
                         v_opacity = max(vs[i], vs[i - 1])
                         if v_opacity > self.min_analyze_power:
-                            rgb_color = self._hsb_to_rgb(pitches[i] % 1, ss[i], 1)
+                            rgb_color = self._hsb_to_rgb(pitches[i] % 1, ss[i_s[i]], 1)
                             ax.fill(poly_position[:, 0], poly_position[:, 1], facecolor=rgb_color,
                                     edgecolor=rgb_color, linewidth=self.strings_frequency_line_width,
-                                    alpha=v_opacity, zorder=2)
+                                    alpha=v_opacity, zorder=3)
 
             ax.set_xlim(left=-self.strings_length / 2 ** (-1 / self.strings_n_temperament),
                         right=0.5)

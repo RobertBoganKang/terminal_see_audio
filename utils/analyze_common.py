@@ -38,8 +38,16 @@ class AnalyzeCommon(Common):
     def _fft_position_to_frequency(self, position):
         return position * self.sample_rate / self.analyze_n_window
 
+    def _frequency_to_fft_position(self, frequency):
+        return int(round(frequency * self.analyze_n_window / self.sample_rate))
+
     def _frequency_to_pitch(self, frequency):
         return np.log2(frequency / self.a4_frequency) + 5
+
+    def _frequency_to_pitch_color(self, frequency):
+        pitch = self._frequency_to_pitch(frequency)
+        # pitch to `C` as ticks
+        return (pitch * 12 - 3) / 12
 
     def _key_to_frequency(self, key, remainder=0):
         return 2 ** (key / 12 + remainder / 1200) * self.a4_frequency
