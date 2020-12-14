@@ -2,6 +2,7 @@ import multiprocessing as mp
 import os
 import shutil
 import subprocess
+from fractions import Fraction
 
 import numpy as np
 import soundfile as sf
@@ -256,3 +257,9 @@ class AnalyzeCommon(Common):
             # delete folder after use (file too big)
             shutil.rmtree(save_analyzer_path)
             return starting_time, ending_time, True
+
+    @staticmethod
+    def _simplify_fractal(num, den):
+        # simplify fractal function
+        number = Fraction(num, den)
+        return number.numerator, number.denominator

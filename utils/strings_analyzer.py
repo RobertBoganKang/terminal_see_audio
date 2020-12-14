@@ -11,14 +11,15 @@ class StringsAnalyzer(AnalyzeCommon):
 
         # strings analyzer
         self.strings_dpi = 300
-        self.strings_figure_size = (15, 15)
+        self.strings_figure_size = (15, 5)
         self.strings_frequency_line_width = 0.8
         self.strings_line_width = 2
-        self.strings_ticks_line_width = 0.8
+        self.strings_ticks_line_width = 1
         self.strings_line_width_power_base = 0.7
         self.strings_line_width_harmonics = 1.2
         self.strings_spectral_ratio_power_transform = 0.4
         self.strings_cut_diff_ratio_ratio_power_transform = 0.5
+        self.strings_natural_harmonics_size_power_coefficient = 0.8
         # default for 12 equal temperament
         self.strings_n_temperament = 12
 
@@ -33,6 +34,7 @@ class StringsAnalyzer(AnalyzeCommon):
 
         # color & themes
         self.strings_axis_color = '#444'
+        self.strings_ticks_color = '#888'
 
         # strings name or frequency
         self.strings_pitch_name_or_frequency = np.array([4 / 9, 2 / 3, 1, 3 / 2]) * self.a4_frequency
@@ -42,27 +44,18 @@ class StringsAnalyzer(AnalyzeCommon):
         y_position = string_i + offset
         return x_position, y_position
 
-    @staticmethod
-    def _strings_fractals_generation(max_fractal):
+    def _strings_fractals_generation(self, max_fractal):
         # error handling
         if not isinstance(max_fractal, int) or max_fractal <= 0:
             return []
-
-        # simplify fractal function
-        def simplify_fractal(num, den):
-            for i in range(2, num):
-                while num % i == 0 and den % i == 0:
-                    num = num // i
-                    den = den // i
-            return num, den
 
         # get fractal result
         result = []
         for denominator in range(1, max_fractal + 1):
             for numerator in range(1, denominator):
-                n, d = simplify_fractal(numerator, denominator)
-                if n == numerator:
-                    result.append([numerator, denominator])
+                n, d = self._simplify_fractal(numerator, denominator)
+                if d == denominator:
+                    result.append([n, d])
         return result
 
     def _strings_natural_harmonics_info(self, reference_frequency, string_i, log_fft_data, max_fractal=6):
@@ -76,10 +69,14 @@ class StringsAnalyzer(AnalyzeCommon):
             if harmonic_log_fft_power > self.min_analyze_power:
                 pitch = self._frequency_to_pitch_color(harmonic_frequency)
                 ratio = den / num
+                transform_ratio = self._strings_spectral_transform_ratio(ratio)
                 x_position, y_position = self._strings_frequency_to_plot_position(ratio, string_i, 0)
                 result.append([harmonic_log_fft_power, pitch, harmonic_fft_position,
-                               x_position, y_position])
+                               x_position, y_position, num, den, transform_ratio])
         return result
+
+    def _strings_spectral_transform_ratio(self, ratio):
+        return 1 / ratio ** self.strings_spectral_ratio_power_transform
 
     def _strings_position_transform(self, arrays, v, reference_frequency, string_i):
         array_0 = arrays[0]
@@ -108,7 +105,7 @@ class StringsAnalyzer(AnalyzeCommon):
                         cut_diff_ratio = cut_diff_ratio ** self.strings_cut_diff_ratio_ratio_power_transform
                     else:
                         cut_diff_ratio = 1
-                    transform_ratio = 1 / ratio ** self.strings_spectral_ratio_power_transform
+                    transform_ratio = self._strings_spectral_transform_ratio(ratio)
                     vs.append(v[i])
                     i_s.append(i)
                     pitches.append(pitch)
@@ -154,37 +151,50 @@ class StringsAnalyzer(AnalyzeCommon):
                     cir_ratio = 2
                     bottom_position = -1
                     cir_bottom_position = -1
-                    face_color = color_cir
+                    tick_color = self.strings_ticks_color
                 else:
                     tick_ratio = 1
                     cir_ratio = 1
                     bottom_position = 0
                     cir_bottom_position = -0.7
-                    face_color = 'black'
-                ratio = 0.97 ** i
+                    tick_color = self.strings_axis_color
+                ratio = 0.98 ** i
                 ax.plot([x_position, x_position], [bottom_position, len(strings_frequencies) - 1],
-                        linewidth=self.strings_ticks_line_width * tick_ratio,
-                        c=self.strings_axis_color, zorder=1, alpha=0.4 * ratio)
+                        linewidth=self.strings_ticks_line_width * tick_ratio * ratio,
+                        c=tick_color, zorder=1, alpha=0.5 * ratio)
                 cir = Circle((x_position, cir_bottom_position), radius=0.08 * ratio * cir_ratio,
-                             linewidth=self.strings_ticks_line_width,
-                             zorder=2, facecolor=face_color, edgecolor=color_cir, alpha=0.5 * ratio)
+                             linewidth=self.strings_ticks_line_width * tick_ratio * ratio,
+                             zorder=2, facecolor='black', edgecolor=color_cir, alpha=0.6 * ratio)
                 ax.add_patch(cir)
+                # plot tick number
+                if i % self.strings_n_temperament != 0:
+                    ax.text(x_position, cir_bottom_position / 2, s=str(i % 12), horizontalalignment='center',
+                            verticalalignment='center', fontsize=6 * ratio,
+                            zorder=2, c=self.strings_ticks_color, alpha=ratio)
 
             # loop strings
             for string_i, reference_frequency in enumerate(strings_frequencies):
                 # plot string
                 ax.plot([-self.strings_length, 0], [string_i, string_i],
                         linewidth=self.strings_line_width_power_base ** string_i * self.strings_line_width,
-                        c=self.strings_axis_color, zorder=1, alpha=0.5)
+                        c=self.strings_ticks_color, zorder=1, alpha=0.4)
 
                 # plot string natural harmonics
                 harmonics_info = self._strings_natural_harmonics_info(reference_frequency, string_i, log_fft_data,
                                                                       self.strings_max_fractal_natural_harmonics)
-                for log_fft_power, pitch, fft_pos, x_position, y_position in harmonics_info:
+                for (log_fft_power, pitch, fft_pos,
+                     x_position, y_position,
+                     n, d, transform_ratio) in harmonics_info:
                     rgb_color = self._hsb_to_rgb(pitch % 1, ss[fft_pos], 1)
-                    cir = Circle((x_position, y_position), radius=log_fft_power / 2,
-                                 linewidth=self.strings_line_width_harmonics,
-                                 zorder=2, facecolor='black', edgecolor=rgb_color, alpha=log_fft_power)
+                    if n != 1:
+                        size_ratio = self.strings_natural_harmonics_size_power_coefficient ** (d - 2)
+                        cir = Circle((x_position, y_position), radius=log_fft_power / 2 * transform_ratio * size_ratio,
+                                     linewidth=self.strings_line_width_harmonics,
+                                     zorder=2, facecolor='black', edgecolor=rgb_color, alpha=log_fft_power)
+                    else:
+                        cir = Circle((x_position, y_position), radius=log_fft_power / 2 * transform_ratio,
+                                     linewidth=self.strings_line_width_harmonics, linestyle='dotted',
+                                     zorder=2, facecolor='black', edgecolor=rgb_color, alpha=log_fft_power)
                     ax.add_patch(cir)
 
                 # plot strings frequency
