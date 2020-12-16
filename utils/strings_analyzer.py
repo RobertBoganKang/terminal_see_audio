@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.patches import Circle
+from matplotlib.patches import Circle, Arc
 
 from utils.analyze_common import AnalyzeCommon
 
@@ -76,6 +76,7 @@ class StringsAnalyzer(AnalyzeCommon):
         return result
 
     def _strings_spectral_transform_ratio(self, ratio):
+        """ the width of spectral will shrink if higher notes """
         return 1 / ratio ** self.strings_spectral_ratio_power_transform
 
     def _strings_position_transform(self, arrays, v, reference_frequency, string_i):
@@ -121,6 +122,80 @@ class StringsAnalyzer(AnalyzeCommon):
                     y_array_1.append(y_position)
         return (x_array_0, y_array_0), (x_array_1, y_array_1), pitches, vs, i_s
 
+    def _strings_plot_ticks(self, ax, strings_frequencies):
+        for i in range(self.strings_ticks_octave * self.strings_n_temperament):
+            color_cir = self._hsb_to_rgb(i / self.strings_n_temperament % 1, 1, 1)
+            x_position = -self.strings_length / 2 ** (i / self.strings_n_temperament)
+            if i % self.strings_n_temperament == 0:
+                tick_ratio = 3
+                cir_ratio = 2
+                bottom_position = -1
+                cir_bottom_position = -1
+                tick_color = self.strings_ticks_color
+            else:
+                tick_ratio = 1
+                cir_ratio = 1
+                bottom_position = 0
+                cir_bottom_position = -0.7
+                tick_color = self.strings_axis_color
+            ratio = 0.98 ** i
+            ax.plot([x_position, x_position], [bottom_position, len(strings_frequencies) - 1],
+                    linewidth=self.strings_ticks_line_width * tick_ratio * ratio,
+                    c=tick_color, zorder=1, alpha=0.5 * ratio)
+            cir = Circle((x_position, cir_bottom_position), radius=0.08 * ratio * cir_ratio,
+                         linewidth=self.strings_ticks_line_width * tick_ratio * ratio,
+                         zorder=2, facecolor='black', edgecolor=color_cir, alpha=0.6 * ratio)
+            ax.add_patch(cir)
+            # plot tick number
+            if i % self.strings_n_temperament != 0:
+                ax.text(x_position, cir_bottom_position / 2, s=str(i % 12), horizontalalignment='center',
+                        verticalalignment='center', fontsize=6 * ratio,
+                        zorder=2, c=self.strings_ticks_color, alpha=ratio)
+
+    def _strings_plot_string_spectral(self, ax, strings_frequencies, log_fft_data, ss, v_fft_data):
+        for string_i, reference_frequency in enumerate(strings_frequencies):
+            # plot string
+            ax.plot([-self.strings_length, 0], [string_i, string_i],
+                    linewidth=self.strings_line_width_power_base ** string_i * self.strings_line_width,
+                    c=self.strings_ticks_color, zorder=1, alpha=0.4)
+
+            # plot string natural harmonics
+            harmonics_info = self._strings_natural_harmonics_info(reference_frequency, string_i, log_fft_data,
+                                                                  self.strings_max_fractal_natural_harmonics)
+            for (log_fft_power, pitch, fft_pos,
+                 x_position, y_position,
+                 n, d, transform_ratio) in harmonics_info:
+                rgb_color = self._hsb_to_rgb(pitch % 1, ss[fft_pos], 1)
+                if n != 1:
+                    size_ratio = self.strings_natural_harmonics_size_power_coefficient ** (d - 2)
+                    diameter = log_fft_power * transform_ratio * size_ratio
+                    line_style = 'solid'
+                else:
+                    diameter = log_fft_power * transform_ratio
+                    line_style = 'dotted'
+                cir = Arc((x_position, y_position), width=diameter, height=diameter,
+                          linewidth=self.strings_line_width_harmonics, linestyle=line_style,
+                          zorder=2, color=rgb_color, alpha=log_fft_power)
+                ax.add_patch(cir)
+
+            # plot strings frequency
+            (position_0, position_1,
+             pitches, vs, i_s) = self._strings_position_transform(log_fft_data, v_fft_data,
+                                                                  reference_frequency, string_i)
+            for i in range(len(position_0[0])):
+                if i != 0:
+                    pos0 = [position_0[0][i], position_0[1][i]]
+                    pos1 = [position_1[0][i], position_1[1][i]]
+                    pos2 = [position_1[0][i - 1], position_1[1][i - 1]]
+                    pos3 = [position_0[0][i - 1], position_0[1][i - 1]]
+                    poly_position = np.array([pos0, pos1, pos2, pos3])
+                    v_opacity = max(vs[i], vs[i - 1])
+                    if v_opacity > self.min_analyze_power:
+                        rgb_color = self._hsb_to_rgb(pitches[i] % 1, ss[i_s[i]], 1)
+                        ax.fill(poly_position[:, 0], poly_position[:, 1], facecolor=rgb_color,
+                                edgecolor=rgb_color, linewidth=self.strings_frequency_line_width,
+                                alpha=v_opacity, zorder=3)
+
     def _prepare_graph_strings(self, starting_time, save_path=None, dynamic_max_value=False):
         valid = self._check_analyze_duration(starting_time)
         if not valid:
@@ -143,77 +218,10 @@ class StringsAnalyzer(AnalyzeCommon):
             ax = fig.add_subplot(111)
 
             # plot ticks
-            for i in range(self.strings_ticks_octave * self.strings_n_temperament):
-                color_cir = self._hsb_to_rgb(i / self.strings_n_temperament % 1, 1, 1)
-                x_position = -self.strings_length / 2 ** (i / self.strings_n_temperament)
-                if i % self.strings_n_temperament == 0:
-                    tick_ratio = 3
-                    cir_ratio = 2
-                    bottom_position = -1
-                    cir_bottom_position = -1
-                    tick_color = self.strings_ticks_color
-                else:
-                    tick_ratio = 1
-                    cir_ratio = 1
-                    bottom_position = 0
-                    cir_bottom_position = -0.7
-                    tick_color = self.strings_axis_color
-                ratio = 0.98 ** i
-                ax.plot([x_position, x_position], [bottom_position, len(strings_frequencies) - 1],
-                        linewidth=self.strings_ticks_line_width * tick_ratio * ratio,
-                        c=tick_color, zorder=1, alpha=0.5 * ratio)
-                cir = Circle((x_position, cir_bottom_position), radius=0.08 * ratio * cir_ratio,
-                             linewidth=self.strings_ticks_line_width * tick_ratio * ratio,
-                             zorder=2, facecolor='black', edgecolor=color_cir, alpha=0.6 * ratio)
-                ax.add_patch(cir)
-                # plot tick number
-                if i % self.strings_n_temperament != 0:
-                    ax.text(x_position, cir_bottom_position / 2, s=str(i % 12), horizontalalignment='center',
-                            verticalalignment='center', fontsize=6 * ratio,
-                            zorder=2, c=self.strings_ticks_color, alpha=ratio)
+            self._strings_plot_ticks(ax, strings_frequencies)
 
             # loop strings
-            for string_i, reference_frequency in enumerate(strings_frequencies):
-                # plot string
-                ax.plot([-self.strings_length, 0], [string_i, string_i],
-                        linewidth=self.strings_line_width_power_base ** string_i * self.strings_line_width,
-                        c=self.strings_ticks_color, zorder=1, alpha=0.4)
-
-                # plot string natural harmonics
-                harmonics_info = self._strings_natural_harmonics_info(reference_frequency, string_i, log_fft_data,
-                                                                      self.strings_max_fractal_natural_harmonics)
-                for (log_fft_power, pitch, fft_pos,
-                     x_position, y_position,
-                     n, d, transform_ratio) in harmonics_info:
-                    rgb_color = self._hsb_to_rgb(pitch % 1, ss[fft_pos], 1)
-                    if n != 1:
-                        size_ratio = self.strings_natural_harmonics_size_power_coefficient ** (d - 2)
-                        cir = Circle((x_position, y_position), radius=log_fft_power / 2 * transform_ratio * size_ratio,
-                                     linewidth=self.strings_line_width_harmonics,
-                                     zorder=2, facecolor='black', edgecolor=rgb_color, alpha=log_fft_power)
-                    else:
-                        cir = Circle((x_position, y_position), radius=log_fft_power / 2 * transform_ratio,
-                                     linewidth=self.strings_line_width_harmonics, linestyle='dotted',
-                                     zorder=2, facecolor='black', edgecolor=rgb_color, alpha=log_fft_power)
-                    ax.add_patch(cir)
-
-                # plot strings frequency
-                (position_0, position_1,
-                 pitches, vs, i_s) = self._strings_position_transform(log_fft_data, v_fft_data,
-                                                                      reference_frequency, string_i)
-                for i in range(len(position_0[0])):
-                    if i != 0:
-                        pos0 = [position_0[0][i], position_0[1][i]]
-                        pos1 = [position_1[0][i], position_1[1][i]]
-                        pos2 = [position_1[0][i - 1], position_1[1][i - 1]]
-                        pos3 = [position_0[0][i - 1], position_0[1][i - 1]]
-                        poly_position = np.array([pos0, pos1, pos2, pos3])
-                        v_opacity = max(vs[i], vs[i - 1])
-                        if v_opacity > self.min_analyze_power:
-                            rgb_color = self._hsb_to_rgb(pitches[i] % 1, ss[i_s[i]], 1)
-                            ax.fill(poly_position[:, 0], poly_position[:, 1], facecolor=rgb_color,
-                                    edgecolor=rgb_color, linewidth=self.strings_frequency_line_width,
-                                    alpha=v_opacity, zorder=3)
+            self._strings_plot_string_spectral(ax, strings_frequencies, log_fft_data, ss, v_fft_data)
 
             ax.set_xlim(left=-self.strings_length / 2 ** (-1 / self.strings_n_temperament),
                         right=0.5)
