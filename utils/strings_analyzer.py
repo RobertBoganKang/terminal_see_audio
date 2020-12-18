@@ -8,7 +8,6 @@ from utils.analyze_common import AnalyzeCommon
 class StringsAnalyzer(AnalyzeCommon):
     def __init__(self):
         super().__init__()
-
         # strings analyzer
         self.strings_dpi = 300
         self.strings_figure_size = (15, 5)
@@ -25,6 +24,8 @@ class StringsAnalyzer(AnalyzeCommon):
 
         # max fractal of natural harmonics
         self.strings_max_fractal_natural_harmonics = 6
+        self.strings_roman_numbers = [self._integer_to_roman(x) for x in
+                                      range(self.strings_max_fractal_natural_harmonics + 1)]
 
         # number of ticks showing
         self.strings_ticks_octave = 5
@@ -178,10 +179,10 @@ class StringsAnalyzer(AnalyzeCommon):
                           zorder=2, color=rgb_color, alpha=log_fft_power)
                 ax.add_patch(cir)
                 # show ratios
-                ax.text(x_position, y_position + diameter, s=self._integer_to_roman(d - n),
+                ax.text(x_position, y_position + diameter, s=self.strings_roman_numbers[d - n],
                         horizontalalignment='center', verticalalignment='center',
                         fontsize=14 * diameter, zorder=2, c=rgb_color, alpha=log_fft_power)
-                ax.text(x_position, y_position - diameter, s=self._integer_to_roman(d),
+                ax.text(x_position, y_position - diameter, s=self.strings_roman_numbers[d],
                         horizontalalignment='center', verticalalignment='center',
                         fontsize=14 * diameter, zorder=2, c=rgb_color, alpha=log_fft_power)
 

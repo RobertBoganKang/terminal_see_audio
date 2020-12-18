@@ -15,18 +15,7 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
     """
 
     def __init__(self):
-        WaveSpectral.__init__(self)
-        SpiralAnalyzer.__init__(self)
-        PianoAnalyzer.__init__(self)
-        PianoRoll.__init__(self)
-        PeakAnalyzer.__init__(self)
-        PlayPitch.__init__(self)
-        TuningAnalyzer.__init__(self)
-        ShellUtils.__init__(self)
-        SourceAnalyzer.__init__(self)
-        PhaseAnalyzer.__init__(self)
-        StringsAnalyzer.__init__(self)
-
+        super().__init__()
         # prepare
         self.last_starting = self.last_ending = None
         self.last_analyze_starting = self.last_analyze_ending = None
