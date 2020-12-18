@@ -39,6 +39,10 @@ class StringsAnalyzer(AnalyzeCommon):
         # strings name or frequency
         self.strings_pitch_name_or_frequency = np.array([4 / 9, 2 / 3, 1, 3 / 2]) * self.a4_frequency
 
+        # dot number
+        self.strings_dot_n_number = ['', '.', '..', '.`.', '.:.', '..`..', '..:..']
+        self.strings_dot_d_number = ['', '\'', '\'\'', '\'\'\'', '\"\"', '\".\"', '``:``']
+
     def _strings_frequency_to_plot_position(self, ratio, string_i, offset):
         x_position = -1 / ratio * self.strings_length
         y_position = string_i + offset
@@ -176,6 +180,14 @@ class StringsAnalyzer(AnalyzeCommon):
                 cir = Arc((x_position, y_position), width=diameter, height=diameter,
                           linewidth=self.strings_line_width_harmonics, linestyle=line_style,
                           zorder=2, color=rgb_color, alpha=log_fft_power)
+                # show ratios
+                if d < len(self.strings_dot_d_number):
+                    ax.text(x_position, y_position + diameter, s=self.strings_dot_n_number[d - n],
+                            horizontalalignment='center', verticalalignment='center',
+                            fontsize=18 * diameter, zorder=2, c=rgb_color, alpha=log_fft_power)
+                    ax.text(x_position, y_position - diameter, s=self.strings_dot_d_number[d],
+                            horizontalalignment='center', verticalalignment='center',
+                            fontsize=18 * diameter, zorder=2, c=rgb_color, alpha=log_fft_power)
                 ax.add_patch(cir)
 
             # plot strings frequency
@@ -225,7 +237,7 @@ class StringsAnalyzer(AnalyzeCommon):
 
             ax.set_xlim(left=-self.strings_length / 2 ** (-1 / self.strings_n_temperament),
                         right=0.5)
-            ax.set_ylim(bottom=-1.5, top=len(strings_frequencies) - 0.5)
+            ax.set_ylim(bottom=-1.5, top=len(strings_frequencies) + 0.5)
             # set figure ratio
             self._set_1to1_ratio_figure()
 
