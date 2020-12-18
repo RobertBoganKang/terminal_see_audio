@@ -263,3 +263,25 @@ class AnalyzeCommon(Common):
         # simplify fractal function
         number = Fraction(num, den)
         return number.numerator, number.denominator
+
+    @staticmethod
+    def _integer_to_roman(integer):
+        """ https://pencilprogrammer.com/python-programs/convert-integer-to-roman-numerals/ """
+        int2roman = {1: 'I', 4: 'IV', 5: 'V', 9: 'IX', 10: 'X', 40: 'XL',
+                     50: 'L', 90: 'XC', 100: 'C', 400: 'XD', 500: 'D', 900: 'CM', 1000: 'M'}
+
+        # Descending intger equivalent of seven roman numerals
+        print_order = [1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1]
+        roman_number = ''
+        for x in print_order:
+            if integer != 0:
+                quotient = integer // x
+
+                # If quotient is not zero output the roman equivalent
+                if quotient != 0:
+                    for y in range(quotient):
+                        roman_number += int2roman[x]
+
+                # update integer with remainder
+                integer = integer % x
+        return roman_number
