@@ -24,7 +24,7 @@ class StringsAnalyzer(AnalyzeCommon):
 
         # max fractal of natural harmonics
         self.strings_max_fractal_natural_harmonics = 6
-        self.strings_roman_numbers = [self._integer_to_roman(x) for x in
+        self.strings_roman_numbers = [self._integer_to_roman(x, upper_case=False) for x in
                                       range(self.strings_max_fractal_natural_harmonics + 1)]
 
         # number of ticks showing
@@ -149,8 +149,8 @@ class StringsAnalyzer(AnalyzeCommon):
             ax.add_patch(cir)
             # plot tick number
             if i % self.strings_n_temperament != 0:
-                ax.text(x_position, cir_bottom_position / 2, s=str(i % 12), horizontalalignment='center',
-                        verticalalignment='center', fontsize=6 * ratio,
+                ax.text(x_position, cir_bottom_position / 2, s=self._integer_to_roman(i % 12),
+                        horizontalalignment='center', verticalalignment='center', fontsize=6 * ratio,
                         zorder=2, c=self.strings_ticks_color, alpha=ratio)
 
     def _strings_plot_string_spectral(self, ax, strings_frequencies, log_fft_data, ss, v_fft_data):

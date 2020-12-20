@@ -349,13 +349,13 @@ if __name__ == '__main__':
         tsa.main(None)
     # argument error
     elif len(sys.argv) > 2:
-        print('argument error, please check number of arguments')
+        print('<!> argument error, please check number of arguments')
     # default mode
     else:
         input_path = sys.argv[1]
         if input_path in ['-h', '--help']:
             TerminalSeeAudio().print_help()
         elif not os.path.exists(input_path):
-            print(f'path [{input_path}] does not exist!')
+            print(f'<!> path [{input_path}] does not exist!')
         else:
             tsa.main(input_path)

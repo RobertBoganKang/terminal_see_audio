@@ -265,7 +265,7 @@ class AnalyzeCommon(Common):
         return number.numerator, number.denominator
 
     @staticmethod
-    def _integer_to_roman(integer):
+    def _integer_to_roman(integer, upper_case=True):
         """ https://pencilprogrammer.com/python-programs/convert-integer-to-roman-numerals/ """
         int2roman = {1: 'I', 4: 'IV', 5: 'V', 9: 'IX', 10: 'X', 40: 'XL',
                      50: 'L', 90: 'XC', 100: 'C', 400: 'XD', 500: 'D', 900: 'CM', 1000: 'M'}
@@ -284,4 +284,7 @@ class AnalyzeCommon(Common):
 
                 # update integer with remainder
                 integer = integer % x
-        return roman_number
+        if not upper_case:
+            return roman_number.lower()
+        else:
+            return roman_number
