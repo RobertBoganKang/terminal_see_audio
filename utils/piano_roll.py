@@ -46,11 +46,11 @@ class PianoRoll(PianoCommon):
         position_3 = [middle_x - width / 2 - lower_makeup, -self.piano_roll_key_length + length]
         return np.array([position_0, position_1, position_2, position_3]), self.piano_key_bw_switch[key_position]
 
-    def _piano_roll_indicator(self, ax):
+    def _piano_roll_indicator(self, ax, piano_key_range):
         """ piano roll base """
         # plot cover & frame
-        top_most, _ = self._piano_roll_generate_key_position(self.piano_key_range[0])
-        bottom_most, _ = self._piano_roll_generate_key_position(self.piano_key_range[1] - 1)
+        top_most, _ = self._piano_roll_generate_key_position(piano_key_range[0])
+        bottom_most, _ = self._piano_roll_generate_key_position(piano_key_range[1] - 1)
         cover_x_positions = [0, 0, - self.piano_roll_cover_width, - self.piano_roll_cover_width]
         frame_x_positions = [0, 0, self.piano_roll_length, self.piano_roll_length]
         cover_y_positions = [top_most[0, 0], bottom_most[1, 0], bottom_most[1, 0], top_most[0, 0]]
@@ -61,7 +61,7 @@ class PianoRoll(PianoCommon):
                 facecolor='black', linewidth=self.piano_line_width, zorder=1)
         base_x_positions = [0, self.piano_roll_length, self.piano_roll_length, 0]
         # plot key & piano roll base
-        for k in range(self.piano_key_range[0], self.piano_key_range[1], 1):
+        for k in range(piano_key_range[0], piano_key_range[1], 1):
             positions, bw = self._piano_roll_generate_key_position(k)
             bottom_position, top_position = self._piano_roll_key_to_location_range(k)
             base_y_positions = [top_position, top_position, bottom_position, bottom_position]
@@ -106,7 +106,7 @@ class PianoRoll(PianoCommon):
             if freq_alpha > self.figure_minimum_alpha:
                 ax.fill(x_positions, y_positions, facecolor=self.piano_roll_color, zorder=3, alpha=freq_alpha)
 
-    def _prepare_graph_piano_roll(self, starting_time, ending_time):
+    def _prepare_graph_piano_roll(self, starting_time, ending_time, chroma=False):
         # fix time first
         starting_time, ending_time = self._fix_input_starting_ending_time(starting_time, ending_time)
         if not self._check_audio_duration_valid(starting_time, ending_time, self.analyze_min_duration):
@@ -124,14 +124,20 @@ class PianoRoll(PianoCommon):
             # plot
             fig = plt.figure(figsize=self.piano_roll_figure_size)
             ax = plt.subplot(111)
-            ax.set_ylim([self._piano_roll_generate_key_position(self.piano_key_range[0])[0][0, 0] - 0.5,
-                         self._piano_roll_generate_key_position(self.piano_key_range[1] - 1)[0][1, 0] + 0.5])
+            # set range
+            if chroma:
+                piano_key_range = self.piano_key_chroma_range
+            else:
+                piano_key_range = self.piano_key_range
+            # set axis limit
+            ax.set_ylim([self._piano_roll_generate_key_position(piano_key_range[0])[0][0, 0] - 0.5,
+                         self._piano_roll_generate_key_position(piano_key_range[1] - 1)[0][1, 0] + 0.5])
             ax.set_xlim([-self.piano_roll_key_length - 0.2, self.piano_roll_length + 0.2])
             # plot piano base
-            self._piano_roll_indicator(ax)
+            self._piano_roll_indicator(ax, piano_key_range)
             # plot piano roll
             for i, data in enumerate(log_fft_data):
-                key_dict, raw_key, key_fft = self._piano_key_spectral_data(data)
+                key_dict, _, _ = self._piano_key_spectral_data(data, chroma=chroma)
                 self._piano_roll_generate_frequency_graph_single(ax, key_dict, i, len(log_fft_data))
             # set plot ratio
             plt.gca().set_aspect(1)

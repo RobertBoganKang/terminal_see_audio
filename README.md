@@ -64,7 +64,7 @@ python see.py <input_file>
     * `''`: empty is to plot last analyzed spiral graphics;
     * `two numbers`: generate video of analyzer at starting time & ending time;
     * `*`: play last calculated analyzer video result;
-* `##`: to plot piano roll;
+* `##`: to plot piano roll, `#=` for chroma gram;
   * `two numbers`: plot piano roll at starting time & ending time; `#10 20` will calculate the piano roll of `10s` to `20s`;
   * `''`: plot last calculated piano roll result;
 * `^`: calculate the spectral tuning peaks frequencies (peaks) and plot;

@@ -56,14 +56,14 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
         else:
             print(f'<!> `{analyzer_name}` analyzer inputs unknown')
 
-    def _main_analyzer_2_input(self, command, _prepare_graph_function, temp_analyzer_path, analyzer_name):
+    def _main_analyzer_2_input(self, command, _prepare_graph_function, temp_analyzer_path, analyzer_name, **kwargs):
         # x.x.1 two numbers
         if ' ' in command:
             inputs = command.split()
             if len(inputs) == 2 and self._is_float(inputs[0]) and self._is_float(
                     inputs[1]):
                 inputs = [float(x) for x in inputs]
-                status = _prepare_graph_function(inputs[0], inputs[1])
+                status = _prepare_graph_function(inputs[0], inputs[1], **kwargs)
                 if status:
                     self._terminal_plot(temp_analyzer_path)
             else:
@@ -245,6 +245,12 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
                 command = command[1:].strip()
                 self._main_analyzer_2_input(command, self._prepare_graph_piano_roll, self.piano_roll_graphics_path,
                                             'piano roll')
+                continue
+            # 1.3* get piano roll chroma-gram (`#=`) analyzer
+            elif input_.startswith('#='):
+                command = command[1:].strip()
+                self._main_analyzer_2_input(command, self._prepare_graph_piano_roll, self.piano_roll_graphics_path,
+                                            'piano roll', chroma=True)
                 continue
             # 1.4 get piano (`#`) analyzer
             elif input_.startswith('#'):
