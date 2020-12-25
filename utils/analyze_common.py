@@ -214,7 +214,7 @@ class AnalyzeCommon(Common):
         num_digits = self._get_digits_number(len(timestamp) + frame_padding_num)
         return timestamp, num_digits, frame_padding_num
 
-    def _prepare_video_analyzer(self, starting_time, ending_time, save_analyzer_path, analyzer_function):
+    def _prepare_video_analyzer(self, starting_time, ending_time, save_analyzer_path, analyzer_function, **kwargs):
         # reset max value
         self.analyze_log_fft_max_value = 0
         self.analyze_log_piano_key_max_value = 0
@@ -234,7 +234,8 @@ class AnalyzeCommon(Common):
 
                 for i, time in enumerate(timestamp):
                     save_path = os.path.join(save_analyzer_path, str(i + frame_padding_num).zfill(num_digits) + '.png')
-                    pool.apply_async(analyzer_function, args=(time, save_path, True), callback=_p_bar_update)
+                    pool.apply_async(analyzer_function, args=(time, save_path, True), kwds=kwargs,
+                                     callback=_p_bar_update)
                 pool.close()
                 pool.join()
             # apply padding

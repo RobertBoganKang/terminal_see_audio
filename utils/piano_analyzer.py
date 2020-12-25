@@ -152,9 +152,10 @@ class PianoAnalyzer(PianoCommon):
                 self._ifft_audio_export(self._analyze_log_min_max_transform(fft_data, log=False))
             return True
 
-    def _prepare_video_piano(self, starting_time, ending_time, save_path):
+    def _prepare_video_piano(self, starting_time, ending_time, save_path, chroma=False):
         """ save video for piano """
         starting_time, ending_time, status = self._prepare_video_analyzer(starting_time, ending_time,
                                                                           save_analyzer_path=save_path,
-                                                                          analyzer_function=self._prepare_graph_piano)
+                                                                          analyzer_function=self._prepare_graph_piano,
+                                                                          chroma=chroma)
         return starting_time, ending_time, status

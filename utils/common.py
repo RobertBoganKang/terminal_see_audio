@@ -28,8 +28,11 @@ class Common(object):
         self.golden_ratio = (np.sqrt(5) - 1) / 2
         self.a4_frequency = 440
 
-        # figure parameters
+        # figure and fft spectrum limits
         self.figure_minimum_alpha = 0.01
+        # minimum hearing power for `log` mode
+        self.min_hearing_power = 0.0005
+        self.min_analyze_power = 0.1
 
         # audio parameters
         self.sample_rate = 16000
@@ -41,7 +44,6 @@ class Common(object):
         self.channel_type = 'stereo'
         # ear nonlinear model (cochlear will transform signal in non-linear form)
         self.ear_nonlinear = 0
-
         # resolution of frequency (y) dimension
         self.n_window = 1024
         # analyzer time
@@ -53,9 +55,6 @@ class Common(object):
         self.play_max_duration = 30
         # spectral transform power coefficient for `power` mode
         self.spectral_power_transform_coefficient = 1 / 5
-        # minimum hearing power for `log` mode
-        self.min_hearing_power = 0.0005
-        self.min_analyze_power = 0.1
         # spectral generation window method
         self.spectral_window_algorithm = 'hamming'
 
