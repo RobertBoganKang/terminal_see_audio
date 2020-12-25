@@ -53,7 +53,6 @@ python see.py <input_file>
   * example: `sr 16000` means switch to `16000Hz` sample rate;
 * `o`: change the input audio file path;
   * example: `o demo/june.ogg` or `o "demo/june.ogg"` means change input audio file to `demo/june.ogg`;
-* `tmp`: to change the temp folder for temp files;
 * `h`: to print `README.md` file (this file) as `help`;
 
 #### Analyzer

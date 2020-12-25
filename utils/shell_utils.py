@@ -16,16 +16,14 @@ class ShellUtils(Common):
         self._initialize_shell()
 
     @staticmethod
-    def _path_input_check(input_split):
-        return input_split[1][0] == input_split[1][-1] and (
-                input_split[1][0] == '\'' or input_split[1][0] == '\"' or input_split[1][0] == '`')
+    def _path_input_check(try_path):
+        return try_path[0] == try_path[-1] and (
+                try_path[0] == '\'' or try_path[0] == '\"' or try_path[0] == '`')
 
-    def _get_try_path(self, input_split):
-        if self._path_input_check(input_split):
-            try_input = input_split[1][1:-1]
-        else:
-            try_input = input_split[1]
-        return try_input
+    def _get_try_path(self, try_path):
+        if self._path_input_check(try_path):
+            try_path = try_path[1:-1]
+        return try_path
 
     def _get_and_fix_input_path(self, in_path):
         """ get input path """

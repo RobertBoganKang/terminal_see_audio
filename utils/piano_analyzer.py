@@ -78,8 +78,8 @@ class PianoAnalyzer(PianoCommon):
             ax.fill(positions[:, 0], positions[:, 1], facecolor='black', edgecolor=self.piano_base_color,
                     linewidth=self.piano_line_width, zorder=2 * bw + 1)
             # plot key
-            if fft_value > self.figure_minimum_alpha:
-                alpha = fft_value ** self.piano_key_color_transform_power
+            alpha = fft_value ** self.piano_key_color_transform_power
+            if alpha > self.figure_minimum_alpha:
                 ax.fill(positions[:, 0], positions[:, 1], edgecolor=self.piano_key_color,
                         facecolor=self.piano_key_color,
                         linewidth=self.piano_line_width, zorder=2 * bw + 2, alpha=alpha)

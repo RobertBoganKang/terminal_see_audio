@@ -79,21 +79,25 @@ class PhaseAnalyzer(FlowerCommon):
                 color = self._hsb_to_rgb(pitch % 1,
                                          ratio_array[i],
                                          1)
-                ax.plot([x_positions[i], x_peaks[i]],
-                        [y_positions[i], y_peaks[i]], c=color, linewidth=self.flower_line_width, alpha=energy, zorder=2)
+                if energy > self.figure_minimum_alpha:
+                    ax.plot([x_positions[i], x_peaks[i]],
+                            [y_positions[i], y_peaks[i]], c=color, linewidth=self.flower_line_width, alpha=energy,
+                            zorder=2)
+                    cir_end = Circle((x_peaks[i], y_peaks[i]), radius=energy / 5, zorder=3, facecolor=color,
+                                     linewidth=self.flower_line_width, edgecolor=color, alpha=energy)
+                    ax.add_patch(cir_end)
                 if i != 0 and self._flower_get_angle(x_positions[i],
                                                      x_positions[i - 1],
                                                      y_positions[i],
                                                      y_positions[i - 1]) \
                         < self.flower_min_angle_connection / 180 * np.pi:
-                    ax.plot([x_positions[i], x_positions[i - 1]],
-                            [y_positions[i], y_positions[i - 1]], c=color,
-                            linewidth=self.flower_ground_line_width,
-                            alpha=(energies[i] + energies[i - 1]) / 2,
-                            zorder=2)
-                cir_end = Circle((x_peaks[i], y_peaks[i]), radius=energy / 5, zorder=3, facecolor=color,
-                                 linewidth=self.flower_line_width, edgecolor=color, alpha=energy)
-                ax.add_patch(cir_end)
+                    mean_energy = (energies[i] + energies[i - 1]) / 2
+                    if mean_energy > self.figure_minimum_alpha:
+                        ax.plot([x_positions[i], x_positions[i - 1]],
+                                [y_positions[i], y_positions[i - 1]], c=color,
+                                linewidth=self.flower_ground_line_width,
+                                alpha=mean_energy,
+                                zorder=2)
 
             # set figure ratio
             ax.set_ylim(bottom=-max_baseline_circle - 1, top=max_baseline_circle + 1)

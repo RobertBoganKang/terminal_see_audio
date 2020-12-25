@@ -294,15 +294,18 @@ class SourceAnalyzer(FlowerCommon):
                 mean_energy = ((energies[i] + energies[i + 1]) / 2) ** 0.8
                 color = self._hsb_to_rgb(pitch % 1, 1, 1)
                 if i_s[i + 1] - i_s[i] == 1:
-                    ax.plot([x_positions[i], x_positions[i + 1]],
-                            [y_positions[i], y_positions[i + 1]], c=color, alpha=mean_energy, zorder=3,
-                            linewidth=self.source_line_width)
-                if rf_array[i]:
-                    face_color = color
-                else:
-                    face_color = 'black'
-                cir_head = Circle((x_positions[i], y_positions[i]), radius=energy / 15, edgecolor=color,
-                                  facecolor=face_color, linewidth=self.source_line_width, zorder=4, alpha=root_energy)
+                    if mean_energy > self.figure_minimum_alpha:
+                        ax.plot([x_positions[i], x_positions[i + 1]],
+                                [y_positions[i], y_positions[i + 1]], c=color, alpha=mean_energy, zorder=3,
+                                linewidth=self.source_line_width)
+                if root_energy > self.figure_minimum_alpha:
+                    if rf_array[i]:
+                        face_color = color
+                    else:
+                        face_color = 'black'
+                    cir_head = Circle((x_positions[i], y_positions[i]), radius=energy / 15, edgecolor=color,
+                                      facecolor=face_color, linewidth=self.source_line_width, zorder=4,
+                                      alpha=root_energy)
                 ax.add_patch(cir_head)
 
             # set figure ratio
@@ -410,26 +413,29 @@ class SourceAnalyzer(FlowerCommon):
                 color = self._hsb_to_rgb(pitch % 1,
                                          ratio_array[i],
                                          1)
-                if rf_angles[i]:
-                    face_color = color
-                else:
-                    face_color = 'black'
-                ax.plot([x_positions[i], x_peaks[i]],
-                        [y_positions[i], y_peaks[i]], c=color, linewidth=self.flower_line_width, alpha=energy, zorder=2)
+                if energy > self.figure_minimum_alpha:
+                    if rf_angles[i]:
+                        face_color = color
+                    else:
+                        face_color = 'black'
+                    ax.plot([x_positions[i], x_peaks[i]],
+                            [y_positions[i], y_peaks[i]], c=color, linewidth=self.flower_line_width, alpha=energy,
+                            zorder=2)
+                    above_arc = Circle((x_peaks[i], y_peaks[i]), radius=energy / 5, zorder=3, facecolor=face_color,
+                                       linewidth=self.flower_line_width, edgecolor=color, alpha=energy)
+                    ax.add_patch(above_arc)
                 if i != 0 and self._flower_get_angle(x_positions[i],
                                                      x_positions[i - 1],
                                                      y_positions[i],
                                                      y_positions[i - 1]) \
                         < self.flower_min_angle_connection / 180 * np.pi:
-                    if i_s[i] - i_s[i - 1] == 1:
+                    mean_energy = (energies[i] + energies[i - 1]) / 2
+                    if i_s[i] - i_s[i - 1] == 1 and mean_energy > self.figure_minimum_alpha:
                         ax.plot([x_positions[i], x_positions[i - 1]],
                                 [y_positions[i], y_positions[i - 1]], c=color,
                                 linewidth=self.flower_ground_line_width,
-                                alpha=(energies[i] + energies[i - 1]) / 2,
+                                alpha=mean_energy,
                                 zorder=2)
-                above_arc = Circle((x_peaks[i], y_peaks[i]), radius=energy / 5, zorder=3, facecolor=face_color,
-                                   linewidth=self.flower_line_width, edgecolor=color, alpha=energy)
-                ax.add_patch(above_arc)
 
             # set figure ratio
             ax.set_ylim(bottom=-max_baseline_circle - 1, top=max_baseline_circle + 1)

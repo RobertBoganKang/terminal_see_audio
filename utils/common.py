@@ -3,6 +3,7 @@ import gc
 import os
 import shutil
 import subprocess
+import time
 
 import librosa
 import matplotlib.pyplot as plt
@@ -19,7 +20,8 @@ class Common(object):
 
         # io parameters
         self.input = None
-        self.temp_folder = os.path.join(self.working_directory, 'tmp')
+        self.time_string = time.strftime('%Y%m%d%H%M%S')
+        self.temp_folder = os.path.join(self.working_directory, 'tmp', self.time_string)
         self.readme_path = os.path.join(self.working_directory, 'README.md')
 
         # constants
@@ -258,7 +260,7 @@ class Common(object):
     def _terminal_plot(self, path):
         """ plot in terminal function """
         if not os.path.exists(path):
-            print(f'<!> temp image `{path}` cannot find')
+            print('<!> temp image cannot find')
             return
         command = self.plot_command.format(path)
         # noinspection PyBroadException

@@ -198,7 +198,7 @@ class StringsAnalyzer(AnalyzeCommon):
                     pos3 = [position_0[0][i - 1], position_0[1][i - 1]]
                     poly_position = np.array([pos0, pos1, pos2, pos3])
                     v_opacity = max(vs[i], vs[i - 1])
-                    if v_opacity > self.min_analyze_power:
+                    if v_opacity > self.figure_minimum_alpha:
                         rgb_color = self._hsb_to_rgb(pitches[i] % 1, ss[i_s[i]], 1)
                         ax.fill(poly_position[:, 0], poly_position[:, 1], facecolor=rgb_color,
                                 edgecolor=rgb_color, linewidth=self.strings_frequency_line_width,
