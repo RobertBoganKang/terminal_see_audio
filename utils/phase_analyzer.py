@@ -51,7 +51,7 @@ class PhaseAnalyzer(FlowerCommon):
                     ratio_array.append(self._amplitude_ratio(t0, t1))
         return x_array, y_array, x_peak, y_peak, e_array, pitches, ratio_array
 
-    def _prepare_graph_phase(self, starting_time, save_path=None, dynamic_max_value=False):
+    def _prepare_graph_phase(self, starting_time, save_path, dynamic_max_value=False):
         valid = self._check_analyze_duration(starting_time)
         if not valid:
             return False
@@ -101,8 +101,6 @@ class PhaseAnalyzer(FlowerCommon):
             self._set_1to1_ratio_figure()
 
             # save figure
-            if save_path is None:
-                save_path = self.phase_analyzer_path + '.png'
             fig.savefig(save_path, dpi=self.flower_dpi, bbox_inches='tight')
             self._matplotlib_clear_memory(fig)
 
@@ -111,13 +109,13 @@ class PhaseAnalyzer(FlowerCommon):
                 self._ifft_audio_export(self._analyze_log_min_max_transform(fft_data, log=False))
             return True
 
-    def _prepare_video_phase(self, starting_time, ending_time):
+    def _prepare_video_phase(self, starting_time, ending_time, save_path):
         """ save video for spiral """
         # reset max value
         self.analyze_log_fft_max_value = 0
         (starting_time,
          ending_time,
          status) = self._prepare_video_analyzer(starting_time, ending_time,
-                                                save_analyzer_path=self.phase_analyzer_path,
+                                                save_analyzer_path=save_path,
                                                 analyzer_function=self._prepare_graph_phase)
         return starting_time, ending_time, status

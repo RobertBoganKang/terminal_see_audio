@@ -61,7 +61,7 @@ class SpiralAnalyzer(AnalyzeCommon):
                     y_array_1.append(y_position)
         return (x_array_0, y_array_0), (x_array_1, y_array_1), pitches, hs, ss, vs
 
-    def _prepare_graph_spiral(self, starting_time, save_path=None, dynamic_max_value=False):
+    def _prepare_graph_spiral(self, starting_time, save_path, dynamic_max_value=False):
         valid = self._check_analyze_duration(starting_time)
         if not valid:
             return False
@@ -133,8 +133,6 @@ class SpiralAnalyzer(AnalyzeCommon):
             self._set_1to1_ratio_figure()
 
             # save figure
-            if save_path is None:
-                save_path = self.spiral_analyzer_path + '.png'
             fig.savefig(save_path, dpi=self.spiral_dpi, bbox_inches='tight')
             self._matplotlib_clear_memory(fig)
 
@@ -143,9 +141,9 @@ class SpiralAnalyzer(AnalyzeCommon):
                 self._ifft_audio_export(self._analyze_log_min_max_transform(fft_data, log=False))
             return True
 
-    def _prepare_video_spiral(self, starting_time, ending_time):
+    def _prepare_video_spiral(self, starting_time, ending_time, save_path):
         """ save video for spiral """
         starting_time, ending_time, status = self._prepare_video_analyzer(starting_time, ending_time,
-                                                                          save_analyzer_path=self.spiral_analyzer_path,
+                                                                          save_analyzer_path=save_path,
                                                                           analyzer_function=self._prepare_graph_spiral)
         return starting_time, ending_time, status

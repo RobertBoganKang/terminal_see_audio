@@ -106,7 +106,7 @@ class PianoRoll(PianoCommon):
             if freq_alpha > self.figure_minimum_alpha:
                 ax.fill(x_positions, y_positions, facecolor=self.piano_roll_color, zorder=3, alpha=freq_alpha)
 
-    def _prepare_graph_piano_roll(self, starting_time, ending_time, chroma=False):
+    def _prepare_graph_piano_roll(self, starting_time, ending_time, save_path, chroma=False):
         # fix time first
         starting_time, ending_time = self._fix_input_starting_ending_time(starting_time, ending_time)
         if not self._check_audio_duration_valid(starting_time, ending_time, self.analyze_min_duration):
@@ -125,10 +125,7 @@ class PianoRoll(PianoCommon):
             fig = plt.figure(figsize=self.piano_roll_figure_size)
             ax = plt.subplot(111)
             # set range
-            if chroma:
-                piano_key_range = self.piano_key_chroma_range
-            else:
-                piano_key_range = self.piano_key_range
+            piano_key_range = self._piano_get_range(chroma)
             # set axis limit
             ax.set_ylim([self._piano_roll_generate_key_position(piano_key_range[0])[0][0, 0] - 0.5,
                          self._piano_roll_generate_key_position(piano_key_range[1] - 1)[0][1, 0] + 0.5])
@@ -142,6 +139,6 @@ class PianoRoll(PianoCommon):
             # set plot ratio
             plt.gca().set_aspect(1)
             plt.axis('off')
-            fig.savefig(self.piano_roll_graphics_path, dpi=self.piano_roll_dpi, bbox_inches='tight')
+            fig.savefig(save_path, dpi=self.piano_roll_dpi, bbox_inches='tight')
             self._matplotlib_clear_memory(fig)
             return True

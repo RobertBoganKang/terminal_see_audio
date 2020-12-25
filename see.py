@@ -20,15 +20,21 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
         self.last_starting = self.last_ending = None
         self.last_analyze_starting = self.last_analyze_ending = None
 
+    def _main_get_temp_analyzer_path(self, analyzer_name):
+        analyzer_name = analyzer_name.strip().replace(' ', '_')
+        path = os.path.join(self.temp_folder, analyzer_name)
+        return path
+
     def _main_reset_time(self):
         self.last_starting = 0
         self.last_ending = self._get_audio_time()
 
-    def _main_analyzer_1_or_2_input(self, command, prepare_graph_function, prepare_video_function, temp_analyzer_path,
-                                    analyzer_name):
+    def _main_analyzer_1_or_2_input(self, command, prepare_graph_function, prepare_video_function, analyzer_name,
+                                    **kwargs):
+        temp_analyzer_path = self._main_get_temp_analyzer_path(analyzer_name)
         # x.x.1 number as staring time
         if self._is_float(command):
-            status = prepare_graph_function(float(command))
+            status = prepare_graph_function(float(command), temp_analyzer_path + '.png', **kwargs)
             if status:
                 self._terminal_plot(temp_analyzer_path + '.png')
         # x.x.2 plot last image
@@ -41,7 +47,9 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
                 inputs = [float(x) for x in inputs]
                 self.last_analyze_starting, self.last_analyze_ending, status = prepare_video_function(
                     inputs[0],
-                    inputs[1])
+                    inputs[1],
+                    temp_analyzer_path,
+                    **kwargs)
                 if status:
                     self._terminal_video(self.last_analyze_starting, self.last_analyze_ending,
                                          temp_analyzer_path + '.wav',
@@ -56,21 +64,22 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
         else:
             print(f'<!> `{analyzer_name}` analyzer inputs unknown')
 
-    def _main_analyzer_2_input(self, command, _prepare_graph_function, temp_analyzer_path, analyzer_name, **kwargs):
+    def _main_analyzer_2_input(self, command, _prepare_graph_function, analyzer_name, **kwargs):
+        temp_analyzer_path = self._main_get_temp_analyzer_path(analyzer_name)
         # x.x.1 two numbers
         if ' ' in command:
             inputs = command.split()
             if len(inputs) == 2 and self._is_float(inputs[0]) and self._is_float(
                     inputs[1]):
                 inputs = [float(x) for x in inputs]
-                status = _prepare_graph_function(inputs[0], inputs[1], **kwargs)
+                status = _prepare_graph_function(inputs[0], inputs[1], temp_analyzer_path, **kwargs)
                 if status:
-                    self._terminal_plot(temp_analyzer_path)
+                    self._terminal_plot(temp_analyzer_path + '.png')
             else:
                 print(f'<!> `{analyzer_name}` analyzer inputs unknown')
         # x.x.2 plot last image
         elif command == '':
-            self._terminal_plot(temp_analyzer_path)
+            self._terminal_plot(temp_analyzer_path + '.png')
         else:
             print(f'<!> `{analyzer_name}` analyzer inputs unknown')
 
@@ -102,7 +111,8 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
             print(f'<!> execute error message: `{command_result[1]}`')
             return
 
-    def _main_tuning_analyzer_script(self, command):
+    def _main_tuning_analyzer_script(self, command, analyzer_name):
+        tuning_graphics_path = self._main_get_temp_analyzer_path(analyzer_name) + '.png'
         # x.x.1 number as staring time
         if self._is_float(command):
             self._prepare_audio_peak_info(float(command))
@@ -113,18 +123,18 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
                 if self._is_float(command_split[0]):
                     start_timing = float(command_split[0])
                 else:
-                    print('<!> tuning starting time error')
+                    print(f'<!> {analyzer_name} starting time error')
                     return
-                status = self._prepare_graph_tuning(start_timing, command_split[1])
+                status = self._prepare_graph_tuning(start_timing, command_split[1], tuning_graphics_path)
                 if status:
-                    self._terminal_plot(self.tuning_graphics_path)
+                    self._terminal_plot(tuning_graphics_path)
                 else:
-                    print('<!> tuning frequency error')
+                    print(f'<!> {analyzer_name} frequency error')
                     return
             else:
-                print('<!> please check number of tuning input')
+                print(f'<!> please check number of inputs')
         else:
-            print('<!> tuning inputs unknown')
+            print(f'<!> {analyzer_name} inputs unknown')
 
     def _main_shell_script(self, input_split):
         # noinspection PyBroadException
@@ -228,68 +238,71 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
             # 1. multiple input function (calculation)
             # 1.1 `=` for advanced script
             # watch: space ` ` will be replaced by `\s`
-            if len(input_) >= 1:
-                command = input_[1:].strip()
-            else:
-                command = ''
             if input_.startswith('='):
+                command = input_[1:].strip()
                 self._main_python_script(command)
                 continue
             # 1.2 get spiral (`@`) analyzer
             elif input_.startswith('@'):
+                command = input_[1:].strip()
                 self._main_analyzer_1_or_2_input(command, self._prepare_graph_spiral, self._prepare_video_spiral,
-                                                 self.spiral_analyzer_path, 'spiral')
+                                                 'spiral')
+                continue
+            # 1.3* get piano roll chroma-gram (`##=`) analyzer
+            elif input_.startswith('##='):
+                command = input_[3:].strip()
+                self._main_analyzer_2_input(command, self._prepare_graph_piano_roll, 'piano roll chroma', chroma=True)
                 continue
             # 1.3 get piano roll (`##`) analyzer
             elif input_.startswith('##'):
-                command = command[1:].strip()
-                self._main_analyzer_2_input(command, self._prepare_graph_piano_roll, self.piano_roll_graphics_path,
-                                            'piano roll')
+                command = input_[2:].strip()
+                self._main_analyzer_2_input(command, self._prepare_graph_piano_roll, 'piano roll')
                 continue
-            # 1.3* get piano roll chroma-gram (`#=`) analyzer
+            # 1.4* get piano (`#=`) analyzer
             elif input_.startswith('#='):
-                command = command[1:].strip()
-                self._main_analyzer_2_input(command, self._prepare_graph_piano_roll, self.piano_roll_graphics_path,
-                                            'piano roll', chroma=True)
+                command = input_[2:].strip()
+                self._main_analyzer_1_or_2_input(command, self._prepare_graph_piano, self._prepare_video_piano,
+                                                 'piano chroma', chroma=True)
                 continue
             # 1.4 get piano (`#`) analyzer
             elif input_.startswith('#'):
-                self._main_analyzer_1_or_2_input(command, self._prepare_graph_piano, self._prepare_video_piano,
-                                                 self.piano_analyzer_path, 'piano')
+                command = input_[1:].strip()
+                self._main_analyzer_1_or_2_input(command, self._prepare_graph_piano, self._prepare_video_piano, 'piano')
                 continue
             # 1.5 get tuning analyzer (`^`)
             elif input_.startswith('^'):
-                self._main_tuning_analyzer_script(command)
+                command = input_[1:].strip()
+                self._main_tuning_analyzer_script(command, 'tuning')
                 continue
             # 1.6 play frequency or music notes
             elif input_.startswith('>'):
+                command = input_[1:].strip()
                 status = self._pitch_export_wave_frequency(command)
                 if status:
                     self._terminal_play(0, 1, self.pitch_audio_path)
                 continue
             # 1.7 get source analyzer
             elif input_.startswith('*-*'):
-                command = command[2:].strip()
+                command = input_[3:].strip()
                 self._main_analyzer_1_or_2_input(command, self._prepare_graph_source, self._prepare_video_source,
-                                                 self.source_analyzer_path, 'source stellar map')
+                                                 'source stellar')
                 continue
             # 1.8 get source angle analyzer
             elif input_.startswith('*<'):
-                command = command[1:].strip()
+                command = input_[2:].strip()
                 self._main_analyzer_1_or_2_input(command, self._prepare_graph_source_angle,
-                                                 self._prepare_video_source_angle,
-                                                 self.source_angle_analyzer_path, 'source angle')
+                                                 self._prepare_video_source_angle, 'source angle')
                 continue
             # 1.9 get phase analyzer
             elif input_.startswith('*%'):
-                command = command[1:].strip()
-                self._main_analyzer_1_or_2_input(command, self._prepare_graph_phase, self._prepare_video_phase,
-                                                 self.phase_analyzer_path, 'phase')
+                command = input_[2:].strip()
+                self._main_analyzer_1_or_2_input(command, self._prepare_graph_phase, self._prepare_video_phase, 'phase')
                 continue
             # 1.10 get strings analyzer
             elif input_.startswith('|'):
+                command = input_[1:].strip()
                 self._main_analyzer_1_or_2_input(command, self._prepare_graph_strings, self._prepare_video_string,
-                                                 self.strings_analyzer_path, 'strings')
+                                                 'strings')
                 continue
 
             # 2. contain space case

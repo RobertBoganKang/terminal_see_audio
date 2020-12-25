@@ -89,7 +89,7 @@ class TuningAnalyzer(AnalyzeCommon):
                 linewidth=self.tuning_target_line_width, zorder=3)
         return max_position_x
 
-    def _prepare_graph_tuning(self, starting_time, tuning_string):
+    def _prepare_graph_tuning(self, starting_time, tuning_string, save_path):
         valid = self._check_analyze_duration(starting_time)
         if not valid:
             return False
@@ -114,7 +114,7 @@ class TuningAnalyzer(AnalyzeCommon):
             ax.set_xlim(left=-0.5, right=max_x_position + 0.5)
 
             plt.axis('off')
-            fig.savefig(self.tuning_graphics_path, dpi=self.tuning_dpi, bbox_inches='tight')
+            fig.savefig(save_path, dpi=self.tuning_dpi, bbox_inches='tight')
 
             self._matplotlib_clear_memory(fig)
 

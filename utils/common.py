@@ -110,14 +110,6 @@ class Common(object):
     def _initialize_temp(self):
         """ temp file path initialization """
         self.wave_spectral_graphics_path = os.path.join(self.temp_folder, 'wave_spectral.png')
-        self.spiral_analyzer_path = os.path.join(self.temp_folder, 'spiral')
-        self.piano_analyzer_path = os.path.join(self.temp_folder, 'piano')
-        self.source_analyzer_path = os.path.join(self.temp_folder, 'source')
-        self.source_angle_analyzer_path = os.path.join(self.temp_folder, 'source_angle')
-        self.phase_analyzer_path = os.path.join(self.temp_folder, 'phase')
-        self.strings_analyzer_path = os.path.join(self.temp_folder, 'strings')
-        self.piano_roll_graphics_path = os.path.join(self.temp_folder, 'piano_roll.png')
-        self.tuning_graphics_path = os.path.join(self.temp_folder, 'tuning.png')
         self.audio_part_path = os.path.join(self.temp_folder, 'audio.wav')
         self.ifft_audio_path = os.path.join(self.temp_folder, 'analyze_ifft.wav')
         self.pitch_audio_path = os.path.join(self.temp_folder, 'pitch.wav')
@@ -266,7 +258,7 @@ class Common(object):
     def _terminal_plot(self, path):
         """ plot in terminal function """
         if not os.path.exists(path):
-            print('<!> temp image cannot find')
+            print(f'<!> temp image `{path}` cannot find')
             return
         command = self.plot_command.format(path)
         # noinspection PyBroadException

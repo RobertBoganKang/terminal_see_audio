@@ -259,7 +259,7 @@ class SourceAnalyzer(FlowerCommon):
                         i_s.append(i)
         return x_array, y_array, p_array, e_array, pitches, ratio_array, real_fake_array, i_s
 
-    def _prepare_graph_source(self, starting_time, save_path=None, dynamic_max_value=False):
+    def _prepare_graph_source(self, starting_time, save_path, dynamic_max_value=False):
         valid = self._check_analyze_duration(starting_time)
         if not valid:
             return False
@@ -317,8 +317,6 @@ class SourceAnalyzer(FlowerCommon):
             ax.set_xlim(left=-self.source_figure_space_limit, right=self.source_figure_space_limit)
 
             # save figure
-            if save_path is None:
-                save_path = self.source_analyzer_path + '.png'
             fig.savefig(save_path, dpi=self.flower_dpi, bbox_inches='tight')
             self._matplotlib_clear_memory(fig)
 
@@ -376,7 +374,7 @@ class SourceAnalyzer(FlowerCommon):
 
         return x_array, y_array, x_peak, y_peak, e_array, pitches, ratio_array, rf_angles, i_s
 
-    def _prepare_graph_source_angle(self, starting_time, save_path=None, dynamic_max_value=False):
+    def _prepare_graph_source_angle(self, starting_time, save_path, dynamic_max_value=False):
         valid = self._check_analyze_duration(starting_time)
         if not valid:
             return False
@@ -439,8 +437,6 @@ class SourceAnalyzer(FlowerCommon):
             self._set_1to1_ratio_figure()
 
             # save figure
-            if save_path is None:
-                save_path = self.source_angle_analyzer_path + '.png'
             fig.savefig(save_path, dpi=self.flower_dpi, bbox_inches='tight')
             self._matplotlib_clear_memory(fig)
 
@@ -449,20 +445,20 @@ class SourceAnalyzer(FlowerCommon):
                 self._ifft_audio_export(self._analyze_log_min_max_transform(fft_data, log=False))
             return True
 
-    def _prepare_video_source_angle(self, starting_time, ending_time):
+    def _prepare_video_source_angle(self, starting_time, ending_time, save_path):
         """ save video for spiral """
         (starting_time,
          ending_time,
          status) = self._prepare_video_analyzer(starting_time, ending_time,
-                                                save_analyzer_path=self.source_angle_analyzer_path,
+                                                save_analyzer_path=save_path,
                                                 analyzer_function=self._prepare_graph_source_angle)
         return starting_time, ending_time, status
 
-    def _prepare_video_source(self, starting_time, ending_time):
+    def _prepare_video_source(self, starting_time, ending_time, save_path):
         """ save video for spiral """
         (starting_time,
          ending_time,
          status) = self._prepare_video_analyzer(starting_time, ending_time,
-                                                save_analyzer_path=self.source_analyzer_path,
+                                                save_analyzer_path=save_path,
                                                 analyzer_function=self._prepare_graph_source)
         return starting_time, ending_time, status
