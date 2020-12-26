@@ -16,7 +16,6 @@ class TuningAnalyzer(AnalyzeCommon):
 
         # color & theme
         self.tuning_base_color = '#444'
-        self.tuning_spectral_color = 'mediumspringgreen'
         self.tuning_line_color = 'red'
 
     @staticmethod
@@ -26,19 +25,17 @@ class TuningAnalyzer(AnalyzeCommon):
         position = prepare - layer - 0.5
         return layer, position
 
-    def _tuning_get_positions(self, arrays, tuning, h, s, v):
+    def _tuning_get_positions(self, arrays, tuning, s, v):
         array_0 = arrays[0]
         array_1 = arrays[1]
         position_info = []
+        keys = []
         vs = []
-        hs = ss = None
-        if h is not None:
-            hs = []
-        if s is not None:
-            ss = []
+        ss = []
         for i in range(len(array_0)):
             if i > 0:
                 frequency = self._fft_position_to_frequency(i)
+                key = self._frequency_to_key(frequency)
                 layer, position = self._tuning_get_layer_position(frequency, tuning)
                 if layer > self.tuning_max_layer:
                     break
@@ -47,13 +44,11 @@ class TuningAnalyzer(AnalyzeCommon):
                 position_y = position
                 position_info.append([position_x_0, position_x_1, position_y, layer])
                 vs.append(v[i])
-                if h is not None:
-                    hs.append(h[i])
-                if s is not None:
-                    ss.append(s[i])
-        return position_info, hs, ss, vs
+                keys.append(key)
+                ss.append(s[i])
+        return position_info, keys, ss, vs
 
-    def _tuning_plot(self, ax, position_info, hs, ss, vs):
+    def _tuning_plot(self, ax, position_info, pitches, ss, vs):
         position_stack = []
         position_sub_stack = []
         for i in range(len(position_info) - 1):
@@ -63,17 +58,16 @@ class TuningAnalyzer(AnalyzeCommon):
                 x_positions = [position_x_0, position_x_1, position_x_1_a, position_x_0_a]
                 y_positions = [position_y, position_y, position_y_a, position_y_a]
                 v_opacity = max(vs[i], vs[i + 1])
+                k = pitches[i]
                 position_sub_stack.append([position_x_0, position_y])
                 # plot frequencies
                 if v_opacity > self.figure_minimum_alpha:
-                    if hs is None:
-                        ax.fill(x_positions, y_positions, edgecolor=self.tuning_spectral_color,
-                                facecolor=self.tuning_spectral_color,
-                                linewidth=self.tuning_line_width, zorder=2, alpha=v_opacity)
+                    if self.colorful_theme:
+                        color = self._hsb_to_rgb((k - 3) % 12 / 12, ss[i], 1)
                     else:
-                        rgb_color = self._hsb_to_rgb(hs[i], 1 - ss[i], 1)
-                        ax.fill(x_positions, y_positions, edgecolor=rgb_color, facecolor=rgb_color,
-                                linewidth=self.tuning_line_width, zorder=2, alpha=v_opacity)
+                        color = self.mono_theme_color
+                    ax.fill(x_positions, y_positions, edgecolor=color, facecolor=color,
+                            linewidth=self.tuning_line_width, zorder=2, alpha=v_opacity)
             else:
                 position_stack.append(position_sub_stack)
                 position_sub_stack = []
@@ -101,16 +95,16 @@ class TuningAnalyzer(AnalyzeCommon):
             if tuning < self.min_hearing_frequency:
                 print(f'<!> tuning frequency too low (<{self.min_hearing_frequency})')
             # prepare data
-            (fft_data, log_fft_data, h_phase_data,
+            (fft_data, log_fft_data,
              s_fft_magnitude_ratio_data, v_fft_data) = self._analyze_two_channels_data_preparation(starting_time)
             # get position info
-            position_info, hs, ss, vs = self._tuning_get_positions(log_fft_data, tuning, h_phase_data,
-                                                                   s_fft_magnitude_ratio_data, v_fft_data)
+            position_info, keys, ss, vs = self._tuning_get_positions(log_fft_data, tuning,
+                                                                     s_fft_magnitude_ratio_data, v_fft_data)
             # plot
             fig = plt.figure(figsize=self.tuning_figure_size)
             ax = fig.add_subplot(111)
             ax.set_ylim(bottom=-0.5, top=0.5)
-            max_x_position = self._tuning_plot(ax, position_info, hs, ss, vs)
+            max_x_position = self._tuning_plot(ax, position_info, keys, ss, vs)
             ax.set_xlim(left=-0.5, right=max_x_position + 0.5)
 
             plt.axis('off')

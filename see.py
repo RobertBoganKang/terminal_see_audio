@@ -154,22 +154,36 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
                 self._terminal_plot(self.wave_spectral_graphics_path)
         # 2.2.1 set modes
         elif input_split[0] == 'm':
-            if input_split[1] in self.graphics_modes:
-                if input_split[1] in ['fft', 'fbank']:
-                    self.ws_spectral_transform_y = input_split[1]
-                elif input_split[1] in ['power', 'log']:
-                    self.ws_spectral_transform_v = input_split[1]
-                elif input_split[1] in ['mono', 'stereo']:
-                    self.channel_type = input_split[1]
-                    self._initialize_audio()
-                elif input_split[1] in ['spectral', 'phase', 'entropy']:
-                    self.ws_spectral_mode = input_split[1]
-                # recalculating
-                self._prepare_graph_wave_spectral(self.last_starting, self.last_ending)
+            known_mode = True
+            prepare_wave = False
+            if input_split[1] in ['fft', 'fbank']:
+                self.ws_spectral_transform_y = input_split[1]
+                prepare_wave = True
+            elif input_split[1] in ['power', 'log']:
+                self.ws_spectral_transform_v = input_split[1]
+                prepare_wave = True
+            elif input_split[1] in ['mono', 'stereo']:
+                self.channel_type = input_split[1]
+                self._initialize_audio()
+                prepare_wave = True
+            elif input_split[1] in ['spectral', 'phase', 'entropy']:
+                self.ws_spectral_mode = input_split[1]
+                prepare_wave = True
+            elif input_split[1] in ['color', 'nocolor']:
+                if input_split[1] == 'color':
+                    self.colorful_theme = True
+                else:
+                    self.colorful_theme = False
+            else:
+                known_mode = False
+            if known_mode:
+                if prepare_wave:
+                    # recalculating
+                    self._prepare_graph_wave_spectral(self.last_starting, self.last_ending)
                 print(f'<+> mode `{input_split[1]}` set')
             else:
                 print(
-                    f'<?> mode `{input_split[1]}` unknown\n<!> modes are within {self.graphics_modes}')
+                    f'<?> mode `{input_split[1]}` unknown\n<!> please read help')
         # 2.2.2 set sample rate
         elif input_split[0] == 'sr':
             if self._is_int(input_split[1]):

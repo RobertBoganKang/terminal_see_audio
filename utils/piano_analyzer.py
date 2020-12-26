@@ -80,9 +80,12 @@ class PianoAnalyzer(PianoCommon):
             # plot key
             alpha = fft_value ** self.piano_key_color_transform_power
             if alpha > self.figure_minimum_alpha:
-                ax.fill(positions[:, 0], positions[:, 1], edgecolor=self.piano_key_color,
-                        facecolor=self.piano_key_color,
-                        linewidth=self.piano_line_width, zorder=2 * bw + 2, alpha=alpha)
+                if self.colorful_theme:
+                    color = self._hsb_to_rgb((k - 3) % 12 / 12, 1, 1)
+                else:
+                    color = self.mono_theme_color
+                ax.fill(positions[:, 0], positions[:, 1], edgecolor=color,
+                        facecolor=color, linewidth=self.piano_line_width, zorder=2 * bw + 2, alpha=alpha)
             # `a4` position
             if k % 12 == 0:
                 if k == 0:

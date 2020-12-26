@@ -25,8 +25,6 @@ class PianoCommon(AnalyzeCommon):
         self.piano_base_color = '#222'
         self.piano_roll_base_color = '#444'
         self.piano_roll_black_key_color = '#333'
-        self.piano_key_color = 'mediumspringgreen'
-        self.piano_roll_color = 'mediumspringgreen'
         self.piano_spectral_color = 'dimgray'
 
         # piano key alpha color transform with power function

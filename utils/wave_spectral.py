@@ -93,7 +93,7 @@ class WaveSpectral(Common):
     def _ws_data_prepare(self, starting_time, ending_time):
         """ prepare partition of audios """
         starting_time, ending_time = self._fix_input_starting_ending_time(starting_time, ending_time)
-        if not self._check_audio_duration_valid(starting_time, ending_time, self.min_duration):
+        if not self._check_audio_duration_valid(starting_time, ending_time, self.n_window):
             return None, None, starting_time, ending_time, False
         data_, time_ = self._export_audio(starting_time, ending_time, audio_part_path=self.audio_part_path)
         return data_, time_, starting_time, ending_time, True

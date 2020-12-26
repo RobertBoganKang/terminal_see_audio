@@ -210,7 +210,7 @@ class StringsAnalyzer(AnalyzeCommon):
             return False
         else:
             # prepare data
-            (fft_data, log_fft_data, _, ss,
+            (fft_data, log_fft_data, ss,
              v_fft_data) = self._analyze_two_channels_data_preparation(starting_time,
                                                                        dynamic_max_value=dynamic_max_value)
 

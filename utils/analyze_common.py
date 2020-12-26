@@ -181,22 +181,12 @@ class AnalyzeCommon(Common):
             return self._translate_music_note_name_to_frequency(string)
 
     def _analyze_two_channels_data_preparation(self, starting_time, dynamic_max_value=False):
-        phase = self._phase_mode_check()
-        if not phase:
-            # prepare fft data
-            fft_data = self._analyze_get_audio_fft_data(starting_time)
-            log_fft_data = self._analyze_log_min_max_transform(fft_data, dynamic_max_value=dynamic_max_value)
-            s_fft_magnitude_ratio_data = self._amplitude_ratio_array(log_fft_data[0], log_fft_data[1])
-            v_fft_data = self._max_norm(log_fft_data[0] + log_fft_data[1], min_transform=False)
-            return fft_data, log_fft_data, None, s_fft_magnitude_ratio_data, v_fft_data
-        else:
-            fft_data, phase_data = self._analyze_get_audio_fft_data(starting_time, phase=True)
-            log_fft_data = self._analyze_log_min_max_transform(fft_data, dynamic_max_value=dynamic_max_value)
-            v_fft_data = self._max_norm(log_fft_data[0] + log_fft_data[1], min_transform=False)
-            h_phase_data = phase_data[1] - phase_data[0]
-            h_phase_data = np.mod(h_phase_data / 2 / np.pi, 1)
-            s_fft_magnitude_ratio_data = self._amplitude_ratio_array(log_fft_data[0], log_fft_data[1])
-            return fft_data, log_fft_data, h_phase_data, s_fft_magnitude_ratio_data, v_fft_data
+        # prepare fft data
+        fft_data = self._analyze_get_audio_fft_data(starting_time)
+        log_fft_data = self._analyze_log_min_max_transform(fft_data, dynamic_max_value=dynamic_max_value)
+        s_fft_magnitude_ratio_data = self._amplitude_ratio_array(log_fft_data[0], log_fft_data[1])
+        v_fft_data = self._max_norm(log_fft_data[0] + log_fft_data[1], min_transform=False)
+        return fft_data, log_fft_data, s_fft_magnitude_ratio_data, v_fft_data
 
     def _analyze_timestamp_generation(self, starting_time, ending_time):
         """ generate starting time sequences for analyzers to create video """
@@ -220,7 +210,7 @@ class AnalyzeCommon(Common):
         self.analyze_log_piano_key_max_value = 0
         # fix time first
         starting_time, ending_time = self._fix_input_starting_ending_time(starting_time, ending_time)
-        if not self._check_audio_duration_valid(starting_time, ending_time, self.analyze_min_duration):
+        if not self._check_audio_duration_valid(starting_time, ending_time, self.analyze_n_window):
             return starting_time, ending_time, False
         else:
             timestamp, num_digits, frame_padding_num = self._analyze_timestamp_generation(starting_time, ending_time)

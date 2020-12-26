@@ -17,7 +17,6 @@ class SpiralAnalyzer(AnalyzeCommon):
         self.spiral_n_temperament = 12
 
         # color & themes
-        self.spiral_color = 'mediumspringgreen'
         self.spiral_axis_color = '#444'
 
     @staticmethod
@@ -26,7 +25,7 @@ class SpiralAnalyzer(AnalyzeCommon):
         y_position = -np.sin(pitch * 2 * np.pi + np.pi) * (pitch + offset)
         return x_position, y_position
 
-    def _spiral_polar_transform(self, arrays, h, s, v):
+    def _spiral_polar_transform(self, arrays, s, v):
         array_0 = arrays[0]
         array_1 = arrays[1]
         x_array_0 = []
@@ -34,32 +33,29 @@ class SpiralAnalyzer(AnalyzeCommon):
         x_array_1 = []
         y_array_1 = []
         pitches = []
+        keys = []
         vs = []
-        hs = ss = None
-        if h is not None:
-            hs = []
-        if s is not None:
-            ss = []
+        ss = []
         for i in range(len(array_0)):
             t0 = array_0[i]
             t1 = array_1[i]
             # skip low frequency part
             if i > 0:
-                pitch = self._frequency_to_pitch(self._fft_position_to_frequency(i))
+                frequency = self._fft_position_to_frequency(i)
+                pitch = self._frequency_to_pitch(frequency)
+                key = self._frequency_to_key(frequency)
                 if pitch > 0:
                     vs.append(v[i])
-                    if h is not None:
-                        hs.append(h[i])
-                    if s is not None:
-                        ss.append(s[i])
+                    ss.append(s[i])
                     pitches.append(pitch)
+                    keys.append(key)
                     x_position, y_position = self._spiral_pitch_to_plot_position(pitch, -t1 / 2)
                     x_array_0.append(x_position)
                     y_array_0.append(y_position)
                     x_position, y_position = self._spiral_pitch_to_plot_position(pitch, t0 / 2)
                     x_array_1.append(x_position)
                     y_array_1.append(y_position)
-        return (x_array_0, y_array_0), (x_array_1, y_array_1), pitches, hs, ss, vs
+        return (x_array_0, y_array_0), (x_array_1, y_array_1), pitches, keys, ss, vs
 
     def _prepare_graph_spiral(self, starting_time, save_path, dynamic_max_value=False):
         valid = self._check_analyze_duration(starting_time)
@@ -67,14 +63,13 @@ class SpiralAnalyzer(AnalyzeCommon):
             return False
         else:
             # prepare data
-            (fft_data, log_fft_data, h_phase_data, s_fft_magnitude_ratio_data,
+            (fft_data, log_fft_data, s_fft_magnitude_ratio_data,
              v_fft_data) = self._analyze_two_channels_data_preparation(starting_time,
                                                                        dynamic_max_value=dynamic_max_value)
             # prepare position info
-            (position_0, position_1, pitches, hs, ss, vs) = self._spiral_polar_transform(log_fft_data,
-                                                                                         h_phase_data,
-                                                                                         s_fft_magnitude_ratio_data,
-                                                                                         v_fft_data)
+            (position_0, position_1, pitches, keys, ss, vs) = self._spiral_polar_transform(log_fft_data,
+                                                                                           s_fft_magnitude_ratio_data,
+                                                                                           v_fft_data)
             min_pitch = pitches[0]
             # pitch ticks for `n` temperament
             pitch_ticks_end = [
@@ -113,17 +108,16 @@ class SpiralAnalyzer(AnalyzeCommon):
                 pos2 = [position_1[0][i + 1], position_1[1][i + 1]]
                 pos3 = [position_0[0][i + 1], position_0[1][i + 1]]
                 poly_position = np.array([pos0, pos1, pos2, pos3])
+                k = keys[i]
                 v_opacity = max(vs[i], vs[i + 1])
                 if v_opacity > self.figure_minimum_alpha:
-                    if hs is None:
-                        ax.fill(poly_position[:, 0], poly_position[:, 1], facecolor=self.spiral_color,
-                                edgecolor=self.spiral_color, linewidth=self.spiral_line_width,
-                                alpha=v_opacity, zorder=2)
+                    if self.colorful_theme:
+                        color = self._hsb_to_rgb((k - 3) % 12 / 12, ss[i], 1)
                     else:
-                        rgb_color = self._hsb_to_rgb(hs[i], ss[i], 1)
-                        ax.fill(poly_position[:, 0], poly_position[:, 1], facecolor=rgb_color,
-                                edgecolor=rgb_color, linewidth=self.spiral_line_width,
-                                alpha=v_opacity, zorder=2)
+                        color = self.mono_theme_color
+                    ax.fill(poly_position[:, 0], poly_position[:, 1], facecolor=color,
+                            edgecolor=color, linewidth=self.spiral_line_width,
+                            alpha=v_opacity, zorder=2)
             # plot `A4` position
             cir_end = Circle((ax_position, ay_position), radius=0.2, zorder=3, facecolor=self.a_pitch_color,
                              linewidth=self.spiral_line_width, edgecolor=self.a_pitch_color, alpha=0.6)

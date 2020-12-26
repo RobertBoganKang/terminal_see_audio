@@ -72,9 +72,9 @@ class Common(object):
 
         # color & themes
         self.a_pitch_color = 'red'
-
-        # graphics modes
-        self.graphics_modes = ['fft', 'fbank', 'power', 'log', 'mono', 'stereo', 'phase', 'spectral', 'entropy']
+        self.mono_theme_color = 'mediumspringgreen'
+        # colorful theme switch
+        self.colorful_theme = False
 
         # plot mode
         plt.style.use('dark_background')
@@ -84,10 +84,11 @@ class Common(object):
         nonlinear_array = self._max_norm(nonlinear_array)
         return nonlinear_array
 
-    def _check_audio_duration_valid(self, starting, ending, duration):
+    def _check_audio_duration_valid(self, starting, ending, window_size):
         """ check if greater than minimum duration """
-        if ending - starting < self.min_duration:
-            print(f'<!> {ending} - {starting} = {ending - starting} (< {duration}; minimum duration)\n'
+        min_duration = window_size / self.sample_rate
+        if ending - starting < min_duration:
+            print(f'<!> {ending} - {starting} = {ending - starting} (< {min_duration}; minimum duration)\n'
                   f'<!> time duration too short')
             return False
         else:

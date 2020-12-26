@@ -69,31 +69,24 @@ class PianoRoll(PianoCommon):
             if bw:
                 key_color = self.piano_roll_black_key_color
                 roll_color = self.piano_roll_black_key_color
-                alpha = 0.6
             else:
                 key_color = 'black'
-                if k % 12 == 0 or k % 12 == 1:
-                    roll_color = self.a_pitch_color
-                    if k in {0, 1}:
-                        alpha = 0.3
-                    else:
-                        alpha = 0.1
-                else:
-                    roll_color = 'black'
-                    alpha = 0.6
+                roll_color = 'black'
             # plot key
             ax.fill(positions[:, 1], positions[:, 0], facecolor=key_color, edgecolor=self.piano_roll_base_color,
                     linewidth=self.piano_line_width, zorder=bw + 1)
             # plot piano roll base
-            ax.fill(base_x_positions, base_y_positions, facecolor=roll_color, zorder=1, alpha=alpha)
+            ax.fill(base_x_positions, base_y_positions, facecolor=roll_color, linewidth=0, zorder=1, alpha=0.3)
 
             # plot grid
-            ax.plot([base_x_positions[0], base_x_positions[1]], [base_y_positions[-1], base_y_positions[-1]],
-                    c=self.piano_roll_base_color, linewidth=self.piano_line_width, alpha=0.5, zorder=4)
+            alpha = 0.4
+            if k % 12 in {3, 8}:
+                ax.plot([base_x_positions[0], base_x_positions[1]], [base_y_positions[-1], base_y_positions[-1]],
+                        c=self.piano_roll_base_color, linewidth=self.piano_line_width, alpha=alpha, zorder=4)
             # makeup edge line
             if k == self.piano_key_range[0]:
                 ax.plot([base_x_positions[0], base_x_positions[1]], [base_y_positions[0], base_y_positions[0]],
-                        c=self.piano_roll_base_color, linewidth=self.piano_line_width, alpha=0.5, zorder=4)
+                        c=self.piano_roll_base_color, linewidth=self.piano_line_width, alpha=alpha, zorder=4)
 
     def _piano_roll_generate_frequency_graph_single(self, ax, key_dict, step, all_step_number):
         # get key position
@@ -104,12 +97,16 @@ class PianoRoll(PianoCommon):
             y_positions = [key_0, key_0, key_1, key_1]
             freq_alpha = v ** self.piano_key_color_transform_power
             if freq_alpha > self.figure_minimum_alpha:
-                ax.fill(x_positions, y_positions, facecolor=self.piano_roll_color, zorder=3, alpha=freq_alpha)
+                if self.colorful_theme:
+                    color = self._hsb_to_rgb((key_0 + 0.5 - 3) % 12 / 12, 1, 1)
+                else:
+                    color = self.mono_theme_color
+                ax.fill(x_positions, y_positions, facecolor=color, zorder=3, alpha=freq_alpha)
 
     def _prepare_graph_piano_roll(self, starting_time, ending_time, save_path, chroma=False):
         # fix time first
         starting_time, ending_time = self._fix_input_starting_ending_time(starting_time, ending_time)
-        if not self._check_audio_duration_valid(starting_time, ending_time, self.analyze_min_duration):
+        if not self._check_audio_duration_valid(starting_time, ending_time, self.analyze_n_window):
             return False
         else:
             self._initialize_spectral(starting_time, ending_time)
