@@ -3,10 +3,10 @@ import colorsys
 import matplotlib.pyplot as plt
 import numpy as np
 
-from utils.common import Common
+from utils.analyze_common import AnalyzeCommon
 
 
-class WaveSpectral(Common):
+class WaveSpectral(AnalyzeCommon):
     def __init__(self):
         super().__init__()
         # spectral mode
@@ -76,7 +76,7 @@ class WaveSpectral(Common):
         filter_banks = np.where(filter_banks == 0, np.finfo(float).eps, filter_banks)
         return filter_banks
 
-    def _ws_spectral_transform(self, spectral, clip_power=None, max_norm=True):
+    def _ws_spectral_transform(self, spectral, clip_power=None, min_max_norm=True):
         if clip_power is None:
             clip_power = self.min_hearing_power
         if self.ws_spectral_transform_v == 'power':
@@ -86,8 +86,9 @@ class WaveSpectral(Common):
             spectral = np.log(spectral)
         else:
             raise ValueError(f'spectral transform `Values` [{self.ws_spectral_transform_v}] unrecognized')
-        if max_norm:
-            spectral = self._max_norm(spectral)
+        if min_max_norm:
+            spectral -= np.min(spectral)
+            spectral /= np.max(spectral)
         return spectral
 
     def _ws_data_prepare(self, starting_time, ending_time):
@@ -168,54 +169,46 @@ class WaveSpectral(Common):
             fig_entropy.spines['bottom'].set_visible(False)
         fig_entropy.axes.get_xaxis().set_ticks([])
 
-    def _ws_plot_phase(self, data, grid):
-        """ plot phase """
-        # plot phase
-        data_0 = data[0]
-        data_1 = data[1]
-        fft_0, phase_0 = self._calc_sp(data_0, self.n_window, self.n_overlap, angle=True)
-        fft_1, phase_1 = self._calc_sp(data_1, self.n_window, self.n_overlap, angle=True)
-
-        fft_data = fft_0 + fft_1
-        fft_magnitude_tendency = self._max_norm([
-            self._ws_spectral_transform(fft_0, max_norm=False),
-            self._ws_spectral_transform(fft_1, max_norm=False)])
-        fft_magnitude_tendency = np.abs(fft_magnitude_tendency[1] - fft_magnitude_tendency[0])
-        phase_data = phase_1 - phase_0
-        phase_data = np.mod(phase_data / 2 / np.pi, 1)
+    def _ws_plot_pitch(self, spectral, grid, plot_position):
+        """ plot pitch """
+        # plot pitch
+        pitch_data = np.array(
+            [[(self._frequency_to_pitch(self._fft_position_to_frequency(i)) * 12 - 3) % 12 / 12 for i in
+              range(len(spectral[0]))] for _ in range(len(spectral))])
         if self.ws_spectral_transform_y == 'fbank':
-            phase_data = self._ws_mel_filter(phase_data)
-            fft_data = self._ws_mel_filter(fft_data)
-            fft_magnitude_tendency = self._ws_mel_filter(fft_magnitude_tendency)
+            spectral = self._ws_mel_filter(spectral)
+            pitch_data = self._ws_mel_filter(pitch_data)
         elif self.ws_spectral_transform_y == 'fft':
             pass
         else:
-            raise ValueError(f'phase transform `Y` [{self.ws_spectral_transform_y}] unrecognized')
-        fft_data = self._max_norm(self._ws_spectral_transform(fft_data, clip_power=self.min_hearing_power),
-                                  min_transform=True)
-        fft_magnitude_tendency = self._max_norm(fft_magnitude_tendency)
+            raise ValueError(f'spectral transform `Y` [{self.ws_spectral_transform_y}] unrecognized')
+
+        # transform to show
+        spectral = self._ws_spectral_transform(spectral, min_max_norm=True)
+
         image_reconstruction = []
-        for i in range(len(fft_data)):
+        for i in range(len(spectral)):
             one_row = []
-            for j in range(len(fft_data[0])):
-                h = phase_data[i][j]
-                s = 1 - fft_magnitude_tendency[i][j]
-                v = fft_data[i][j]
+            for j in range(len(spectral[0])):
+                h = pitch_data[i][j]
+                s = spectral[i][j]
+                v = spectral[i][j] ** 2
                 rgb = colorsys.hsv_to_rgb(h, s, v)
                 one_row.append(rgb)
             image_reconstruction.append(one_row)
         # transform to show
         image_reconstruction = np.flip(image_reconstruction, axis=1)
         image_reconstruction = np.transpose(image_reconstruction, axes=(1, 0, 2))
+
         # plot
-        fig_phase = plt.subplot(
-            grid[self.channel_num:self.ws_graphics_ratio * self.channel_num, 0])
-        fig_phase.imshow(image_reconstruction, aspect='auto')
-        fig_phase.axis('off')
+        fig_pitch = plt.subplot(
+            grid[self.channel_num + (self.ws_graphics_ratio - 1) * plot_position:
+                 self.channel_num + (self.ws_graphics_ratio - 1) * (plot_position + 1), 0])
+        fig_pitch.imshow(image_reconstruction, aspect='auto')
+        fig_pitch.axis('off')
 
     def _prepare_graph_wave_spectral(self, starting_time, ending_time):
         """ prepare graphics and audio files """
-        phase = self._phase_mode_check()
         data_, time_, starting_time, ending_time, valid = self._ws_data_prepare(starting_time, ending_time)
         self._initialize_spectral(starting_time, ending_time)
         if not valid:
@@ -226,15 +219,15 @@ class WaveSpectral(Common):
         fig = plt.figure(figsize=self.ws_figure_size)
 
         # plot spectral
-        if phase:
-            self._ws_plot_phase(data_, grid)
         for i in range(len(data_)):
             spectral = self._calc_sp(data_[i], self.n_window, self.n_overlap)
-            if not phase:
-                if self.ws_spectral_mode == 'spectral':
+            if self.ws_spectral_mode == 'spectral':
+                if self.colorful_theme:
+                    self._ws_plot_pitch(spectral, grid, i)
+                else:
                     self._ws_plot_spectral(spectral, grid, i)
-                elif self.ws_spectral_mode == 'entropy':
-                    self._ws_plot_entropy(spectral, time_, grid, i)
+            elif self.ws_spectral_mode == 'entropy':
+                self._ws_plot_entropy(spectral, time_, grid, i)
             # plot wave
             self._ws_plot_wave(data_[i], time_, grid, i)
 

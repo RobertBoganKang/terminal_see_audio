@@ -44,7 +44,7 @@ python see.py <input_file>
   * `fft` and `fbank` changes the `y` axis transform;
   * `power` and `log` change the color density (spectral values) transform of graphics;
   * `mono` and `stereo` change the channel number to be `1` or `not 1` if have;
-  * `spectral`, `phase` and `entropy`: the `phase` mode will consider phase into the program if channel number is 2;
+  * `spectral` and `entropy`: to plot spectral or Shannon's entropy;
   * `color` and `nocolor`: some analyzer will be colorful by its pitch or not;
   * example: `m fft` means switch to `fft` mode;
 * `nonlinear`: simulate the nonlinear effect due to the physical structure of ear/cochlea when hearing a very loud sound;

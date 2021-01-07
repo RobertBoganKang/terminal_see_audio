@@ -43,7 +43,10 @@ class AnalyzeCommon(Common):
         return int(round(frequency * self.analyze_n_window / self.sample_rate))
 
     def _frequency_to_pitch(self, frequency):
-        return np.log2(frequency / self.a4_frequency) + 5
+        if frequency == 0:
+            return 1e-10
+        else:
+            return np.log2(frequency / self.a4_frequency) + 5
 
     def _frequency_to_pitch_color(self, frequency):
         pitch = self._frequency_to_pitch(frequency)
@@ -279,3 +282,33 @@ class AnalyzeCommon(Common):
             return roman_number.lower()
         else:
             return roman_number
+
+    @staticmethod
+    def _amplitude_ratio(t0, t1):
+        t = [t0, t1]
+        t.sort()
+        if t[0] != 0:
+            return t[0] / t[1]
+        else:
+            return 1
+
+    def _amplitude_ratio_array(self, a0, a1):
+        ratios = []
+        for i in range(len(a0)):
+            radio = self._amplitude_ratio(a0[i], a1[i])
+            ratios.append(radio)
+        return ratios
+
+    @staticmethod
+    def _get_shannon_entropy(array):
+        # delete 0s
+        delete_0_array = []
+        for a in array:
+            if a != 0:
+                delete_0_array.append(a)
+        # calculate shannon entropy
+        if len(delete_0_array) != 0:
+            delete_0_array = np.array(delete_0_array)
+            return -np.sum(delete_0_array * np.log2(delete_0_array))
+        else:
+            return 0

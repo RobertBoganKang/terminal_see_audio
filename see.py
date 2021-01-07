@@ -166,7 +166,7 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
                 self.channel_type = input_split[1]
                 self._initialize_audio()
                 prepare_wave = True
-            elif input_split[1] in ['spectral', 'phase', 'entropy']:
+            elif input_split[1] in ['spectral', 'entropy']:
                 self.ws_spectral_mode = input_split[1]
                 prepare_wave = True
             elif input_split[1] in ['color', 'nocolor']:

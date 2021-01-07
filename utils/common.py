@@ -320,20 +320,6 @@ class Common(object):
                     array /= self.analyze_log_fft_max_value
         return array
 
-    def _phase_mode_check(self):
-        if len(self.data) != 2:
-            if self.ws_spectral_mode == 'phase':
-                print('<!> `phase` mode cannot be set since `channel_number!=2`\n'
-                      '<!> revert to `spectral` mode')
-            self.ws_spectral_mode = 'spectral'
-        if self.ws_spectral_mode == 'phase':
-            phase = True
-        elif self.ws_spectral_mode in ['spectral', 'entropy']:
-            phase = False
-        else:
-            raise ValueError(f'`spectral/phase` mode [{self.ws_spectral_mode}] unrecognized')
-        return phase
-
     @staticmethod
     def _hsb_to_rgb(h, s, b):
         rgb = colorsys.hsv_to_rgb(h, s, b)
@@ -352,33 +338,3 @@ class Common(object):
     def _get_digits_number(number):
         """ return number of digits """
         return len(str(number))
-
-    @staticmethod
-    def _amplitude_ratio(t0, t1):
-        t = [t0, t1]
-        t.sort()
-        if t[0] != 0:
-            return t[0] / t[1]
-        else:
-            return 1
-
-    def _amplitude_ratio_array(self, a0, a1):
-        ratios = []
-        for i in range(len(a0)):
-            radio = self._amplitude_ratio(a0[i], a1[i])
-            ratios.append(radio)
-        return ratios
-
-    @staticmethod
-    def _get_shannon_entropy(array):
-        # delete 0s
-        delete_0_array = []
-        for a in array:
-            if a != 0:
-                delete_0_array.append(a)
-        # calculate shannon entropy
-        if len(delete_0_array) != 0:
-            delete_0_array = np.array(delete_0_array)
-            return -np.sum(delete_0_array * np.log2(delete_0_array))
-        else:
-            return 0

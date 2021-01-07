@@ -6,14 +6,17 @@ from utils.analyze_common import AnalyzeCommon
 class PianoCommon(AnalyzeCommon):
     def __init__(self):
         super().__init__()
+        # tuning coefficient
         self.piano_tuning_n_shape_coefficient = 1 / 2
         self.piano_tuning_bell_shape_coefficient_a = 4
         self.piano_tuning_bell_shape_coefficient_b = 2
         self.piano_tuning_shape_function = 'bell'
+
         # key range
         self.piano_key_range = [-48, 40]
         self.piano_key_chroma_range = [-9, -9 + 24]
 
+        # piano dimensions
         self.piano_spectral_height = 0.1
         self.piano_position_gap = 0.4
         self.piano_line_width = 0.8
@@ -34,6 +37,7 @@ class PianoCommon(AnalyzeCommon):
         """
         key_diff: -1 ~ 1
         shape: (1 - abs(x)) ^ a
+        default: a=1/2
           _-^-_
         .|     |.
         """
@@ -59,7 +63,7 @@ class PianoCommon(AnalyzeCommon):
         elif self.piano_tuning_shape_function == 'n':
             tuning = self._piano_tuning_n_shape_function(key_diff)
         else:
-            raise ValueError('shape parameter error')
+            raise ValueError('tuning shape parameter error')
         return np.mean(value[:, 0] * tuning)
 
     def _piano_chroma_key_dict_transform(self, key_dict):
