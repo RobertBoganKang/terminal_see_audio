@@ -27,6 +27,7 @@ class WaveSpectral(AnalyzeCommon):
         self.ws_graphics_ratio = 5
         self.ws_figure_size = (12, 4)
         self.ws_figure_dpi = 300
+        self.ws_pitch_color_transform = 2
 
     def _ws_get_line_width(self, duration):
         if duration > self.ws_wave_line_width_params[2]:
@@ -191,8 +192,8 @@ class WaveSpectral(AnalyzeCommon):
             one_row = []
             for j in range(len(spectral[0])):
                 h = pitch_data[i][j]
-                s = spectral[i][j]
-                v = spectral[i][j] ** 2
+                s = spectral[i][j] ** (1 / self.ws_pitch_color_transform)
+                v = spectral[i][j] ** self.ws_pitch_color_transform
                 rgb = colorsys.hsv_to_rgb(h, s, v)
                 one_row.append(rgb)
             image_reconstruction.append(one_row)
