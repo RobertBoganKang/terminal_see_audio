@@ -119,9 +119,9 @@ class Common(object):
     def _initialize_audio(self):
         """ read audio and prepare data """
         if self.channel_type == 'mono':
-            self.data, _ = librosa.load(self.input, sr=self.sample_rate, mono=True)
+            self.data, _ = librosa.load(self.input, sr=self.sample_rate, mono=True, res_type='kaiser_fast')
         elif self.channel_type == 'stereo':
-            self.data, _ = librosa.load(self.input, sr=self.sample_rate, mono=False)
+            self.data, _ = librosa.load(self.input, sr=self.sample_rate, mono=False, res_type='kaiser_fast')
         else:
             raise ValueError(f'audio channel type `{self.channel_type}` unrecognized')
         # fix mono mode
