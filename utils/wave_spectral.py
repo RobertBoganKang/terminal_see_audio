@@ -19,8 +19,9 @@ class WaveSpectral(AnalyzeCommon):
         self.ws_plot_spectral_color = 'inferno'
         self.ws_plot_wave_color = 'mediumspringgreen'
         self.ws_plot_entropy_color = 'red'
+        self.ws_plot_cut_entropy_color = 'jet'
 
-        # wave/spectral
+        # wave/spectral/entropy
         # line width parameters with `thin`, `thick`, `mode_switch_time`
         self.ws_wave_line_width_params = [.2, 1.2, 3]
         self.ws_entropy_line_width = 0.8
@@ -28,6 +29,7 @@ class WaveSpectral(AnalyzeCommon):
         self.ws_figure_size = (12, 4)
         self.ws_figure_dpi = 300
         self.ws_pitch_color_transform = 2
+        self.ws_cut_entropy_number = 15
 
     def _ws_get_line_width(self, duration):
         if duration > self.ws_wave_line_width_params[2]:
@@ -150,6 +152,11 @@ class WaveSpectral(AnalyzeCommon):
 
     def _ws_plot_entropy(self, spectral, time_, grid, plot_position):
         """ plot entropy """
+        # transform spectral
+        if self.ws_spectral_transform_y == 'fbank':
+            spectral = self._ws_mel_filter(spectral)
+        spectral = self._ws_spectral_transform(spectral, min_max_norm=True)
+        # convert to entropy
         entropy = [self._get_shannon_entropy(x) for x in spectral]
         # create a function to define line width
         duration = time_[-1] - time_[0]
@@ -159,8 +166,8 @@ class WaveSpectral(AnalyzeCommon):
             grid[self.channel_num + (self.ws_graphics_ratio - 1) * plot_position:
                  self.channel_num + (self.ws_graphics_ratio - 1) * (plot_position + 1), 0])
         fig_entropy.set_xlim(left=time_[0], right=time_[-1])
-        fig_entropy.fill_between(time_rebuild, y1=entropy, y2=0, facecolor=self.ws_plot_entropy_color, alpha=0.6,
-                                 edgecolor=self.ws_plot_entropy_color, linewidth=self.ws_entropy_line_width)
+        fig_entropy.fill_between(time_rebuild, y1=entropy, y2=np.min(entropy), facecolor=self.ws_plot_entropy_color,
+                                 alpha=0.6, edgecolor=self.ws_plot_entropy_color, linewidth=self.ws_entropy_line_width)
         fig_entropy.spines['left'].set_visible(True)
         fig_entropy.spines['right'].set_visible(True)
         fig_entropy.spines['top'].set_visible(False)
@@ -169,6 +176,28 @@ class WaveSpectral(AnalyzeCommon):
         else:
             fig_entropy.spines['bottom'].set_visible(False)
         fig_entropy.axes.get_xaxis().set_ticks([])
+
+    def _ws_plot_cut_entropy(self, spectral, grid, plot_position):
+        """ plot cut entropy """
+        # transform spectral
+        if self.ws_spectral_transform_y == 'fbank':
+            spectral = self._ws_mel_filter(spectral)
+        spectral = self._ws_spectral_transform(spectral, min_max_norm=True)
+        mean_spectral = np.mean(spectral)
+        std_spectral = np.std(spectral)
+        max_spectral = np.max(spectral)
+        cut_space = np.linspace(mean_spectral - std_spectral, max_spectral, self.ws_cut_entropy_number)[::-1]
+        # convert to entropy
+        cut_entropy = np.array([[self._get_shannon_entropy(x) for x in np.minimum(spectral, y)] for y in cut_space])
+        cut_entropy -= np.min(cut_entropy)
+        cut_entropy /= np.max(cut_entropy)
+        # plot
+        fig_entropy = plt.subplot(
+            grid[self.channel_num + (self.ws_graphics_ratio - 1) * plot_position:
+                 self.channel_num + (self.ws_graphics_ratio - 1) * (plot_position + 1), 0])
+
+        fig_entropy.imshow(cut_entropy, aspect='auto', cmap=self.ws_plot_cut_entropy_color)
+        fig_entropy.axis('off')
 
     def _ws_plot_pitch(self, spectral, grid, plot_position):
         """ plot pitch """
@@ -229,6 +258,8 @@ class WaveSpectral(AnalyzeCommon):
                     self._ws_plot_spectral(spectral, grid, i)
             elif self.ws_spectral_mode == 'entropy':
                 self._ws_plot_entropy(spectral, time_, grid, i)
+            elif self.ws_spectral_mode == 'cut_entropy':
+                self._ws_plot_cut_entropy(spectral, grid, i)
             # plot wave
             self._ws_plot_wave(data_[i], time_, grid, i)
 

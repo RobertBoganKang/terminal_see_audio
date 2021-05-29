@@ -309,6 +309,7 @@ class AnalyzeCommon(Common):
         # calculate shannon entropy
         if len(delete_0_array) != 0:
             delete_0_array = np.array(delete_0_array)
+            delete_0_array /= np.sum(delete_0_array)
             return -np.sum(delete_0_array * np.log2(delete_0_array))
         else:
             return 0

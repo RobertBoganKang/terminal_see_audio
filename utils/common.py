@@ -67,6 +67,7 @@ class Common(object):
 
         # plot & play command (path will be replaced by `{}`)
         self.plot_command = 'tiv {}'
+        # self.plot_command = 'image2ascii -f {} -c=false'
         self.play_command = 'play {}'
         self.video_command = 'play {} > /dev/null 2>&1 & timg {}'
 
