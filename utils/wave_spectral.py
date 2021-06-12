@@ -19,7 +19,6 @@ class WaveSpectral(AnalyzeCommon):
         self.ws_plot_spectral_color = 'inferno'
         self.ws_plot_wave_color = 'mediumspringgreen'
         self.ws_plot_entropy_color = 'red'
-        self.ws_plot_cut_entropy_color = 'jet'
 
         # wave/spectral/entropy
         # line width parameters with `thin`, `thick`, `mode_switch_time`
@@ -177,28 +176,6 @@ class WaveSpectral(AnalyzeCommon):
             fig_entropy.spines['bottom'].set_visible(False)
         fig_entropy.axes.get_xaxis().set_ticks([])
 
-    def _ws_plot_cut_entropy(self, spectral, grid, plot_position):
-        """ plot cut entropy """
-        # transform spectral
-        if self.ws_spectral_transform_y == 'fbank':
-            spectral = self._ws_mel_filter(spectral)
-        spectral = self._ws_spectral_transform(spectral, min_max_norm=True)
-        mean_spectral = np.mean(spectral)
-        std_spectral = np.std(spectral)
-        max_spectral = np.max(spectral)
-        cut_space = np.linspace(mean_spectral - std_spectral, max_spectral, self.ws_cut_entropy_number)[::-1]
-        # convert to entropy
-        cut_entropy = np.array([[self._get_shannon_entropy(x) for x in np.minimum(spectral, y)] for y in cut_space])
-        cut_entropy -= np.min(cut_entropy)
-        cut_entropy /= np.max(cut_entropy)
-        # plot
-        fig_entropy = plt.subplot(
-            grid[self.channel_num + (self.ws_graphics_ratio - 1) * plot_position:
-                 self.channel_num + (self.ws_graphics_ratio - 1) * (plot_position + 1), 0])
-
-        fig_entropy.imshow(cut_entropy, aspect='auto', cmap=self.ws_plot_cut_entropy_color)
-        fig_entropy.axis('off')
-
     def _ws_plot_pitch(self, spectral, grid, plot_position):
         """ plot pitch """
         # plot pitch
@@ -258,8 +235,8 @@ class WaveSpectral(AnalyzeCommon):
                     self._ws_plot_spectral(spectral, grid, i)
             elif self.ws_spectral_mode == 'entropy':
                 self._ws_plot_entropy(spectral, time_, grid, i)
-            elif self.ws_spectral_mode == 'cut_entropy':
-                self._ws_plot_cut_entropy(spectral, grid, i)
+            else:
+                raise ValueError('spectral mode error')
             # plot wave
             self._ws_plot_wave(data_[i], time_, grid, i)
 
