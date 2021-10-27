@@ -110,7 +110,7 @@ class PhaseAnalyzer(FlowerCommon):
 
             # prepare ifft play
             if not dynamic_max_value:
-                self._ifft_audio_export(self._analyze_log_min_max_transform(fft_data, log=False))
+                self._ifft_audio_export(fft_data)
             return True
 
     def _prepare_video_phase(self, starting_time, ending_time, save_path):

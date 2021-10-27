@@ -59,9 +59,9 @@ python see.py <input_file>
 #### Analyzer
 
 * analyzers for short period signals, or to generate videos;
-  * `#`: piano, `#=`: chroma gram piano, `@`: spiral, `*%`: phase, `*<`: source angle, `*-*`: source location, `|`: strings;
+  * `#`: piano, `#=`: chroma gram piano, `@`: spiral, `*%`: phase, `*<`: source angle, `*-*`: source location, `|`: strings, `&`: lattice;
     * `number`: `@10` is to analyze `10~s` spectral;
-    * `''`: empty is to plot last analyzed spiral graphics;
+    * `''`: empty is to plot last analyzed analyzer graphics;
     * `two numbers`: generate video of analyzer at starting time & ending time;
     * `*`: play last calculated analyzer video result;
 * `##`: to plot piano roll, `##=`: chroma gram piano roll;

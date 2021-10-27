@@ -88,6 +88,7 @@ class AnalyzeCommon(Common):
         return ifft_single[:self.analyze_n_window]
 
     def _ifft_audio_export(self, fft_data):
+        fft_data = self._analyze_log_min_max_transform(fft_data, log=False)
         ifft_data = np.transpose(np.array([self._get_ifft_data_single(x) for x in fft_data]))
         sf.write(self.ifft_audio_path, ifft_data, samplerate=self.sample_rate)
 

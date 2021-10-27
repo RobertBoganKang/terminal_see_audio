@@ -33,6 +33,9 @@ class PianoCommon(AnalyzeCommon):
         # piano key alpha color transform with power function
         self.piano_key_color_transform_power = 2
 
+        # calculate
+        self.piano_key_length = self.piano_key_range[1] - self.piano_key_range[0]
+
     def _piano_tuning_n_shape_function(self, key_diff):
         """
         key_diff: -1 ~ 1

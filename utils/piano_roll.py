@@ -12,9 +12,7 @@ class PianoRoll(PianoCommon):
         self.piano_roll_cover_width = 0.2
         self.piano_roll_key_length = 8
         self.piano_roll_length_ratio = 3
-        self.piano_roll_length = (
-                (self.piano_key_range[1] - self.piano_key_range[0]) * self.piano_roll_length_ratio
-        )
+        self.piano_roll_length = self.piano_key_length * self.piano_roll_length_ratio
 
     @staticmethod
     def _piano_roll_key_to_location_range(key):

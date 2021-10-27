@@ -113,5 +113,5 @@ class TuningAnalyzer(AnalyzeCommon):
             self._matplotlib_clear_memory(fig)
 
             # prepare ifft play
-            self._ifft_audio_export(self._analyze_log_min_max_transform(fft_data, log=False))
+            self._ifft_audio_export(fft_data)
             return True
