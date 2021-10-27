@@ -1,5 +1,7 @@
 # Terminal See Audio
 
+## Language
+
 English|[中文](doc/README_zh.md)
 
 ## Introduction
