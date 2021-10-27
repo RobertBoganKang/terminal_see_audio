@@ -13,7 +13,7 @@ class LatticeAnalyzer(PianoCommon):
         self.lattice_dpi = 200
 
         # parameters
-        self.lattice_scale = 12
+        self.lattice_scale = (8, 8)
         self.lattice_min_circle = 0.25
         self.lattice_text_minimum_alpha = 0.15
         self.lattice_text_color_power = 0.3
@@ -42,8 +42,8 @@ class LatticeAnalyzer(PianoCommon):
 
     def _lattice_circle_position(self):
         lattice_position_dict = {}
-        for column in range(self.lattice_scale):
-            for row in range(self.lattice_scale):
+        for column in range(self.lattice_scale[1]):
+            for row in range(self.lattice_scale[0]):
                 if column % 2 == 0:
                     key = column // 2 + 7 * row
                     x = 2 * row
@@ -113,7 +113,7 @@ class LatticeAnalyzer(PianoCommon):
                     color = self._hsb_to_rgb(0, 0, self.lattice_text_minimum_alpha)
                 for x, y in coordinates:
                     ax.text(x, y, self.note_name_lib[k], c=color, horizontalalignment='center',
-                            verticalalignment='center',
+                            verticalalignment='center', fontsize=1 / self.lattice_scale[0] * 128,
                             zorder=2)
 
             for key, fft_value in merged_key_dict.items():
@@ -132,12 +132,12 @@ class LatticeAnalyzer(PianoCommon):
                                                  amplitude_ratio,
                                                  1)
                         cir_end = Circle((x, y), radius=rad, zorder=1, fill=False,
-                                         linewidth=1.5, edgecolor=color,
+                                         linewidth=1 / self.lattice_scale[0] * 40, edgecolor=color,
                                          alpha=alpha)
                         ax.add_patch(cir_end)
 
-            ax.set_xlim(left=-1.5, right=2 * self.lattice_scale + 0.5)
-            ax.set_ylim(bottom=-1.5, top=2 * self.lattice_scale - 3.5)
+            ax.set_xlim(left=0, right=2 * (self.lattice_scale[0] - 1) + 1)
+            ax.set_ylim(bottom=0, top=3 ** 0.5 * (self.lattice_scale[1] - 1))
             # set plot ratio
             self._set_1to1_ratio_figure()
 
