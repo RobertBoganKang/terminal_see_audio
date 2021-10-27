@@ -109,9 +109,9 @@ class LatticeAnalyzer(PianoCommon):
             for k, coordinates in self.lattice_position_dict.items():
                 fft_value = max_chroma_value_dict[k]
                 if fft_value > self.lattice_text_minimum_alpha:
-                    color_saturation = (fft_value ** self.lattice_text_color_power -
-                                        self.lattice_text_minimum_alpha) / (1 - self.lattice_text_minimum_alpha)
-                    color = self._hsb_to_rgb(((k - 3) / 12) % 1, color_saturation, fft_value)
+                    color_bright = (fft_value - self.lattice_text_minimum_alpha) / (1 - self.lattice_text_minimum_alpha)
+                    color_saturation = color_bright ** self.lattice_text_color_power
+                    color = self._hsb_to_rgb(((k - 3) / 12) % 1, color_saturation, color_bright)
                 else:
                     color = self._hsb_to_rgb(0, 0, self.lattice_text_minimum_alpha)
                 for x, y in coordinates:
