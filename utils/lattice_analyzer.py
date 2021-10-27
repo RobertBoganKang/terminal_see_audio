@@ -86,7 +86,7 @@ class LatticeAnalyzer(PianoCommon):
                 max_chroma_value_dict[key] = v
             else:
                 max_chroma_value_dict[key] = max(max_chroma_value_dict[key], v)
-        # sort by key in reverse for plot (light notes on the top)
+        # sort by value for plot (light notes on the top, dark notes plot first)
         merged_key_list.sort(key=lambda x: x[1])
         return merged_key_list, amplitude_ratio, max_chroma_value_dict
 
