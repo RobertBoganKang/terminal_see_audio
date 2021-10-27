@@ -1,5 +1,7 @@
 # Terminal See Audio
 
+English|[中文](doc/README_zh.md)
+
 ## Introduction
 
 Similar to `Adobe Audition`, this project will check the audio information quickly inside of terminal. 

@@ -1,5 +1,7 @@
 # 终端查看音频
 
+[English](../README.md)|中文
+
 ## 介绍
 
 类似于 `Adobe Audition`，本项目可以帮助我们快速在终端中查看音频信息。 
