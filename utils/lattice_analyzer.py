@@ -107,20 +107,29 @@ class LatticeAnalyzer(PianoCommon):
             fig = plt.figure(figsize=self.lattice_figure_size)
             ax = fig.add_subplot(111)
             # plot text
+            font_size = 1 / self.lattice_scale[0] * 128
             for key, coordinates in self.lattice_position_dict.items():
                 fft_value = max_chroma_value_dict[key]
+                background_color = self._hsb_to_rgb(0, 0, self.lattice_text_minimum_alpha)
                 if fft_value > self.lattice_text_minimum_alpha:
                     color_saturation = (fft_value - self.lattice_text_minimum_alpha) / (
                             1 - self.lattice_text_minimum_alpha)
-                    color_bright = self.lattice_text_minimum_alpha + (
-                            1 - self.lattice_text_minimum_alpha) * color_saturation ** self.lattice_text_color_power
-                    color = self._hsb_to_rgb(((key - 3) / 12) % 1, color_saturation, color_bright)
+                    if self.colorful_theme:
+                        color = self._hsb_to_rgb(((key - 3) / 12) % 1, color_saturation, 1)
+                    else:
+                        color = self.mono_theme_color
+                    alpha = color_saturation ** self.lattice_text_color_power
                 else:
-                    color = self._hsb_to_rgb(0, 0, self.lattice_text_minimum_alpha)
+                    color = 'k'
+                    alpha = 0
+
                 for x, y in coordinates:
-                    ax.text(x, y, self.note_name_lib[key], c=color, horizontalalignment='center',
-                            verticalalignment='center', fontsize=1 / self.lattice_scale[0] * 128,
-                            zorder=2)
+                    ax.text(x, y, self.note_name_lib[key], c=background_color, horizontalalignment='center',
+                            verticalalignment='center', fontsize=font_size, zorder=2)
+                    if alpha != 0:
+                        ax.text(x, y, self.note_name_lib[key], c=color, horizontalalignment='center',
+                                verticalalignment='center', fontsize=font_size, alpha=alpha, zorder=3)
+
             # plot circle
             for key, fft_value in merged_key_list:
                 chroma = key % 12
@@ -132,12 +141,16 @@ class LatticeAnalyzer(PianoCommon):
                 else:
                     amplitude_ratio = 1
                 radius = self._lattice_circle_radius(key)
+                line_width = 1 / self.lattice_scale[0] * 40
                 for x, y in self.lattice_position_dict[chroma]:
-                    color = self._hsb_to_rgb(((chroma - 3) / 12) % 1,
-                                             amplitude_ratio,
-                                             1)
+                    if self.colorful_theme:
+                        color = self._hsb_to_rgb(((chroma - 3) / 12) % 1,
+                                                 amplitude_ratio,
+                                                 1)
+                    else:
+                        color = self.mono_theme_color
                     cir_end = Circle((x, y), radius=radius, zorder=1, fill=False, alpha=alpha,
-                                     linewidth=1 / self.lattice_scale[0] * 40, edgecolor=color)
+                                     linewidth=line_width, edgecolor=color)
                     ax.add_patch(cir_end)
 
             ax.set_xlim(left=0, right=2 * (self.lattice_scale[0] - 1) + 1)
