@@ -16,7 +16,7 @@ class LatticeAnalyzer(PianoCommon):
         self.lattice_scale = (8, 8)
         self.lattice_min_circle = 0.25
         self.lattice_text_minimum_alpha = 0.15
-        self.lattice_text_color_power = 0.3
+        self.lattice_text_color_power = 0.6
         self.lattice_position_dict = None
 
         # calculate
@@ -104,15 +104,14 @@ class LatticeAnalyzer(PianoCommon):
             # make plot
             fig = plt.figure(figsize=self.lattice_figure_size)
             ax = fig.add_subplot(111)
-            # plot
             # plot text
             for k, coordinates in self.lattice_position_dict.items():
                 fft_value = max_chroma_value_dict[k]
                 if fft_value > self.lattice_text_minimum_alpha:
                     color_saturation = (fft_value - self.lattice_text_minimum_alpha) / (
-                                1 - self.lattice_text_minimum_alpha)
+                            1 - self.lattice_text_minimum_alpha)
                     color_bright = self.lattice_text_minimum_alpha + (
-                                1 - self.lattice_text_minimum_alpha) * color_saturation ** self.lattice_text_color_power
+                            1 - self.lattice_text_minimum_alpha) * color_saturation ** self.lattice_text_color_power
                     color = self._hsb_to_rgb(((k - 3) / 12) % 1, color_saturation, color_bright)
                 else:
                     color = self._hsb_to_rgb(0, 0, self.lattice_text_minimum_alpha)
@@ -130,15 +129,14 @@ class LatticeAnalyzer(PianoCommon):
                     amplitude_ratio = amplitude_ratio_dict[key]
                 else:
                     amplitude_ratio = 1
-                if fft_value > 0.1:
-                    rad = self._lattice_circle_radius(key)
-                    for x, y in self.lattice_position_dict[k]:
-                        color = self._hsb_to_rgb(((k - 3) / 12) % 1,
-                                                 amplitude_ratio,
-                                                 alpha)
-                        cir_end = Circle((x, y), radius=rad, zorder=1, fill=False,
-                                         linewidth=1 / self.lattice_scale[0] * 40, edgecolor=color)
-                        ax.add_patch(cir_end)
+                rad = self._lattice_circle_radius(key)
+                for x, y in self.lattice_position_dict[k]:
+                    color = self._hsb_to_rgb(((k - 3) / 12) % 1,
+                                             amplitude_ratio,
+                                             1)
+                    cir_end = Circle((x, y), radius=rad, zorder=1, fill=False, alpha=alpha,
+                                     linewidth=1 / self.lattice_scale[0] * 40, edgecolor=color)
+                    ax.add_patch(cir_end)
 
             ax.set_xlim(left=0, right=2 * (self.lattice_scale[0] - 1) + 1)
             ax.set_ylim(bottom=0, top=3 ** 0.5 * (self.lattice_scale[1] - 1))
