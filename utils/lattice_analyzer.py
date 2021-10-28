@@ -15,7 +15,7 @@ class LatticeAnalyzer(PianoCommon):
         # parameters
         self.lattice_scale = (8, 8)
         self.lattice_min_circle = 0.25
-        self.lattice_text_minimum_alpha = 0.15
+        self.lattice_text_minimum_alpha = 0.1
         self.lattice_text_color_power = 0.6
         self.lattice_position_dict = None
 
@@ -64,7 +64,9 @@ class LatticeAnalyzer(PianoCommon):
 
     def _lattice_merge_key_dicts(self, key_dicts):
         if len(key_dicts) == 1 or len(key_dicts) > 2:
-            merged_key_list = key_dicts[0]
+            merged_key_list = []
+            for key, v in key_dicts[0].items():
+                merged_key_list.append([key, v])
             amplitude_ratio = {}
         else:
             rebuild_dict = {}
