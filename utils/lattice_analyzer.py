@@ -15,7 +15,7 @@ class LatticeAnalyzer(PianoCommon):
         # parameters
         self.lattice_scale = (8, 8)
         self.lattice_min_circle = 0.25
-        self.lattice_text_minimum_alpha = 0.1
+        self.lattice_text_minimum_alpha = 0.05
         self.lattice_key_color_transform_power = 2.5
         self.lattice_position_dict = None
 
@@ -120,7 +120,7 @@ class LatticeAnalyzer(PianoCommon):
                         color = self._hsb_to_rgb(((key - 3) / 12) % 1, color_saturation, 1)
                     else:
                         color = self.mono_theme_color
-                    alpha = color_saturation
+                    alpha = color_saturation ** self.lattice_key_color_transform_power
                 else:
                     color = 'k'
                     alpha = 0
