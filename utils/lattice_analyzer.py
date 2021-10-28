@@ -70,22 +70,22 @@ class LatticeAnalyzer(PianoCommon):
             rebuild_dict = {}
             merged_key_list = []
             for key_dict in key_dicts:
-                for k, v in key_dict.items():
-                    if k not in rebuild_dict:
-                        rebuild_dict[k] = [v]
+                for key, v in key_dict.items():
+                    if key not in rebuild_dict:
+                        rebuild_dict[key] = [v]
                     else:
-                        rebuild_dict[k].append(v)
+                        rebuild_dict[key].append(v)
             amplitude_ratio = {}
-            for k, v in rebuild_dict.items():
-                merged_key_list.append([k, np.mean(v)])
-                amplitude_ratio[k] = self._amplitude_ratio(*v)
+            for key, v in rebuild_dict.items():
+                merged_key_list.append([key, np.mean(v)])
+                amplitude_ratio[key] = self._amplitude_ratio(*v)
         max_chroma_value_dict = {}
-        for k, v in merged_key_list:
-            key = k % 12
-            if key not in max_chroma_value_dict:
-                max_chroma_value_dict[key] = v
+        for key, v in merged_key_list:
+            chroma = key % 12
+            if chroma not in max_chroma_value_dict:
+                max_chroma_value_dict[chroma] = v
             else:
-                max_chroma_value_dict[key] = max(max_chroma_value_dict[key], v)
+                max_chroma_value_dict[chroma] = max(max_chroma_value_dict[chroma], v)
         # sort by value for plot (light notes on the top, dark notes plot first)
         merged_key_list.sort(key=lambda x: x[1])
         return merged_key_list, amplitude_ratio, max_chroma_value_dict
@@ -98,30 +98,32 @@ class LatticeAnalyzer(PianoCommon):
             # prepare data
             fft_data, key_dicts = self._lattice_data_prepare(starting_time, dynamic_max_value=dynamic_max_value)
             merged_key_list, amplitude_ratio_dict, max_chroma_value_dict = self._lattice_merge_key_dicts(key_dicts)
+
             # prepare lattice position
             if self.lattice_position_dict is None:
                 self.lattice_position_dict = self._lattice_circle_position()
+
             # make plot
             fig = plt.figure(figsize=self.lattice_figure_size)
             ax = fig.add_subplot(111)
             # plot text
-            for k, coordinates in self.lattice_position_dict.items():
-                fft_value = max_chroma_value_dict[k]
+            for key, coordinates in self.lattice_position_dict.items():
+                fft_value = max_chroma_value_dict[key]
                 if fft_value > self.lattice_text_minimum_alpha:
                     color_saturation = (fft_value - self.lattice_text_minimum_alpha) / (
                             1 - self.lattice_text_minimum_alpha)
                     color_bright = self.lattice_text_minimum_alpha + (
                             1 - self.lattice_text_minimum_alpha) * color_saturation ** self.lattice_text_color_power
-                    color = self._hsb_to_rgb(((k - 3) / 12) % 1, color_saturation, color_bright)
+                    color = self._hsb_to_rgb(((key - 3) / 12) % 1, color_saturation, color_bright)
                 else:
                     color = self._hsb_to_rgb(0, 0, self.lattice_text_minimum_alpha)
                 for x, y in coordinates:
-                    ax.text(x, y, self.note_name_lib[k], c=color, horizontalalignment='center',
+                    ax.text(x, y, self.note_name_lib[key], c=color, horizontalalignment='center',
                             verticalalignment='center', fontsize=1 / self.lattice_scale[0] * 128,
                             zorder=2)
             # plot circle
             for key, fft_value in merged_key_list:
-                k = key % 12
+                chroma = key % 12
                 alpha = fft_value ** self.piano_key_color_transform_power
                 if alpha < self.figure_minimum_alpha:
                     continue
@@ -129,12 +131,12 @@ class LatticeAnalyzer(PianoCommon):
                     amplitude_ratio = amplitude_ratio_dict[key]
                 else:
                     amplitude_ratio = 1
-                rad = self._lattice_circle_radius(key)
-                for x, y in self.lattice_position_dict[k]:
-                    color = self._hsb_to_rgb(((k - 3) / 12) % 1,
+                radius = self._lattice_circle_radius(key)
+                for x, y in self.lattice_position_dict[chroma]:
+                    color = self._hsb_to_rgb(((chroma - 3) / 12) % 1,
                                              amplitude_ratio,
                                              1)
-                    cir_end = Circle((x, y), radius=rad, zorder=1, fill=False, alpha=alpha,
+                    cir_end = Circle((x, y), radius=radius, zorder=1, fill=False, alpha=alpha,
                                      linewidth=1 / self.lattice_scale[0] * 40, edgecolor=color)
                     ax.add_patch(cir_end)
 
