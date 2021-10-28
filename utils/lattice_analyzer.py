@@ -16,7 +16,7 @@ class LatticeAnalyzer(PianoCommon):
         self.lattice_scale = (8, 8)
         self.lattice_min_circle = 0.25
         self.lattice_text_minimum_alpha = 0.1
-        self.lattice_text_color_power = 0.6
+        self.lattice_key_color_transform_power = 2.5
         self.lattice_position_dict = None
 
         # calculate
@@ -120,7 +120,7 @@ class LatticeAnalyzer(PianoCommon):
                         color = self._hsb_to_rgb(((key - 3) / 12) % 1, color_saturation, 1)
                     else:
                         color = self.mono_theme_color
-                    alpha = color_saturation ** self.lattice_text_color_power
+                    alpha = color_saturation
                 else:
                     color = 'k'
                     alpha = 0
@@ -135,7 +135,7 @@ class LatticeAnalyzer(PianoCommon):
             # plot circle
             for key, fft_value in merged_key_list:
                 chroma = key % 12
-                alpha = fft_value ** self.piano_key_color_transform_power
+                alpha = fft_value ** self.lattice_key_color_transform_power
                 if alpha < self.figure_minimum_alpha:
                     continue
                 if key in amplitude_ratio_dict:
