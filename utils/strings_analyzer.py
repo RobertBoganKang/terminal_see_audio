@@ -242,8 +242,7 @@ class StringsAnalyzer(AnalyzeCommon):
             self._matplotlib_clear_memory(fig)
 
             # prepare ifft play
-            if not dynamic_max_value:
-                self._ifft_audio_export(fft_data)
+            self._ifft_audio_export(fft_data, dynamic_max_value)
             return True
 
     def _prepare_video_string(self, starting_time, ending_time, save_path):
