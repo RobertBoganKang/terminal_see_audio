@@ -141,7 +141,7 @@ class LatticeAnalyzer(PianoCommon):
                 else:
                     amplitude_ratio = 1
                 radius = self._lattice_circle_radius(key)
-                line_width = 1 / self.lattice_scale[0] * 40
+                line_width = 40 / self.lattice_scale[0] * fft_value
                 for x, y in self.lattice_position_dict[chroma]:
                     if self.colorful_theme:
                         color = self._hsb_to_rgb(((chroma - 3) / 12) % 1,
