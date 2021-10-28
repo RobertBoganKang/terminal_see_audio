@@ -243,7 +243,7 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
         elif input_.startswith('##'):
             command = input_[2:].strip()
             self._main_analyzer_2_input(command, self._prepare_graph_piano_roll, 'piano roll')
-        # 1.4* get piano (`#=`) analyzer
+        # 1.4* get piano chroma (`#=`) analyzer
         elif input_.startswith('#='):
             command = input_[2:].strip()
             self._main_analyzer_1_or_2_input(command, self._prepare_graph_piano, self._prepare_video_piano,
