@@ -34,9 +34,10 @@ class Common(object):
         self.min_hearing_power = 0.0005
         self.min_analyze_power = 0.1
 
-        # audio parameters
+        # audio / video parameters
         self.sample_rate = 16000
         self.min_sample_rate = 1000
+        self.min_frame_rate = 4
         # min/max hearing frequency
         self.min_hearing_frequency = 16
         self.max_hearing_frequency = 20000

@@ -220,6 +220,16 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
                 print(f'<+> `ear/cochlear nonlinear parameter` is set to `{self.ear_nonlinear}`')
             else:
                 print('<!> `ear/cochlear nonlinear parameter` should be float and `>0`')
+        # 2.2.5 set video frame rate
+        elif input_split[0] == 'fr':
+            if self._is_int(input_split[1]):
+                if int(input_split[1]) >= self.min_frame_rate:
+                    self.analyze_video_frame_rate = int(input_split[1])
+                    print(f'<+> video frame rate `{input_split[1]}` set')
+                else:
+                    print(f'<!> video frame rate `{input_split[1]}` (< {self.min_frame_rate}) too low')
+            else:
+                print(f'<!> video frame rate `{input_split[1]}` unknown')
         else:
             print('<!> two inputs case unknown')
 

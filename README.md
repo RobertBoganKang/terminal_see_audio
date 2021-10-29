@@ -52,6 +52,8 @@ python see.py <input_file>
   * example: `nonlinear 5` will transform audio into nonlinear form at the parameter of `5`;
 * `sr`: change the sample rate of showing audio;
   * example: `sr 16000` means switch to `16000Hz` sample rate;
+* `fr`: change the video frame rate for analyzer;
+  * example: `fr 30` means switch to `30Hz` video frame rate;
 * `o`: change the input audio file path;
   * example: `o demo/june.ogg` or `o "demo/june.ogg"` means change input audio file to `demo/june.ogg`;
 * `h`: to print `README.md` file (this file) as `help`;
