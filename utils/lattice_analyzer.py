@@ -16,10 +16,14 @@ class LatticeAnalyzer(PianoCommon):
         self.lattice_scale = (8, 8)
         self.lattice_min_circle = 0.25
         self.lattice_text_minimum_alpha = 0.05
-        self.lattice_key_color_transform_power = 2.5
-        self.lattice_position_dict = None
+        self.lattice_key_color_transform_power = 3
+        # rain circle theme
+        self.lattice_rain_circle_theme = False
+        self.lattice_rain_circle_shrink = 0.8
+        self.lattice_rain_circle_power = -2
 
         # calculate
+        self.lattice_position_dict = None
         self.lattice_pitch_range = self.piano_key_length - 1
 
     def _lattice_data_prepare(self, starting_time, dynamic_max_value=False):
@@ -127,7 +131,7 @@ class LatticeAnalyzer(PianoCommon):
 
                 for x, y in coordinates:
                     ax.text(x, y, self.note_name_lib[key], c=background_color, horizontalalignment='center',
-                            verticalalignment='center', fontsize=font_size, zorder=2)
+                            verticalalignment='center', fontsize=font_size, zorder=1)
                     if alpha != 0:
                         ax.text(x, y, self.note_name_lib[key], c=color, horizontalalignment='center',
                                 verticalalignment='center', fontsize=font_size, alpha=alpha, zorder=3)
@@ -142,7 +146,11 @@ class LatticeAnalyzer(PianoCommon):
                     amplitude_ratio = amplitude_ratio_dict[key]
                 else:
                     amplitude_ratio = 1
-                radius = self._lattice_circle_radius(key)
+                if self.lattice_rain_circle_theme:
+                    radius = self.lattice_rain_circle_shrink * self._lattice_circle_radius(key) + np.log(
+                            fft_value ** self.lattice_rain_circle_power)
+                else:
+                    radius = self._lattice_circle_radius(key)
                 line_width = 40 / self.lattice_scale[0] * fft_value
                 for x, y in self.lattice_position_dict[chroma]:
                     if self.colorful_theme:
@@ -151,7 +159,7 @@ class LatticeAnalyzer(PianoCommon):
                                                  1)
                     else:
                         color = self.mono_theme_color
-                    cir_end = Circle((x, y), radius=radius, zorder=1, fill=False, alpha=alpha,
+                    cir_end = Circle((x, y), radius=radius, zorder=2, fill=False, alpha=alpha,
                                      linewidth=line_width, edgecolor=color)
                     ax.add_patch(cir_end)
 
