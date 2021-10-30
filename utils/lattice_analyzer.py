@@ -10,7 +10,7 @@ class LatticeAnalyzer(PianoCommon):
         super().__init__()
         # piano analyzer
         self.lattice_figure_size = (12, 12)
-        self.lattice_dpi = 200
+        self.lattice_dpi = 150
 
         # parameters
         self.lattice_scale = (8, 8)
