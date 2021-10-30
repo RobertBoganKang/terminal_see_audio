@@ -9,6 +9,7 @@ import soundfile as sf
 from tqdm import tqdm
 
 from utils.common import Common
+from utils.global_variables import analyze_log_fft_max_value, analyze_log_piano_key_max_value
 
 
 class AnalyzeCommon(Common):
@@ -211,8 +212,8 @@ class AnalyzeCommon(Common):
 
     def _prepare_video_analyzer(self, starting_time, ending_time, save_analyzer_path, analyzer_function, **kwargs):
         # reset max value
-        self.analyze_log_fft_max_value = 0
-        self.analyze_log_piano_key_max_value = 0
+        analyze_log_fft_max_value.value = 0
+        analyze_log_piano_key_max_value.value = 0
         # fix time first
         starting_time, ending_time = self._fix_input_starting_ending_time(starting_time, ending_time)
         if not self._check_audio_duration_valid(starting_time, ending_time, self.analyze_n_window):

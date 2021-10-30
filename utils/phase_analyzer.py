@@ -114,8 +114,6 @@ class PhaseAnalyzer(FlowerCommon):
 
     def _prepare_video_phase(self, starting_time, ending_time, save_path):
         """ save video for spiral """
-        # reset max value
-        self.analyze_log_fft_max_value = 0
         (starting_time,
          ending_time,
          status) = self._prepare_video_analyzer(starting_time, ending_time,

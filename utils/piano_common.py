@@ -1,6 +1,7 @@
 import numpy as np
 
 from utils.analyze_common import AnalyzeCommon
+from utils.global_variables import analyze_log_piano_key_max_value
 
 
 class PianoCommon(AnalyzeCommon):
@@ -32,6 +33,10 @@ class PianoCommon(AnalyzeCommon):
 
         # piano key alpha color transform with power function
         self.piano_key_color_transform_power = 2
+
+        # switch
+        # max value will fix, not change
+        self.piano_fix_max_value = False
 
         # calculate
         self.piano_key_length = self.piano_key_range[1] - self.piano_key_range[0]
@@ -125,11 +130,14 @@ class PianoCommon(AnalyzeCommon):
 
         # modify max value to get more stable video graphics change
         max_value = max(list(key_dict.values()))
-        self.analyze_log_piano_key_max_value = (self.analyze_log_piano_key_max_value +
-                                                (max_value - self.analyze_log_piano_key_max_value) / (
-                                                        self.analyze_log_piano_key_max_value_reach_time *
-                                                        self.analyze_video_frame_rate))
-        modified_max_value = max(max_value, self.analyze_log_piano_key_max_value)
+        if self.piano_fix_max_value:
+            analyze_log_piano_key_max_value.value = max(max_value, analyze_log_piano_key_max_value.value)
+        else:
+            analyze_log_piano_key_max_value.value = (analyze_log_piano_key_max_value.value +
+                                                     (max_value - analyze_log_piano_key_max_value.value) / (
+                                                             self.analyze_log_piano_key_max_value_reach_time *
+                                                             self.analyze_video_frame_rate))
+        modified_max_value = max(max_value, analyze_log_piano_key_max_value.value)
         for k, v in key_dict.items():
             if modified_max_value != 0:
                 key_dict[k] = v / modified_max_value

@@ -11,6 +11,8 @@ import numpy as np
 import soundfile as sf
 from scipy import signal
 
+from utils.global_variables import analyze_log_fft_max_value
+
 
 class Common(object):
     def __init__(self):
@@ -61,8 +63,6 @@ class Common(object):
 
         # video generation for analyzers
         # get dynamic max log fft values
-        self.analyze_log_fft_max_value = 0
-        self.analyze_log_piano_key_max_value = 0
         # in steady state, how long can we reach that value
         self.analyze_log_piano_key_max_value_reach_time = 1
 
@@ -317,9 +317,9 @@ class Common(object):
             if not dynamic_max_value:
                 array /= np.max(np.abs(array))
             else:
-                self.analyze_log_fft_max_value = max(self.analyze_log_fft_max_value, np.max(array))
-                if self.analyze_log_fft_max_value != 0:
-                    array /= self.analyze_log_fft_max_value
+                analyze_log_fft_max_value.value = max(analyze_log_fft_max_value.value, np.max(array))
+                if analyze_log_fft_max_value.value != 0:
+                    array /= analyze_log_fft_max_value.value
         return array
 
     @staticmethod
