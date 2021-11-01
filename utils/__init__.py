@@ -1,6 +1,6 @@
 from utils.analyze_common import AnalyzeCommon
 from utils.common import Common
-from utils.lattice_analyzer import LatticeAnalyzer
+from utils.tonnetz_analyzer import TonnetzAnalyzer
 from utils.peak_analyzer import PeakAnalyzer
 from utils.phase_analyzer import PhaseAnalyzer
 from utils.piano_analyzer import PianoAnalyzer
