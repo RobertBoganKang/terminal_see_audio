@@ -340,3 +340,7 @@ class Common(object):
     def _get_digits_number(number):
         """ return number of digits """
         return len(str(number))
+
+    @staticmethod
+    def _merge_array_values(array):
+        return np.power(np.prod(array), 1 / len(array))

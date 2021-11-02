@@ -114,16 +114,12 @@ class TonnetzAnalyzer(PianoCommon):
         merged_key_list.sort(key=lambda x: x[1])
         return merged_key_list, amplitude_ratio, max_chroma_value_dict
 
-    @staticmethod
-    def _tonnetz_merge_array_values(array):
-        return np.power(np.prod(array), 1 / len(array))
-
     def _tonnetz_build_triangle_edge(self, ax, i, j, max_chroma_value_dict, base_fft_value, base_node_pos,
                                      triangle_color):
         node_chroma = self.tonnetz_chroma_matrix[i][j]
         node_pos = self.tonnetz_chroma_position_matrix[i][j]
         fft_value = max_chroma_value_dict[node_chroma]
-        fft_value = self._tonnetz_merge_array_values([base_fft_value, fft_value])
+        fft_value = self._merge_array_values([base_fft_value, fft_value])
         alpha = fft_value ** self.tonnetz_key_color_transform_power * self.tonnetz_triangle_edge_max_alpha
         if alpha > self.figure_minimum_alpha:
             ax.plot([base_node_pos[0], node_pos[0]], [base_node_pos[1], node_pos[1]], c=triangle_color,
@@ -133,7 +129,7 @@ class TonnetzAnalyzer(PianoCommon):
                                      fft_1, pos_1, triangle_color, font_size, capital=True):
         pos_2 = self.tonnetz_chroma_position_matrix[i][j]
         fft_2 = max_chroma_value_dict[self.tonnetz_chroma_matrix[i][j]]
-        merged_fft = self._tonnetz_merge_array_values([base_fft_value, fft_1, fft_2])
+        merged_fft = self._merge_array_values([base_fft_value, fft_1, fft_2])
         alpha = merged_fft ** self.tonnetz_key_color_transform_power
         if alpha > self.figure_minimum_alpha:
             # plot triangle
