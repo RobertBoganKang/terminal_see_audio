@@ -118,8 +118,8 @@ class TonnetzAnalyzer(PianoCommon):
     def _tonnetz_merge_array_values(array):
         return np.power(np.prod(array), 1 / len(array))
 
-    def _tonnetz_plot_triangle_edge(self, ax, i, j, max_chroma_value_dict, base_fft_value, base_node_pos,
-                                    triangle_color):
+    def _tonnetz_build_triangle_edge(self, ax, i, j, max_chroma_value_dict, base_fft_value, base_node_pos,
+                                     triangle_color):
         node_chroma = self.tonnetz_chroma_matrix[i][j]
         node_pos = self.tonnetz_chroma_position_matrix[i][j]
         fft_value = max_chroma_value_dict[node_chroma]
@@ -127,17 +127,128 @@ class TonnetzAnalyzer(PianoCommon):
         alpha = fft_value ** self.tonnetz_key_color_transform_power * self.tonnetz_triangle_edge_max_alpha
         if alpha > self.figure_minimum_alpha:
             ax.plot([base_node_pos[0], node_pos[0]], [base_node_pos[1], node_pos[1]], c=triangle_color,
-                    linewidth=self._tonnetz_line_width(fft_value, 24), alpha=alpha, zorder=0)
+                    linewidth=self._tonnetz_line_width(fft_value, 24), alpha=alpha, zorder=1)
 
-    def _tonnetz_plot_triangle_face(self, ax, i, j, max_chroma_value_dict, base_fft_value, base_node_pos, fft_1, pos_1,
-                                    triangle_color):
+    def _tonnetz_build_triangle_face(self, ax, i, j, base_chroma, max_chroma_value_dict, base_fft_value, base_node_pos,
+                                     fft_1, pos_1, triangle_color, font_size, capital=True):
         pos_2 = self.tonnetz_chroma_position_matrix[i][j]
         fft_2 = max_chroma_value_dict[self.tonnetz_chroma_matrix[i][j]]
         merged_fft = self._tonnetz_merge_array_values([base_fft_value, fft_1, fft_2])
-        alpha = merged_fft ** self.tonnetz_key_color_transform_power * self.tonnetz_triangle_face_max_alpha
+        alpha = merged_fft ** self.tonnetz_key_color_transform_power
         if alpha > self.figure_minimum_alpha:
+            # plot triangle
             ax.fill([base_node_pos[0], pos_1[0], pos_2[0]], [base_node_pos[1], pos_1[1], pos_2[1]],
-                    facecolor=triangle_color, alpha=alpha, zorder=1)
+                    facecolor=triangle_color, alpha=alpha * self.tonnetz_triangle_face_max_alpha, zorder=1)
+            # plot text
+            center_pos = np.mean([base_node_pos, pos_1, pos_2], axis=0)
+            chord_name = self.note_name_lib[base_chroma]
+            if not capital:
+                chord_name = chord_name.lower()
+            ax.text(center_pos[0], center_pos[1], chord_name, c=triangle_color, horizontalalignment='center',
+                    verticalalignment='center', fontdict={'style': 'italic'}, fontsize=font_size, alpha=alpha, zorder=2)
+
+    def _tonnetz_plot_node_text(self, ax, max_chroma_value_dict):
+        font_size = 128 / max(self.tonnetz_scale)
+        for chroma, coordinates in self.tonnetz_position_dict.items():
+            fft_value = max_chroma_value_dict[chroma]
+            background_color = self._hsb_to_rgb(0, 0, self.tonnetz_text_minimum_alpha)
+            if fft_value > self.tonnetz_text_minimum_alpha:
+                color_saturation = (fft_value - self.tonnetz_text_minimum_alpha) / (
+                        1 - self.tonnetz_text_minimum_alpha)
+                if self.colorful_theme:
+                    color = self._hsb_to_rgb(((chroma - 3) / 12) % 1, color_saturation, 1)
+                else:
+                    color = self.mono_theme_color
+                alpha = color_saturation ** self.tonnetz_key_color_transform_power
+            else:
+                color = 'k'
+                alpha = 0
+
+            for x, y in coordinates:
+                ax.text(x, y, self.note_name_lib[chroma], c=background_color, horizontalalignment='center',
+                        verticalalignment='center', fontsize=font_size, zorder=3)
+                if alpha != 0:
+                    ax.text(x, y, self.note_name_lib[chroma], c=color, horizontalalignment='center',
+                            verticalalignment='center', fontsize=font_size, alpha=alpha, zorder=4)
+                    # add text background
+                    cir_end = Circle((x, y), radius=self.tonnetz_min_circle, zorder=2, alpha=0.5 * alpha ** 0.5,
+                                     facecolor='k')
+                    ax.add_patch(cir_end)
+
+    def _tonnetz_plot_triangle(self, ax, max_chroma_value_dict):
+        font_size = 64 / max(self.tonnetz_scale)
+        if self.colorful_theme:
+            triangle_color = 'gray'
+        else:
+            triangle_color = self.mono_theme_color
+        for i in range(len(self.tonnetz_chroma_matrix)):
+            for j in range(len(self.tonnetz_chroma_matrix[0])):
+                base_node_chroma = self.tonnetz_chroma_matrix[i][j]
+                base_node_pos = self.tonnetz_chroma_position_matrix[i][j]
+                base_fft_value = max_chroma_value_dict[base_node_chroma]
+                # plot node connection
+                if i != len(self.tonnetz_chroma_matrix) - 1:
+                    self._tonnetz_build_triangle_edge(ax, i + 1, j, max_chroma_value_dict, base_fft_value,
+                                                      base_node_pos, triangle_color)
+                if j != len(self.tonnetz_chroma_matrix[0]) - 1:
+                    self._tonnetz_build_triangle_edge(ax, i, j + 1, max_chroma_value_dict, base_fft_value,
+                                                      base_node_pos, triangle_color)
+                if i % 2 != 0 and i != len(self.tonnetz_chroma_matrix) - 1 and j != len(
+                        self.tonnetz_chroma_matrix[0]) - 1:
+                    self._tonnetz_build_triangle_edge(ax, i + 1, j + 1, max_chroma_value_dict, base_fft_value,
+                                                      base_node_pos, triangle_color)
+                if i % 2 == 0 and i != len(self.tonnetz_chroma_matrix) - 1 and j != 0:
+                    self._tonnetz_build_triangle_edge(ax, i + 1, j - 1, max_chroma_value_dict, base_fft_value,
+                                                      base_node_pos, triangle_color)
+                # plot triangle (& chord text)
+                if j != len(self.tonnetz_chroma_matrix[0]) - 1:
+                    pos_1 = self.tonnetz_chroma_position_matrix[i][j + 1]
+                    fft_1 = max_chroma_value_dict[self.tonnetz_chroma_matrix[i][j + 1]]
+                    if i % 2 == 0:
+                        if i != len(self.tonnetz_chroma_matrix) - 1:
+                            self._tonnetz_build_triangle_face(ax, i + 1, j, base_node_chroma, max_chroma_value_dict,
+                                                              base_fft_value, base_node_pos, fft_1, pos_1,
+                                                              triangle_color, font_size, capital=True)
+                        if i != 0:
+                            self._tonnetz_build_triangle_face(ax, i - 1, j, base_node_chroma, max_chroma_value_dict,
+                                                              base_fft_value, base_node_pos, fft_1, pos_1,
+                                                              triangle_color, font_size, capital=False)
+                    if i % 2 == 1:
+                        if i != len(self.tonnetz_chroma_matrix) - 1:
+                            self._tonnetz_build_triangle_face(ax, i + 1, j + 1, base_node_chroma, max_chroma_value_dict,
+                                                              base_fft_value, base_node_pos, fft_1, pos_1,
+                                                              triangle_color, font_size, capital=True)
+                        if i != 0:
+                            self._tonnetz_build_triangle_face(ax, i - 1, j + 1, base_node_chroma, max_chroma_value_dict,
+                                                              base_fft_value, base_node_pos, fft_1, pos_1,
+                                                              triangle_color, font_size, capital=False)
+
+    def _tonnetz_plot_circle(self, ax, merged_key_list, amplitude_ratio_dict):
+        for key, fft_value in merged_key_list:
+            chroma = key % 12
+            alpha = fft_value ** self.tonnetz_key_color_transform_power
+            if alpha < self.figure_minimum_alpha:
+                continue
+            if key in amplitude_ratio_dict:
+                amplitude_ratio = amplitude_ratio_dict[key]
+            else:
+                amplitude_ratio = 1
+            if self.tonnetz_rain_circle_theme:
+                radius = self.tonnetz_rain_circle_shrink * self._tonnetz_circle_radius(chroma) + np.log(
+                    fft_value ** self.tonnetz_rain_circle_power)
+            else:
+                radius = self._tonnetz_circle_radius(key)
+            line_width = self._tonnetz_line_width(fft_value, 40)
+            for x, y in self.tonnetz_position_dict[chroma]:
+                if self.colorful_theme:
+                    color = self._hsb_to_rgb(((chroma - 3) / 12) % 1,
+                                             amplitude_ratio,
+                                             1)
+                else:
+                    color = self.mono_theme_color
+                cir_end = Circle((x, y), radius=radius, zorder=2, fill=False, alpha=alpha,
+                                 linewidth=line_width, edgecolor=color)
+                ax.add_patch(cir_end)
 
     def _prepare_graph_tonnetz(self, starting_time, save_path, dynamic_max_value=False):
         valid = self._check_analyze_duration(starting_time)
@@ -157,104 +268,11 @@ class TonnetzAnalyzer(PianoCommon):
             fig = plt.figure(figsize=self.tonnetz_figure_size)
             ax = fig.add_subplot(111)
             # plot text
-            font_size = 128 / max(self.tonnetz_scale)
-            for chroma, coordinates in self.tonnetz_position_dict.items():
-                fft_value = max_chroma_value_dict[chroma]
-                background_color = self._hsb_to_rgb(0, 0, self.tonnetz_text_minimum_alpha)
-                if fft_value > self.tonnetz_text_minimum_alpha:
-                    color_saturation = (fft_value - self.tonnetz_text_minimum_alpha) / (
-                            1 - self.tonnetz_text_minimum_alpha)
-                    if self.colorful_theme:
-                        color = self._hsb_to_rgb(((chroma - 3) / 12) % 1, color_saturation, 1)
-                    else:
-                        color = self.mono_theme_color
-                    alpha = color_saturation ** self.tonnetz_key_color_transform_power
-                else:
-                    color = 'k'
-                    alpha = 0
-
-                for x, y in coordinates:
-                    ax.text(x, y, self.note_name_lib[chroma], c=background_color, horizontalalignment='center',
-                            verticalalignment='center', fontsize=font_size, zorder=3)
-                    if alpha != 0:
-                        ax.text(x, y, self.note_name_lib[chroma], c=color, horizontalalignment='center',
-                                verticalalignment='center', fontsize=font_size, alpha=alpha, zorder=4)
-                        # add text background
-                        cir_end = Circle((x, y), radius=self.tonnetz_min_circle, zorder=2, alpha=0.5,
-                                         facecolor='k')
-                        ax.add_patch(cir_end)
-
+            self._tonnetz_plot_node_text(ax, max_chroma_value_dict)
             # plot triangle
-            if self.colorful_theme:
-                triangle_color = 'gray'
-            else:
-                triangle_color = self.mono_theme_color
-            for i in range(len(self.tonnetz_chroma_matrix)):
-                for j in range(len(self.tonnetz_chroma_matrix[0])):
-                    base_node_chroma = self.tonnetz_chroma_matrix[i][j]
-                    base_node_pos = self.tonnetz_chroma_position_matrix[i][j]
-                    base_fft_value = max_chroma_value_dict[base_node_chroma]
-                    # plot node connection
-                    if i != len(self.tonnetz_chroma_matrix) - 1:
-                        self._tonnetz_plot_triangle_edge(ax, i + 1, j, max_chroma_value_dict, base_fft_value,
-                                                         base_node_pos, triangle_color)
-                    if j != len(self.tonnetz_chroma_matrix[0]) - 1:
-                        self._tonnetz_plot_triangle_edge(ax, i, j + 1, max_chroma_value_dict, base_fft_value,
-                                                         base_node_pos, triangle_color)
-                    if i % 2 != 0 and i != len(self.tonnetz_chroma_matrix) - 1 and j != len(
-                            self.tonnetz_chroma_matrix[0]) - 1:
-                        self._tonnetz_plot_triangle_edge(ax, i + 1, j + 1, max_chroma_value_dict, base_fft_value,
-                                                         base_node_pos, triangle_color)
-                    if i % 2 == 0 and i != len(self.tonnetz_chroma_matrix) - 1 and j != 0:
-                        self._tonnetz_plot_triangle_edge(ax, i + 1, j - 1, max_chroma_value_dict, base_fft_value,
-                                                         base_node_pos, triangle_color)
-                    # plot triangle
-                    if j != len(self.tonnetz_chroma_matrix[0]) - 1:
-                        pos_1 = self.tonnetz_chroma_position_matrix[i][j + 1]
-                        fft_1 = max_chroma_value_dict[self.tonnetz_chroma_matrix[i][j + 1]]
-                        if i % 2 == 0:
-                            if i != len(self.tonnetz_chroma_matrix) - 1:
-                                self._tonnetz_plot_triangle_face(ax, i + 1, j, max_chroma_value_dict, base_fft_value,
-                                                                 base_node_pos, fft_1, pos_1, triangle_color)
-                            if i != 0:
-                                self._tonnetz_plot_triangle_face(ax, i - 1, j, max_chroma_value_dict, base_fft_value,
-                                                                 base_node_pos, fft_1, pos_1, triangle_color)
-                        if i % 2 == 1:
-                            if i != len(self.tonnetz_chroma_matrix) - 1:
-                                self._tonnetz_plot_triangle_face(ax, i + 1, j + 1, max_chroma_value_dict,
-                                                                 base_fft_value, base_node_pos, fft_1, pos_1,
-                                                                 triangle_color)
-                            if i != 0:
-                                self._tonnetz_plot_triangle_face(ax, i - 1, j + 1, max_chroma_value_dict,
-                                                                 base_fft_value, base_node_pos, fft_1, pos_1,
-                                                                 triangle_color)
-
+            self._tonnetz_plot_triangle(ax, max_chroma_value_dict)
             # plot circle
-            for chroma, fft_value in merged_key_list:
-                chroma = chroma % 12
-                alpha = fft_value ** self.tonnetz_key_color_transform_power
-                if alpha < self.figure_minimum_alpha:
-                    continue
-                if chroma in amplitude_ratio_dict:
-                    amplitude_ratio = amplitude_ratio_dict[chroma]
-                else:
-                    amplitude_ratio = 1
-                if self.tonnetz_rain_circle_theme:
-                    radius = self.tonnetz_rain_circle_shrink * self._tonnetz_circle_radius(chroma) + np.log(
-                        fft_value ** self.tonnetz_rain_circle_power)
-                else:
-                    radius = self._tonnetz_circle_radius(chroma)
-                line_width = self._tonnetz_line_width(fft_value, 40)
-                for x, y in self.tonnetz_position_dict[chroma]:
-                    if self.colorful_theme:
-                        color = self._hsb_to_rgb(((chroma - 3) / 12) % 1,
-                                                 amplitude_ratio,
-                                                 1)
-                    else:
-                        color = self.mono_theme_color
-                    cir_end = Circle((x, y), radius=radius, zorder=2, fill=False, alpha=alpha,
-                                     linewidth=line_width, edgecolor=color)
-                    ax.add_patch(cir_end)
+            self._tonnetz_plot_circle(ax, merged_key_list, amplitude_ratio_dict)
 
             ax.set_xlim(left=0, right=2 * (self.tonnetz_scale[0] - 1) + 1)
             ax.set_ylim(bottom=0, top=3 ** 0.5 * (self.tonnetz_scale[1] - 1))
