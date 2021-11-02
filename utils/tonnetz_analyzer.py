@@ -167,7 +167,7 @@ class TonnetzAnalyzer(PianoCommon):
                     ax.text(x, y, self.note_name_lib[chroma], c=color, horizontalalignment='center',
                             verticalalignment='center', fontsize=font_size, alpha=alpha, zorder=4)
                     # add text background
-                    cir_end = Circle((x, y), radius=self.tonnetz_min_circle, zorder=2, alpha=0.5 * alpha ** 0.5,
+                    cir_end = Circle((x, y), radius=self.tonnetz_min_circle, zorder=1, alpha=0.5 * alpha ** 0.5,
                                      facecolor='k')
                     ax.add_patch(cir_end)
 
