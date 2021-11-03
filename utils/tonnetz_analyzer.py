@@ -21,6 +21,7 @@ class TonnetzAnalyzer(PianoCommon):
         self.tonnetz_key_color_transform_power = 3
         self.tonnetz_triangle_edge_max_alpha = 0.4
         self.tonnetz_triangle_face_max_alpha = 0.2
+        self.tonnetz_triangle_color = 'silver'
 
         # rain circle theme
         self.tonnetz_rain_circle_theme = False
@@ -148,6 +149,7 @@ class TonnetzAnalyzer(PianoCommon):
         for chroma, coordinates in self.tonnetz_position_dict.items():
             fft_value = max_chroma_value_dict[chroma]
             background_color = self._hsb_to_rgb(0, 0, self.tonnetz_text_minimum_alpha)
+            color = None
             if fft_value > self.tonnetz_text_minimum_alpha:
                 color_saturation = (fft_value - self.tonnetz_text_minimum_alpha) / (
                         1 - self.tonnetz_text_minimum_alpha)
@@ -157,7 +159,6 @@ class TonnetzAnalyzer(PianoCommon):
                     color = self.mono_theme_color
                 alpha = color_saturation ** self.tonnetz_key_color_transform_power
             else:
-                color = 'k'
                 alpha = 0
 
             for x, y in coordinates:
@@ -174,7 +175,7 @@ class TonnetzAnalyzer(PianoCommon):
     def _tonnetz_plot_triangle(self, ax, max_chroma_value_dict):
         font_size = 64 / max(self.tonnetz_scale)
         if self.colorful_theme:
-            triangle_color = 'gray'
+            triangle_color = self.tonnetz_triangle_color
         else:
             triangle_color = self.mono_theme_color
         for i in range(len(self.tonnetz_chroma_matrix)):
