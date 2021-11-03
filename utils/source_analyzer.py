@@ -309,7 +309,7 @@ class SourceAnalyzer(FlowerCommon):
                 ax.add_patch(cir_head)
 
             # set figure ratio
-            self._set_1to1_ratio_figure(axis=True)
+            self._post_processing_to_figure(axis=True)
             ax.spines['left'].set_color(self.source_axis_color)
             ax.spines['right'].set_color(self.source_axis_color)
             ax.spines['top'].set_color(self.source_axis_color)
@@ -439,7 +439,7 @@ class SourceAnalyzer(FlowerCommon):
             # set figure ratio
             ax.set_ylim(bottom=-max_baseline_circle - 1, top=max_baseline_circle + 1)
             ax.set_xlim(left=-max_baseline_circle - 1, right=max_baseline_circle + 1)
-            self._set_1to1_ratio_figure()
+            self._post_processing_to_figure()
 
             # save figure
             fig.savefig(save_path, dpi=self.flower_dpi, bbox_inches='tight')

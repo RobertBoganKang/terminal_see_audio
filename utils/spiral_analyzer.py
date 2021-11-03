@@ -124,7 +124,7 @@ class SpiralAnalyzer(AnalyzeCommon):
             ax.add_patch(cir_end)
 
             # set figure ratio
-            self._set_1to1_ratio_figure()
+            self._post_processing_to_figure()
 
             # save figure
             fig.savefig(save_path, dpi=self.spiral_dpi, bbox_inches='tight')

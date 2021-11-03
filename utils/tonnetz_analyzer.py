@@ -162,12 +162,12 @@ class TonnetzAnalyzer(PianoCommon):
 
             for x, y in coordinates:
                 ax.text(x, y, self.note_name_lib[chroma], c=background_color, horizontalalignment='center',
-                        verticalalignment='center', fontsize=font_size, zorder=3)
+                        verticalalignment='center', fontsize=font_size, zorder=1)
                 if alpha != 0:
                     ax.text(x, y, self.note_name_lib[chroma], c=color, horizontalalignment='center',
                             verticalalignment='center', fontsize=font_size, alpha=alpha, zorder=4)
                     # add text background
-                    cir_end = Circle((x, y), radius=self.tonnetz_min_circle, zorder=1, alpha=0.5 * alpha ** 0.5,
+                    cir_end = Circle((x, y), radius=self.tonnetz_min_circle, zorder=2, alpha=0.5 * alpha ** 0.5,
                                      facecolor='k')
                     ax.add_patch(cir_end)
 
@@ -272,8 +272,9 @@ class TonnetzAnalyzer(PianoCommon):
 
             ax.set_xlim(left=0, right=2 * (self.tonnetz_scale[0] - 1) + 1)
             ax.set_ylim(bottom=0, top=3 ** 0.5 * (self.tonnetz_scale[1] - 1))
+
             # set plot ratio
-            self._set_1to1_ratio_figure()
+            self._post_processing_to_figure()
 
             # save figure
             fig.savefig(save_path, dpi=self.tonnetz_dpi, bbox_inches='tight')

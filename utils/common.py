@@ -298,7 +298,7 @@ class Common(object):
             print('<!> readme file missing')
 
     @staticmethod
-    def _set_1to1_ratio_figure(axis=False):
+    def _post_processing_to_figure(axis=False):
         plt.gca().set_aspect(1)
         if not axis:
             plt.axis('off')

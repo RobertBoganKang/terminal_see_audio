@@ -144,7 +144,7 @@ class PianoAnalyzer(PianoCommon):
                     self._piano_generate_frequency_graph_single(ax, raw_keys[i], key_ffts[i], i)
 
             # set plot ratio
-            self._set_1to1_ratio_figure()
+            self._post_processing_to_figure()
 
             # save figure
             fig.savefig(save_path, dpi=self.piano_dpi, bbox_inches='tight')
