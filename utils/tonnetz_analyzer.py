@@ -223,6 +223,9 @@ class TonnetzAnalyzer(PianoCommon):
     def _tonnetz_plot_circle(self, ax, merged_key_list, amplitude_ratio_dict):
         for key, fft_value in merged_key_list:
             chroma = key % 12
+            key_octave = self._key_to_octave_number(key, continuous=False)
+            octave_clock_rad = (3 - key_octave) % 12 / 6 * np.pi
+            # print(key_octave, octave_clock_rad * 180 / np.pi)
             alpha = fft_value ** self.tonnetz_key_color_transform_power
             if alpha < self.figure_minimum_alpha:
                 continue
@@ -243,9 +246,15 @@ class TonnetzAnalyzer(PianoCommon):
                                              1)
                 else:
                     color = self.mono_theme_color
+                # main circle
                 cir_end = Circle((x, y), radius=radius, zorder=2, fill=False, alpha=alpha,
                                  linewidth=line_width, edgecolor=color)
                 ax.add_patch(cir_end)
+                # octave tick
+                center_head = (x + radius * np.cos(octave_clock_rad),
+                               y + radius * np.sin(octave_clock_rad))
+                plt.scatter(center_head[0], center_head[1], self.golden_ratio * line_width, zorder=3,
+                            alpha=alpha, color='k')
 
     def _prepare_graph_tonnetz(self, starting_time, save_path, dynamic_max_value=False):
         valid = self._check_analyze_duration(starting_time)

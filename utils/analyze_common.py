@@ -145,12 +145,19 @@ class AnalyzeCommon(Common):
         frequency = self._key_to_frequency(key_position + 12 * key_octave, remainder=key_cent)
         return frequency
 
+    @staticmethod
+    def _key_to_octave_number(key, continuous=False):
+        if continuous:
+            return (key + 9) / 12 + 4
+        else:
+            return (key + 9) // 12 + 4
+
     def _translate_frequency_to_music_note(self, frequency):
         raw_key = np.log2(frequency / 440) * 12
         key = round(raw_key)
         remainder_in_cent = (raw_key - key) * 100
         key_name = self.note_name_lib[key % 12]
-        key_octave = (key + 9) // 12 + 4
+        key_octave = self._key_to_octave_number(key)
         return key_name, key_octave, remainder_in_cent
 
     def _analyze_get_audio_fft_data(self, starting_time, phase=False):
