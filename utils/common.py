@@ -179,7 +179,10 @@ class Common(object):
                 elif c in ('h', 'm', 's'):
                     s = string[idx:i]
                     idx = i + 1
-                    seconds += (hms[c] * float(s))
+                    if self._is_float(s):
+                        seconds += (hms[c] * float(s))
+                    else:
+                        return -1
                     i += 1
                 else:
                     return -1
