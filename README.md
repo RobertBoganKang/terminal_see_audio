@@ -35,6 +35,7 @@ python see.py <input_file>
 
 * `two numbers`: starting time & ending time;
   * example: `10 20` means to split audio from `10s` to `20s`;
+  * time support in `hms` format, such as: `1h2m3.4s`
 * empty string `''` (press return without input): plot last generated graphics;
 * `p`: play last analyzed audio;
   * `pp`: play the partition of audio where used for analyzers;
