@@ -162,6 +162,32 @@ class Common(object):
         except Exception:
             return False
 
+    def _hms_to_seconds(self, string):
+        """ if `>=0`: time; `<0`: not-time """
+        if self._is_float(string):
+            return float(string)
+        else:
+            hms = {'h': 3600, 'm': 60, 's': 1}
+            i = 0
+            seconds = 0
+            idx = 0
+            while i < len(string):
+                c = string[i]
+                if self._is_int(c) or c == '.':
+                    i += 1
+                    continue
+                elif c in ('h', 'm', 's'):
+                    s = string[idx:i]
+                    idx = i + 1
+                    seconds += (hms[c] * float(s))
+                    i += 1
+                else:
+                    return -1
+            if idx == i:
+                return seconds
+            else:
+                return -1
+
     def _export_audio(self, starting_time, ending_time, audio_part_path):
         """ export audio part """
         # extract starting & ending sample

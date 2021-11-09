@@ -33,8 +33,8 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
                                     **kwargs):
         temp_analyzer_path = self._main_get_temp_analyzer_path(analyzer_name)
         # x.x.1 number as staring time
-        if self._is_float(command):
-            status = prepare_graph_function(float(command), temp_analyzer_path + '.png', **kwargs)
+        if self._hms_to_seconds(command) >= 0:
+            status = prepare_graph_function(self._hms_to_seconds(command), temp_analyzer_path + '.png', **kwargs)
             if status:
                 self._terminal_plot(temp_analyzer_path + '.png')
         # x.x.2 plot last image
@@ -43,8 +43,8 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
         # x.x.3 two numbers
         elif ' ' in command:
             inputs = command.split()
-            if len(inputs) == 2 and self._is_float(inputs[0]) and self._is_float(inputs[1]):
-                inputs = [float(x) for x in inputs]
+            if len(inputs) == 2 and self._hms_to_seconds(inputs[0]) >= 0 and self._hms_to_seconds(inputs[1]) >= 0:
+                inputs = [self._hms_to_seconds(x) for x in inputs]
                 self.last_analyze_starting, self.last_analyze_ending, status = prepare_video_function(
                     inputs[0],
                     inputs[1],
@@ -69,9 +69,8 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
         # x.x.1 two numbers
         if ' ' in command:
             inputs = command.split()
-            if len(inputs) == 2 and self._is_float(inputs[0]) and self._is_float(
-                    inputs[1]):
-                inputs = [float(x) for x in inputs]
+            if len(inputs) == 2 and self._hms_to_seconds(inputs[0]) >= 0 and self._hms_to_seconds(inputs[1]) >= 0:
+                inputs = [self._hms_to_seconds(x) for x in inputs]
                 status = _prepare_graph_function(inputs[0], inputs[1], temp_analyzer_path, **kwargs)
                 if status:
                     self._terminal_plot(temp_analyzer_path + '.png')
@@ -114,14 +113,14 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
     def _main_tuning_analyzer_script(self, command, analyzer_name):
         tuning_graphics_path = self._main_get_temp_analyzer_path(analyzer_name) + '.png'
         # x.x.1 number as staring time
-        if self._is_float(command):
-            self._prepare_audio_peak_info(float(command))
+        if self._hms_to_seconds(command) >= 0:
+            self._prepare_audio_peak_info(self._hms_to_seconds(command))
         # x.x.2 two numbers: starting time + frequency
         elif ' ' in command:
             command_split = command.split()
             if len(command_split) == 2:
-                if self._is_float(command_split[0]):
-                    start_timing = float(command_split[0])
+                if self._hms_to_seconds(command_split[0]) >= 0:
+                    start_timing = self._hms_to_seconds(command_split[0])
                 else:
                     print(f'<!> {analyzer_name} starting time error')
                     return
@@ -147,9 +146,10 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
 
     def _main_spectral_wave_script(self, input_split):
         # 2.2.0 set time parameters for wave spectral plot
-        if self._is_float(input_split[0]) and self._is_float(input_split[1]):
-            self.last_starting, self.last_ending, valid = self._prepare_graph_wave_spectral(float(input_split[0]),
-                                                                                            float(input_split[1]))
+        if self._hms_to_seconds(input_split[0]) >= 0 and self._hms_to_seconds(input_split[1]) >= 0:
+            self.last_starting, self.last_ending, valid = self._prepare_graph_wave_spectral(
+                self._hms_to_seconds(input_split[0]),
+                self._hms_to_seconds(input_split[1]))
             if valid:
                 self._terminal_plot(self.wave_spectral_graphics_path)
         # 2.2.1 set modes
@@ -213,8 +213,8 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
                 print(f'<!> file path `{try_input_path}` does not exist')
         # 2.2.4 ear nonlinear model transform
         elif input_split[0] == 'nonlinear':
-            if self._is_float(input_split[1]) and float(input_split[1]) >= 0:
-                self.ear_nonlinear = float(input_split[1])
+            if self._hms_to_seconds(input_split[1]) >= 0:
+                self.ear_nonlinear = self._hms_to_seconds(input_split[1])
                 self._ws_initial_or_restore_running(starting_time=self.last_starting, ending_time=self.last_ending,
                                                     plot=False)
                 print(f'<+> `ear/cochlear nonlinear parameter` is set to `{self.ear_nonlinear}`')
