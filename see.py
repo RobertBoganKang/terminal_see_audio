@@ -213,8 +213,8 @@ class TerminalSeeAudio(WaveSpectral, SpiralAnalyzer, PianoAnalyzer, PianoRoll, P
                 print(f'<!> file path `{try_input_path}` does not exist')
         # 2.2.4 ear nonlinear model transform
         elif input_split[0] == 'nonlinear':
-            if self._hms_to_seconds(input_split[1]) >= 0:
-                self.ear_nonlinear = self._hms_to_seconds(input_split[1])
+            if self._is_float(input_split[1]) and float(input_split[1]) >= 0:
+                self.ear_nonlinear = float(input_split[1])
                 self._ws_initial_or_restore_running(starting_time=self.last_starting, ending_time=self.last_ending,
                                                     plot=False)
                 print(f'<+> `ear/cochlear nonlinear parameter` is set to `{self.ear_nonlinear}`')
