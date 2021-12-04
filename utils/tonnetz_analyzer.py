@@ -26,6 +26,7 @@ class TonnetzAnalyzer(PianoCommon):
         # rain circle theme
         self.tonnetz_rain_circle_theme = False
         self.tonnetz_rain_circle_shrink = 0.8
+        self.tonnetz_rain_circle_text_expand = 0.3
         self.tonnetz_rain_circle_power = -2
 
         # calculate
@@ -133,6 +134,10 @@ class TonnetzAnalyzer(PianoCommon):
         merged_fft = self._merge_array_values([base_fft_value, fft_1, fft_2])
         alpha = merged_fft ** self.tonnetz_key_color_transform_power
         if alpha > self.figure_minimum_alpha:
+            if self.tonnetz_rain_circle_theme:
+                factor = (1 + alpha * self.tonnetz_rain_circle_text_expand)
+            else:
+                factor = 1
             # plot triangle
             ax.fill([base_node_pos[0], pos_1[0], pos_2[0]], [base_node_pos[1], pos_1[1], pos_2[1]],
                     facecolor=triangle_color, alpha=alpha * self.tonnetz_triangle_face_max_alpha, zorder=1)
@@ -142,7 +147,8 @@ class TonnetzAnalyzer(PianoCommon):
             if not capital:
                 chord_name = chord_name.lower()
             ax.text(center_pos[0], center_pos[1], chord_name, c=triangle_color, horizontalalignment='center',
-                    verticalalignment='center', fontdict={'style': 'italic'}, fontsize=font_size, alpha=alpha, zorder=2)
+                    verticalalignment='center', fontdict={'style': 'italic'}, fontsize=font_size * factor, alpha=alpha,
+                    zorder=2)
 
     def _tonnetz_plot_node_text(self, ax, max_chroma_value_dict):
         font_size = 128 / max(self.tonnetz_scale)
@@ -162,14 +168,18 @@ class TonnetzAnalyzer(PianoCommon):
                 alpha = 0
 
             for x, y in coordinates:
+                if self.tonnetz_rain_circle_theme:
+                    factor = (1 + alpha * self.tonnetz_rain_circle_text_expand)
+                else:
+                    factor = 1
                 ax.text(x, y, self.note_name_lib[chroma], c=background_color, horizontalalignment='center',
-                        verticalalignment='center', fontsize=font_size, zorder=1)
+                        verticalalignment='center', fontsize=font_size * factor, zorder=1)
                 if alpha != 0:
                     ax.text(x, y, self.note_name_lib[chroma], c=color, horizontalalignment='center',
-                            verticalalignment='center', fontsize=font_size, alpha=alpha, zorder=4)
+                            verticalalignment='center', fontsize=font_size * factor, alpha=alpha, zorder=4)
                     # add text background
-                    cir_end = Circle((x, y), radius=self.tonnetz_min_circle, zorder=2, alpha=0.5 * alpha ** 0.5,
-                                     facecolor='k')
+                    cir_end = Circle((x, y), radius=self.tonnetz_min_circle * factor, zorder=2,
+                                     alpha=0.5 * alpha ** 0.5, facecolor='k')
                     ax.add_patch(cir_end)
 
     def _tonnetz_plot_triangle(self, ax, max_chroma_value_dict):

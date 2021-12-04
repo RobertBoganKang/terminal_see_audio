@@ -339,7 +339,8 @@ class Common(object):
         plt.close(fig)
         gc.collect()
 
-    def _max_norm(self, array, min_transform=False, dynamic_max_value=False):
+    @staticmethod
+    def _max_norm(array, min_transform=False, dynamic_max_value=False):
         if min_transform:
             array -= np.min(array)
         if np.max(np.abs(array)) != 0:
