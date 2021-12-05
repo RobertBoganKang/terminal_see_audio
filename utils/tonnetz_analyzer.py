@@ -26,7 +26,9 @@ class TonnetzAnalyzer(PianoCommon):
         # rain circle theme
         self.tonnetz_rain_circle_theme = False
         self.tonnetz_rain_circle_shrink = 0.8
-        self.tonnetz_rain_circle_text_expand = 0.3
+        self.tonnetz_rain_circle_node_text_expand = 0.3
+        self.tonnetz_rain_circle_face_text_expand = 0.5
+        self.tonnetz_rain_circle_max_alpha = 0.6
         self.tonnetz_rain_circle_power = -2
 
         # calculate
@@ -135,7 +137,7 @@ class TonnetzAnalyzer(PianoCommon):
         alpha = merged_fft ** self.tonnetz_key_color_transform_power
         if alpha > self.figure_minimum_alpha:
             if self.tonnetz_rain_circle_theme:
-                factor = (1 + alpha * self.tonnetz_rain_circle_text_expand)
+                factor = (1 + alpha * self.tonnetz_rain_circle_face_text_expand)
             else:
                 factor = 1
             # plot triangle
@@ -169,7 +171,7 @@ class TonnetzAnalyzer(PianoCommon):
 
             for x, y in coordinates:
                 if self.tonnetz_rain_circle_theme:
-                    factor = (1 + alpha * self.tonnetz_rain_circle_text_expand)
+                    factor = (1 + alpha * self.tonnetz_rain_circle_node_text_expand)
                 else:
                     factor = 1
                 ax.text(x, y, self.note_name_lib[chroma], c=background_color, horizontalalignment='center',
@@ -249,6 +251,8 @@ class TonnetzAnalyzer(PianoCommon):
             else:
                 radius = self._tonnetz_circle_radius(key)
             line_width = self._tonnetz_line_width(fft_value, 40)
+            if self.tonnetz_rain_circle_theme:
+                alpha *= self.tonnetz_rain_circle_max_alpha
             for x, y in self.tonnetz_position_dict[chroma]:
                 if self.colorful_theme:
                     color = self._hsb_to_rgb(((chroma - 3) / 12) % 1,
