@@ -27,6 +27,9 @@ class AnalyzeCommon(Common):
         # video frames definition
         self.analyze_video_frame_rate = 8
 
+        # video parallel processing (test case)
+        self.analyze_video_rendering_parallel = True
+
     def _analyze_sound_speed(self):
         """ sound speed will change by temperature """
         return 331 * (1 + self.temperature / 273) ** (1 / 2)
@@ -229,18 +232,29 @@ class AnalyzeCommon(Common):
             timestamp, num_digits, frame_padding_num = self._analyze_timestamp_generation(starting_time, ending_time)
             self._convert_folder_path(save_analyzer_path)
             # do in parallel
-            pool = mp.Pool(mp.cpu_count())
             with tqdm(total=len(timestamp)) as p_bar:
-                # noinspection PyUnusedLocal
-                def _p_bar_update(a):
-                    p_bar.update()
+                if self.analyze_video_rendering_parallel:
+                    pool = mp.Pool(mp.cpu_count())
 
-                for i, time in enumerate(timestamp):
-                    save_path = os.path.join(save_analyzer_path, str(i + frame_padding_num).zfill(num_digits) + '.png')
-                    pool.apply_async(analyzer_function, args=(time, save_path, True), kwds=kwargs,
-                                     callback=_p_bar_update)
-                pool.close()
-                pool.join()
+                    # noinspection PyUnusedLocal
+                    def _p_bar_update(a):
+                        p_bar.update()
+
+                    for i, time in enumerate(timestamp):
+                        save_path = os.path.join(save_analyzer_path,
+                                                 str(i + frame_padding_num).zfill(num_digits) + '.png')
+                        pool.apply_async(analyzer_function, args=(time, save_path, True), kwds=kwargs,
+                                         callback=_p_bar_update)
+                    pool.close()
+                    pool.join()
+                else:
+                    # do in sequence (test case)
+                    for i, time in enumerate(timestamp):
+                        save_path = os.path.join(save_analyzer_path,
+                                                 str(i + frame_padding_num).zfill(num_digits) + '.png')
+                        analyzer_function(time, save_path, True)
+                        p_bar.update()
+
             # apply padding
             for i in range(frame_padding_num):
                 in_path = os.path.join(save_analyzer_path, str(frame_padding_num).zfill(num_digits) + '.png')

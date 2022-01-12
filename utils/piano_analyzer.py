@@ -31,7 +31,7 @@ class PianoAnalyzer(PianoCommon):
         for i in range(len(raw_key) - 1):
             x_positions = [positions_0[i][0], positions_1[i + 1][0], positions_1[i + 1][0], positions_0[i][0]]
             y_positions = [positions_0[i][1], positions_0[i + 1][1], positions_1[i + 1][1], positions_1[i][1]]
-            freq_alpha = max(key_fft[i], key_fft[i + 1])
+            freq_alpha = min(max(key_fft[i], key_fft[i + 1]), 1)
             if freq_alpha > self.figure_minimum_alpha:
                 ax.fill(x_positions, y_positions, edgecolor=self.piano_spectral_color,
                         facecolor=self.piano_spectral_color,
