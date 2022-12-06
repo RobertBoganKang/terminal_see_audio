@@ -102,7 +102,7 @@ Functions can be tested with `./demo/june.ogg` of piano song (*Tchaikovsky - Jun
 python see.py
 ```
 
-More clear image can be achieved by setting smaller font size.
+More clear image can be achieved by setting smaller font size in terminal.
 
 ## Language
 
