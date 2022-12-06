@@ -14,8 +14,8 @@ Python库可以使用`pip install -r requrements.txt`安装。
 
 这里有几个选项：
 
-* `T-IMG` 功能可以在链接 [timg](https://github.com/hzeller/timg/) 中找到并安装（需要设置`self.plot_command='timg {}'`）；
-* `Tterminal Image Viewer (TIV)`功能可以在链接[tiv](https://github.com/stefanhaustein/TerminalImageViewer)找到并安装（默认）；
+* `T-IMG` 功能可以在链接 [timg](https://github.com/hzeller/timg/) 中找到并安装；
+* `Tterminal Image Viewer (TIV)`功能可以在链接[tiv](https://github.com/stefanhaustein/TerminalImageViewer)找到并安装（可选）；
 
 ## 如何使用
 
@@ -82,9 +82,11 @@ python see.py <输入文件>
 #### 编程
 
 * `=`（警告：可能造成程序的严重崩溃）：进行python中的`eval`操作，或者进行python中的 `exec` 操作（进行系统参数赋值）；
+  
   * 例如：`=1+1`来获得答案`2`；
   
   * 例如：`=self.n_window=512`命令可以将系统参数`n_window`设置为`512`；
+
 * `sh`：来执行`shell`命令；
   
   * 例如：`sh echo $PATH`来显示`$PATH`参数；

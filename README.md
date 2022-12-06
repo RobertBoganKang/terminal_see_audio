@@ -14,8 +14,8 @@ Terminal library: `ffmpeg`, `sox`.
 
 There are several options:
 
-* `T-IMG` library can be found at [timg](https://github.com/hzeller/timg/) and install (need to set parameter `self.plot_command='timg {}'`);
-* `Terminal Image Viewer (TIV)` library can be found at [tiv](https://github.com/stefanhaustein/TerminalImageViewer) and install (default);
+* `T-IMG` library can be found at [timg](https://github.com/hzeller/timg/) and install;
+* `Terminal Image Viewer (TIV)` library can be found at [tiv](https://github.com/stefanhaustein/TerminalImageViewer) and install (optional);
 
 ## Usage tutorial
 
@@ -83,10 +83,13 @@ python see.py <input_file>
 #### Programming
 
 * `=` (WARNING: may cause fatal crash): to `eval` in python (simple calculation) or to `exec` in python (set system parameters);
+  
   * example: `=1+1` to get answer `2`;
   
   * example: `=self.n_window=512` to set the `n_window` to `512`;
+
 * `sh`: to execute `shell` script;
+  
   * example: `sh echo $PATH` to show `$PATH` variable;
 
 Path can be auto-complete and the space `' '` can be replaced by `\s`.
