@@ -67,10 +67,11 @@ class Common(object):
         self.analyze_log_piano_key_max_value_reach_time = 1
 
         # plot & play command (path will be replaced by `{}`)
-        self.plot_command = 'tiv {}'
-        # self.plot_command = 'image2ascii -f {} -c=false'
-        self.play_command = 'play {}'
-        self.video_command = 'play {} > /dev/null 2>&1 & timg {}'
+        self.plot_command = ['tiv {}',
+                             'timg {}',
+                             'image2ascii -f {} -c=false']
+        self.play_command = ['play {}']
+        self.video_command = ['play {} > /dev/null 2>&1 & timg {}']
 
         # color & themes
         self.a_pitch_color = 'red'
@@ -268,12 +269,16 @@ class Common(object):
         """ play in terminal function """
         start, end, status = self._check_audio_terminal_play(start, end, path)
         if status:
-            command = self.play_command.format(path)
-            # noinspection PyBroadException
-            try:
-                subprocess.call(command, shell=True)
-            except Exception:
-                print(f'<!> please fix problem:\n<?> {command}')
+            for play_command in self.play_command:
+                command = play_command.format(path)
+                # noinspection PyBroadException
+                try:
+                    return_code = subprocess.call(command, shell=True)
+                    if return_code == 0:
+                        self.play_command = [play_command]
+                        break
+                except Exception:
+                    print(f'<!> please fix problem:\n<?> {command}')
 
     def _terminal_video(self, start, end, audio_path, video_path):
         if not os.path.exists(video_path):
@@ -281,24 +286,32 @@ class Common(object):
             return
         start, end, status = self._check_audio_terminal_play(start, end, audio_path)
         if status:
-            command = self.video_command.format(audio_path, video_path)
-            # noinspection PyBroadException
-            try:
-                subprocess.call(command, shell=True)
-            except Exception:
-                print(f'<!> please fix problem:\n<?> {command}')
+            for video_command in self.video_command:
+                command = video_command.format(audio_path, video_path)
+                # noinspection PyBroadException
+                try:
+                    return_code = subprocess.call(command, shell=True)
+                    if return_code == 0:
+                        self.video_command = [video_command]
+                        break
+                except Exception:
+                    print(f'<!> please fix problem:\n<?> {command}')
 
     def _terminal_plot(self, path):
         """ plot in terminal function """
         if not os.path.exists(path):
             print('<!> temp image cannot find')
             return
-        command = self.plot_command.format(path)
-        # noinspection PyBroadException
-        try:
-            subprocess.call(command, shell=True)
-        except Exception:
-            print(f'<!> please fix problem:\n<?> {command}')
+        for plot_command in self.plot_command:
+            command = plot_command.format(path)
+            # noinspection PyBroadException
+            try:
+                return_code = subprocess.call(command, shell=True)
+                if return_code == 0:
+                    self.plot_command = [plot_command]
+                    break
+            except Exception:
+                print(f'<!> please fix problem:\n<?> {command}')
 
     def _fix_input_starting_ending_time(self, starting_time, ending_time):
         test_ending = self._get_audio_time()
